@@ -278,7 +278,7 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 												>
 													<Share2 className="w-4 h-4" />
 												</button>
-												{ownProfiles.length > 1 && !profile.isShared && (
+												{ownProfiles.length > 1 && !profile.isDefault && (
 													<button
 														className="w-8 h-8 rounded-lg flex items-center justify-center bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all duration-200"
 														onClick={(e) => {

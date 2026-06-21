@@ -6,11 +6,23 @@ import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/firebase/AuthContext";
 import { useMessage } from "@/components/common/MessageProvider";
-import { Calculator, GraduationCap, TrendingUp, Info, Settings, LogOut, LogIn, X, LayoutDashboard } from "lucide-react";
+import {
+	Calculator,
+	GraduationCap,
+	TrendingUp,
+	Info,
+	Settings,
+	LogOut,
+	LogIn,
+	X,
+	LayoutDashboard,
+	ClipboardList,
+} from "lucide-react";
 
 const MAIN_NAV = [
 	{ name: "Dashboard", path: "dashboard", icon: LayoutDashboard },
 	{ name: "GPA Calculator", path: "gpa-calculator", icon: Calculator },
+	{ name: "Attendance", path: "attendance-calculator", icon: ClipboardList },
 	{ name: "Reappear Calculator", path: "reappear-calculator", icon: GraduationCap },
 	{ name: "Goal Planner", path: "gpa-goal-planner", icon: TrendingUp },
 ];

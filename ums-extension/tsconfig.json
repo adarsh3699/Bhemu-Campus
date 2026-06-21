@@ -3,7 +3,7 @@
   "compilerOptions": {
     "strict": true,
     "moduleResolution": "bundler",
-    "types": ["chrome"],
+    "types": ["chrome", "node"],
     "paths": {
       "~*": ["./src/*"]
     }

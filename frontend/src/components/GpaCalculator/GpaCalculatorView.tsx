@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, X, User, Calculator } from "lucide-react";
+import { Plus, X, Calculator, BarChart2 } from "lucide-react";
 
 import RenderModal from "@/components/modal/RenderModal";
 import ProfileDrawer from "@/components/ProfileDrawer";
@@ -10,32 +10,80 @@ import ShareModal, { ShareItem } from "@/components/modal/ShareModal";
 import ConfirmModal from "@/components/modal/ConfirmModal";
 import SubjectForm from "@/components/GpaCalculator/SubjectForm";
 import SemesterList from "@/components/GpaCalculator/SemesterList";
+import MarksViewPanel from "@/components/GpaCalculator/MarksViewPanel";
 import { useAuth } from "@/firebase/AuthContext";
-import { calculateCGPA, calculateGPA } from "@/utils/gpaUtils";
+import { calculateCGPA, calculateGPA } from "@/lib/gpaUtils";
 import { useGpaCalculator } from "@/components/GpaCalculator/hooks/useGpaCalculator";
 
 export default function GpaCalculatorView() {
 	const { currentUser } = useAuth();
 	const {
 		// Data from useGpaData
-		allProfiles, activeProfile, currentProfile, semesters,
-		loading, saving, sharedProfiles, mySharedProfiles, isReadOnlyProfile,
-		createProfile, deleteProfile, unshareProfile, copySharedProfile, verifyUMS,
+		allProfiles,
+		activeProfile,
+		semesters,
+		loading,
+		saving,
+		sharedProfiles,
+		mySharedProfiles,
+		isReadOnlyProfile,
+		createProfile,
+		deleteProfile,
+		unshareProfile,
+		copySharedProfile,
+		verifyUMS,
+		// View mode
+		viewMode,
+		setViewMode,
+		// Marks panel
+		marksSubjects,
+		marksEditingSubjectId,
+		marksForm,
+		handleMarksFormChange,
+		handleMarksSave,
+		handleMarksEdit,
+		handleMarksCancel,
+		handleDeleteSubjectFromMarks,
+		marksShowSubjectForm,
+		marksSetShowSubjectForm,
+		marksSubjectForm,
+		handleMarksSubjectFormChange,
+		handleMarksAddSubject,
 		// Drawer
-		drawerOpen, setDrawerOpen, toggleDrawer, handleUpdateActiveProfile,
+		drawerOpen,
+		setDrawerOpen,
+		handleUpdateActiveProfile,
 		// Info modal
-		isModalOpen, modalType, handleModalToggle, handleModalClose,
+		isModalOpen,
+		modalType,
+		handleModalToggle,
+		handleModalClose,
 		// Edit-subject modal
-		isUpdateModalOpen, setIsUpdateModalOpen,
+		isUpdateModalOpen,
+		setIsUpdateModalOpen,
 		// Share modal
-		isShareModalOpen, setIsShareModalOpen, profileToShare, setProfileToShare,
-		handleShareProfile, handleShareWithUser,
+		isShareModalOpen,
+		setIsShareModalOpen,
+		profileToShare,
+		setProfileToShare,
+		handleShareProfile,
+		handleShareWithUser,
 		// Semester delete confirm
-		showDeleteConfirm, semesterToDelete,
-		handleDeleteSemesterClick, handleConfirmDeleteSemester, handleCancelDeleteSemester,
+		showDeleteConfirm,
+		semesterToDelete,
+		handleDeleteSemesterClick,
+		handleConfirmDeleteSemester,
+		handleCancelDeleteSemester,
 		// Subject form
-		newSubject, setNewSubject, editIndex, activeSemester, setActiveSemester,
-		handleInputChange, addOrUpdateSubject, editSubject, deleteSubject,
+		newSubject,
+		setNewSubject,
+		editIndex,
+		activeSemester,
+		setActiveSemester,
+		handleInputChange,
+		addOrUpdateSubject,
+		editSubject,
+		deleteSubject,
 		// Semester actions
 		addSemester,
 	} = useGpaCalculator();
@@ -82,7 +130,9 @@ export default function GpaCalculatorView() {
 				}}
 				onShareWithUser={handleShareWithUser}
 				profileName={profileToShare?.name || ""}
-				currentShares={(mySharedProfiles as (ShareItem & { profileId: string | number })[]).filter((share) => share.profileId === profileToShare?.id)}
+				currentShares={(mySharedProfiles as (ShareItem & { profileId: string | number })[]).filter(
+					(share) => share.profileId === profileToShare?.id
+				)}
 			/>
 
 			<RenderModal modalType={modalType} isModalOpen={isModalOpen} onClose={handleModalClose} />
@@ -118,54 +168,62 @@ export default function GpaCalculatorView() {
 			{/* Page Content */}
 			<div className="w-full font-sans bg-transparent flex flex-col items-center justify-start text-center transition-all duration-300 px-4 py-8 md:px-8 md:py-10 max-w-6xl mx-auto pb-10">
 				{/* Header */}
-				<div className="w-full text-left mb-8 flex items-center gap-4">
+				<div className="w-full text-left mb-6 md:mb-14 flex items-center gap-4">
 					<div className="p-3 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center text-primary shrink-0 shadow-sm">
 						<Calculator className="w-6 h-6" />
 					</div>
 					<div>
 						<h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">GPA Calculator</h1>
-						<p className="text-sm text-muted-foreground mt-1">Calculate your semester GPA and cumulative CGPA</p>
-					</div>
-				</div>
-
-				{/* Profile Selector */}
-				<div className="mb-6 md:mb-8 flex items-center justify-center gap-4">
-					<div
-						className="flex items-center gap-3 px-4 md:px-6 py-3 bg-neutral-900/80 backdrop-blur-md rounded-2xl text-white/95 font-semibold text-base md:text-lg shadow-glow border border-white/10 cursor-pointer transition-all duration-300 relative overflow-hidden min-w-[160px] md:min-w-[180px] justify-center hover:bg-neutral-900 hover:-translate-y-0.5 hover:scale-[1.02] hover:shadow-glow active:translate-y-0 active:scale-[1.01] before:absolute before:top-0 before:-left-full before:w-full before:h-full before:bg-gradient-to-r before:from-transparent before:via-white/10 before:to-transparent before:transition-all before:duration-500 hover:before:left-full"
-						onClick={toggleDrawer}
-					>
-						<User className="w-5 h-5 md:w-6 md:h-6 text-primary drop-shadow-accent-glow transition-all duration-300 hover:text-primary-dark hover:scale-110" />
-						<span className="bg-gradient-to-br from-white/95 to-white/80 bg-clip-text text-transparent drop-shadow-[0_1px_2px_rgba(0,0,0,0.1)] truncate max-w-[200px]">
-							{currentProfile?.name}
-						</span>
+						<p className="text-sm text-muted-foreground mt-1">
+							Calculate your semester GPA and cumulative CGPA
+						</p>
 					</div>
 				</div>
 
 				{/* CGPA Display */}
-				<div className="flex flex-col lg:flex-row justify-center items-center gap-6 lg:gap-12 mb-8 md:mb-10 p-5 md:p-8 w-full max-w-4xl bg-neutral-900/60 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 relative overflow-hidden">
-					<div className="absolute -top-24 -left-24 w-48 h-48 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
-					<div className="absolute -bottom-24 -right-24 w-48 h-48 bg-accent/10 rounded-full blur-3xl pointer-events-none" />
-
-					<div className="flex flex-col items-center justify-center w-28 h-28 md:w-32 md:h-32 rounded-full bg-gradient-primary shadow-glow relative group cursor-pointer transition-transform hover:scale-105 z-10">
-						<div className="text-2xl md:text-3xl font-bold text-white leading-none">{calculateCGPA(semesters)}</div>
-						<div className="text-xs md:text-sm text-white/90 mt-1">Cumulative GPA</div>
+				<div className="w-full max-w-4xl mb-8 md:mb-10 px-5 md:px-6 py-4 md:py-5 bg-neutral-900/60 rounded-2xl border border-white/10 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+					{/* CGPA */}
+					<div className="flex flex-col items-center sm:items-start shrink-0">
+						<span className="text-4xl md:text-5xl font-black bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent leading-none">
+							{calculateCGPA(semesters)}
+						</span>
+						<span className="text-[10px] text-muted-foreground mt-1 uppercase tracking-widest font-semibold">
+							Cumulative GPA
+						</span>
 					</div>
 
-					<div className="flex flex-row gap-3 sm:gap-8 flex-wrap justify-center z-10">
+					<div className="hidden sm:block w-px self-stretch bg-white/10 mx-1" />
+					<div className="block sm:hidden h-px w-full bg-white/10" />
+
+					{/* Stats */}
+					<div className="flex flex-row gap-5 justify-center sm:justify-start">
 						{[
 							{ label: "Semesters", value: semesters.length },
-							{ label: "Subjects", value: semesters.reduce((acc, s) => acc + (s.subjects?.length || 0), 0) },
+							{
+								label: "Subjects",
+								value: semesters.reduce((acc, s) => acc + (s.subjects?.length || 0), 0),
+							},
 							{
 								label: "Credits",
 								value: semesters.reduce(
-									(acc, s) => acc + (s.subjects?.reduce((subAcc, sub) => subAcc + (sub.credit || 0), 0) || 0),
+									(acc, s) =>
+										acc + (s.subjects?.reduce((subAcc, sub) => subAcc + (sub.credit || 0), 0) || 0),
 									0
 								),
 							},
+							{
+								label: "Avg. Marks",
+								value: (() => {
+									const all = semesters.flatMap((s) => s.subjects ?? []).filter((sub) => sub.marks?.total != null);
+									return all.length > 0
+										? Math.round(all.reduce((acc, sub) => acc + (sub.marks!.total ?? 0), 0) / all.length * 10) / 10
+										: "—";
+								})(),
+							},
 						].map(({ label, value }) => (
-							<div key={label} className="flex flex-col items-center p-3 md:p-4 bg-white/5 rounded-2xl min-w-[70px] md:min-w-[85px] backdrop-blur-md border border-white/10">
-								<span className="text-xl md:text-2xl font-bold text-white/90 leading-none">{value}</span>
-								<span className="text-xs md:text-sm text-muted-foreground mt-1 text-center">{label}</span>
+							<div key={label} className="flex flex-col items-center">
+								<span className="text-2xl md:text-3xl font-bold text-white leading-none">{value}</span>
+								<span className="text-xs md:text-sm text-muted-foreground mt-1">{label}</span>
 							</div>
 						))}
 					</div>
@@ -182,7 +240,7 @@ export default function GpaCalculatorView() {
 				)}
 
 				{/* Semester Management */}
-				<div className="mb-8 md:mb-10 w-full max-w-4xl text-left">
+				<div className="w-full max-w-4xl text-left">
 					<div className="flex flex-col sm:flex-row justify-between items-center mb-6 md:mb-8 gap-4">
 						<h2 className="text-xl md:text-2xl font-semibold text-white/90">
 							{isReadOnlyProfile ? "View Semesters" : "Manage Semesters"}
@@ -199,7 +257,7 @@ export default function GpaCalculatorView() {
 
 					{/* Semester Tabs */}
 					{semesters.length > 0 && (
-						<div className="flex gap-3 md:gap-4 mb-4 md:mb-8 overflow-x-auto py-2 w-full justify-start md:flex-wrap no-scrollbar">
+						<div className="flex gap-3 md:gap-4 mb-4 md:mb-8 overflow-x-auto p-2 box-border w-full justify-start md:flex-wrap no-scrollbar">
 							{semesters.map((semester) => (
 								<div
 									key={semester.id}
@@ -210,15 +268,21 @@ export default function GpaCalculatorView() {
 									}`}
 									onClick={() => setActiveSemester(semester.id)}
 								>
-									<span className={`text-sm md:text-base font-semibold mb-1 ${activeSemester === semester.id ? "text-white" : "text-white/90"}`}>
+									<span
+										className={`text-sm md:text-base font-semibold mb-1 ${activeSemester === semester.id ? "text-white" : "text-white/90"}`}
+									>
 										{semester.name}
 									</span>
-									<span className={`text-xs md:text-sm ${activeSemester === semester.id ? "text-white/90" : "text-muted-foreground"}`}>
+									<span
+										className={`text-xs md:text-sm ${activeSemester === semester.id ? "text-white/90" : "text-muted-foreground"}`}
+									>
 										GPA: {calculateGPA(semester.subjects)}
 									</span>
 									<button
 										className={`absolute -top-1 -right-1 md:-top-2 md:-right-2 w-5 h-5 md:w-6 md:h-6 bg-destructive text-white border-none rounded-full cursor-pointer flex items-center justify-center text-xs transition-all duration-300 shadow-md hover:bg-red-600 hover:scale-110 ${
-											activeSemester === semester.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+											activeSemester === semester.id
+												? "opacity-100"
+												: "opacity-0 group-hover:opacity-100"
 										}`}
 										onClick={(e) => {
 											e.stopPropagation();
@@ -235,27 +299,77 @@ export default function GpaCalculatorView() {
 					)}
 				</div>
 
-				{/* Subject Form */}
-				<SubjectForm
-					activeSemester={activeSemester}
-					activeSemesterName={semesters.find((s) => s.id === activeSemester)?.name || ""}
-					isReadOnlyProfile={isReadOnlyProfile}
-					onSubmit={addOrUpdateSubject}
-					formState={newSubject}
-					onChange={handleInputChange}
-					editIndex={editIndex === -1 ? -1 : typeof editIndex === "string" ? parseInt(editIndex) : editIndex}
-					onInfoClick={handleModalToggle}
-				/>
+				{/* View Mode Toggle */}
+				{semesters.length > 0 && (
+					<div className="w-full max-w-4xl flex justify-end mb-6">
+						<div className="flex items-center gap-1 p-1 bg-white/5 border border-white/10 rounded-xl">
+							<button
+								onClick={() => setViewMode("marks")}
+								className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
+									viewMode === "marks"
+										? "bg-teal-500/80 text-white shadow-sm"
+										: "text-neutral-400 hover:text-white"
+								}`}
+							>
+								<BarChart2 className="w-3.5 h-3.5" /> Marks
+							</button>
+							<button
+								onClick={() => setViewMode("gpa")}
+								className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
+									viewMode === "gpa"
+										? "bg-primary text-white shadow-sm"
+										: "text-neutral-400 hover:text-white"
+								}`}
+							>
+								<Calculator className="w-3.5 h-3.5" /> Grades
+							</button>
+						</div>
+					</div>
+				)}
+
+				{/* Subject Form — GPA view only */}
+				{viewMode === "gpa" && (
+					<SubjectForm
+						activeSemester={activeSemester}
+						activeSemesterName={semesters.find((s) => s.id === activeSemester)?.name || ""}
+						isReadOnlyProfile={isReadOnlyProfile}
+						onSubmit={addOrUpdateSubject}
+						formState={newSubject}
+						onChange={handleInputChange}
+						editIndex={
+							editIndex === -1 ? -1 : typeof editIndex === "string" ? parseInt(editIndex) : editIndex
+						}
+						onInfoClick={handleModalToggle}
+					/>
+				)}
 
 				{/* Semester Content */}
-				<SemesterList
-					semesters={semesters}
-					activeSemester={activeSemester}
-					isReadOnlyProfile={isReadOnlyProfile}
-					onEditSubject={editSubject}
-					onDeleteSubject={deleteSubject}
-					onAddSemesterClick={addSemester}
-				/>
+				{viewMode === "gpa" ? (
+					<SemesterList
+						semesters={semesters}
+						activeSemester={activeSemester}
+						isReadOnlyProfile={isReadOnlyProfile}
+						onEditSubject={editSubject}
+						onDeleteSubject={deleteSubject}
+						onAddSemesterClick={addSemester}
+					/>
+				) : (
+					<MarksViewPanel
+						subjects={marksSubjects}
+						editingSubjectId={marksEditingSubjectId}
+						form={marksForm}
+						onFormChange={handleMarksFormChange}
+						onEdit={handleMarksEdit}
+						onSave={handleMarksSave}
+						onCancel={handleMarksCancel}
+						onDeleteSubject={handleDeleteSubjectFromMarks}
+						showSubjectForm={marksShowSubjectForm}
+						setShowSubjectForm={marksSetShowSubjectForm}
+						subjectForm={marksSubjectForm}
+						onSubjectFormChange={handleMarksSubjectFormChange}
+						onAddSubject={handleMarksAddSubject}
+					/>
+				)}
 			</div>
 		</>
 	);

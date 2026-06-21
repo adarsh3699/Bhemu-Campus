@@ -12,7 +12,7 @@
 import Link from "next/link";
 import { CalendarDays, ArrowRight } from "lucide-react";
 import type { GPASemester } from "@/types";
-import { calculateGPA } from "@/utils/gpaUtils";
+import { calculateGPA } from "@/lib/gpaUtils";
 
 interface Props {
 	semesters: GPASemester[];

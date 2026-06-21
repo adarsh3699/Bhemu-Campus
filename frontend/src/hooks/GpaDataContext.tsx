@@ -69,6 +69,8 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 	const initializedUserIdRef = useRef<string | null>(null);
 	// Store the active profile ID fetched from Firebase during initialization
 	const initialActiveProfileRef = useRef<string | null>(null);
+	// Prevent duplicate default-profile creation if Firestore fires twice on empty list
+	const creatingDefaultProfileRef = useRef(false);
 
 	// ===== SERVICE CREATION =====
 	const gpaService = useMemo(() => {
@@ -99,8 +101,40 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 	}, [sortedProfiles, sharedWithMeProfiles]);
 
 	const currentProfile = allProfiles.find((p) => p.id === activeProfile) || allProfiles[0];
-	const semesters = useMemo(() => currentProfile?.semesters || [], [currentProfile]);
+	const [semesters, setSemesters] = useState<GPASemester[]>([]);
 	const isReadOnlyProfile = !!(currentProfile?.isShared && currentProfile?.permission === "read");
+
+	// ===== SEMESTERS SUBCOLLECTION LISTENER =====
+	useEffect(() => {
+		if (!gpaService || !activeProfile) {
+			setSemesters([]);
+			return;
+		}
+
+		// Determine if we need to listen to another user's subcollection (shared profile)
+		const profile = allProfiles.find((p) => p.id === activeProfile);
+		const isSharedEdit = profile?.isShared && profile?.permission === "edit" && profile?.ownerUserId;
+
+		const unsubscribe = isSharedEdit
+			? gpaService.onSemestersChangeForUser(profile.ownerUserId!, activeProfile, (result) => {
+				if (result.success) setSemesters(result.semesters);
+			})
+			: gpaService.onSemestersChange(activeProfile, (result) => {
+				if (result.success) {
+					// Backward compat: if subcollection is empty, check embedded semesters
+					if (result.semesters.length === 0 && profile?.semesters && profile.semesters.length > 0) {
+						setSemesters(profile.semesters);
+						// Auto-migrate: write embedded semesters to subcollection
+						gpaService.saveSemesters(activeProfile, profile.semesters);
+					} else {
+						setSemesters(result.semesters);
+					}
+				}
+			});
+
+		return () => unsubscribe();
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [gpaService, activeProfile]);
 
 	// ===== UTILITY FUNCTIONS =====
 	const generateProfileName = useCallback(() => {
@@ -133,35 +167,35 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 
 	const updateActiveProfile = useCallback((profileId: string | number) => {
 		setActiveProfile(profileId);
-		// Fire-and-forget: persist active profile selection and lastOpened to Firebase
-		gpaService?.saveActiveProfile(profileId);
+		// Persist to localStorage (same device only — new device always opens default)
+		try { localStorage.setItem("bhemu_activeProfileId", profileId.toString()); } catch {}
 		gpaService?.updateLastOpened(profileId);
 	}, [gpaService]);
 
 	const createProfile = useCallback(
 		async (name: string) => {
 			try {
+				if (!gpaService) return;
+
+				const profileId = Date.now();
 				const newProfile: GPAProfile = {
-					id: Date.now(),
+					id: profileId,
 					name: name,
-					semesters: [
-						{
-							id: Date.now().toString(),
-							name: "Semester 1",
-							subjects: [],
-						},
-					],
 					isDefault: false,
 				};
 
-				if (gpaService) {
-					await gpaService.saveProfile(newProfile);
+				await gpaService.saveProfile(newProfile);
 
-					// Switch to the new profile
-					updateActiveProfile(newProfile.id);
+				// Write default semester to subcollection
+				const defaultSemester: GPASemester = {
+					id: Date.now().toString(),
+					name: "Semester 1",
+					subjects: [],
+				};
+				await gpaService.saveSingleSemester(profileId, defaultSemester);
 
-					showMessage("Profile created successfully!", "success");
-				}
+				updateActiveProfile(profileId);
+				showMessage("Profile created successfully!", "success");
 			} catch (error) {
 				console.error("Error creating profile:", error);
 				showMessage("Error creating profile. Please try again.", "error");
@@ -180,6 +214,11 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 			const profileToDelete = profiles.find((p) => p.id === profileId);
 			if (!profileToDelete) {
 				showMessage("Profile not found", "error");
+				return;
+			}
+
+			if (profileToDelete.isDefault) {
+				showMessage("Cannot delete the default profile", "warning");
 				return;
 			}
 
@@ -318,19 +357,18 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 					return;
 				}
 
+				// Save metadata (no semesters) to profile doc
 				const updatedProfile: GPAProfile = {
 					...currentProfileData,
-					name: currentProfileData.name,
-					semesters: umsData.semesters,
 					studentInfo: umsData.studentInfo,
 					allTermIds: umsData.allTermIds,
 					umsVerified: true,
 					lastUMSSync: umsData.fetchedAt || new Date().toISOString(),
 				};
-
 				await saveProfile(updatedProfile);
-				// UMS term IDs are saved as part of the profile (allTermIds field) in Firebase.
-				// The onSnapshot listener will automatically update local state.
+
+				// Save semesters to subcollection
+				await gpaService.saveSemesters(profileId, umsData.semesters);
 
 				showMessage("Profile successfully updated with UMS data!", "success");
 			} catch (error) {
@@ -346,16 +384,29 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 	// ===== DATA UPDATE ACTIONS =====
 	const updateSemesters = useCallback(
 		async (newSemesters: GPASemester[]) => {
-			const currentProfileData = allProfiles.find((profile) => profile.id === activeProfile);
+			if (!gpaService || !activeProfile) return;
 
-			if (currentProfileData) {
-				const updatedProfile: GPAProfile = { ...currentProfileData, semesters: newSemesters };
-				await saveProfile(updatedProfile);
-				// The onSnapshot listener will automatically update local state for own profiles.
-				// For shared profiles with edit access, the collaborative listener handles updates.
+			try {
+				setSaving(true);
+				// Optimistically update local state
+				setSemesters(newSemesters);
+
+				// Determine if shared-edit profile (write to owner's subcollection)
+				const profile = allProfiles.find((p) => p.id === activeProfile);
+				if (profile?.isShared && profile.permission === "edit" && profile.ownerUserId) {
+					// For collaborative profiles, save via collaboration path
+					await gpaService.saveProfileWithCollaboration({ ...profile, semesters: newSemesters });
+				} else {
+					await gpaService.saveSemesters(activeProfile, newSemesters);
+				}
+			} catch (error) {
+				console.error("Error updating semesters:", error);
+				showMessage("Error saving data. Please try again.", "error");
+			} finally {
+				setSaving(false);
 			}
 		},
-		[allProfiles, activeProfile, saveProfile]
+		[gpaService, activeProfile, allProfiles, showMessage]
 	);
 
 	// ===== INITIALIZATION & LISTENERS =====
@@ -399,7 +450,9 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 
 		const initializeData = async () => {
 			try {
-				const savedActiveId = await gpaService.getActiveProfile();
+				// Read last active profile from localStorage (same device memory only)
+				let savedActiveId: string | null = null;
+				try { savedActiveId = localStorage.getItem("bhemu_activeProfileId"); } catch {}
 				if (savedActiveId) {
 					initialActiveProfileRef.current = savedActiveId;
 					setActiveProfile(savedActiveId);
@@ -426,36 +479,34 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 					const currentProfiles = result.profiles;
 
 					if (currentProfiles.length === 0) {
-						const defaultProfile: GPAProfile = {
-							id: `default_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
-							name: generateProfileName(),
-							semesters: [
-								{
-									id: Date.now().toString(),
-									name: "Semester 1",
-									subjects: [],
-								},
-							],
-							isDefault: true,
-							createdAt: new Date(),
-						};
-						await gpaService.saveProfile(defaultProfile);
+						// Only fires on first signup — default profile can never be deleted
+						if (creatingDefaultProfileRef.current) return;
+						creatingDefaultProfileRef.current = true;
+						try {
+							const profileId = Date.now();
+							const defaultProfile: GPAProfile = {
+								id: profileId,
+								name: generateProfileName(),
+								isDefault: true,
+								createdAt: new Date(),
+							};
+							await gpaService.saveProfile(defaultProfile);
+							// Write default semester to subcollection
+							await gpaService.saveSingleSemester(profileId, {
+								id: Date.now().toString(),
+								name: "Semester 1",
+								subjects: [],
+							});
+						} finally {
+							creatingDefaultProfileRef.current = false;
+						}
 						return;
 					}
 
-					const cleanProfiles = currentProfiles.map((profile) => {
-						const profileWithId = { ...profile, id: profile.id.toString() };
-						if (!profileWithId.semesters || profileWithId.semesters.length === 0) {
-							profileWithId.semesters = [
-								{
-									id: Date.now().toString(),
-									name: "Semester 1",
-									subjects: [],
-								},
-							];
-						}
-						return profileWithId;
-					});
+					const cleanProfiles = currentProfiles.map((profile) => ({
+						...profile,
+						id: profile.id.toString(),
+					}));
 
 					setProfiles(cleanProfiles);
 
@@ -465,17 +516,18 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 							return prev;
 						}
 
-						// 2. Otherwise, use the active profile fetched from Firebase during initialization
+						// 2. Try the localStorage-saved ID (same device memory)
 						const savedActiveProfile = initialActiveProfileRef.current;
 						if (savedActiveProfile && cleanProfiles.find((p) => p.id === savedActiveProfile)) {
 							return savedActiveProfile;
 						}
 
-						// 3. Fallback to the first available profile
-						if (!prev && cleanProfiles.length > 0) {
-							const firstProfile = cleanProfiles[0];
-							return firstProfile.id;
-						}
+						// 3. Fall back to the default profile (new device / cleared storage)
+						const defaultProfile = cleanProfiles.find((p) => p.isDefault);
+						if (defaultProfile) return defaultProfile.id;
+
+						// 4. Last resort: first profile
+						if (cleanProfiles.length > 0) return cleanProfiles[0].id;
 
 						return prev;
 					});
@@ -505,8 +557,6 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 			};
 		};
 
-		// Active profile is now fetched from Firebase during initializeData()
-		// No localStorage read needed here
 
 		initializeData().then((cleanup) => {
 			cleanupCollaborativeListeners = cleanup || null;
@@ -516,8 +566,12 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 			profilesUnsubscribe?.();
 			sharedProfilesUnsubscribe?.();
 			cleanupCollaborativeListeners?.();
+			// Allow re-initialization on next mount (React strict mode remount)
+			hasInitializedRef.current = false;
+			isInitializingRef.current = false;
 		};
-	}, [currentUser, gpaService, showMessage, generateProfileName]);
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [currentUser, gpaService]);
 
 	// Reset state when user logs out
 	useEffect(() => {

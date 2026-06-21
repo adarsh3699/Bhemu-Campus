@@ -5,6 +5,7 @@ import umsService from "@/utils/umsService";
 import ConfirmModal from "./ConfirmModal";
 import { useMessage } from "@/components/common/MessageProvider";
 import BaseModal from "./BaseModal";
+import { gradeToPoint } from "@/lib/grades";
 import type { UMSSemester, UMSCourse, UMSTerm, UMSData, UMSProfileData } from "@/types";
 
 interface UMSFetchModalProps {
@@ -50,23 +51,6 @@ const UMSFetchModal: React.FC<UMSFetchModalProps> = ({
 		}
 	};
 
-	const convertGradeToPoints = (grade: string): number => {
-		const gradeMap: Record<string, number> = {
-			O: 10,
-			"A+": 9,
-			A: 8,
-			"B+": 7,
-			B: 6,
-			C: 5,
-			D: 4,
-			P: 4,
-			F: 0,
-			G: 0,
-			E: 0,
-			I: 0,
-		};
-		return gradeMap[grade?.toUpperCase()] || 0;
-	};
 
 	const transformUMSDataToProfile = (umsData: UMSData): UMSProfileData => {
 		const { studentInfo, terms = [], summary = {}, allTermIds = {} } = umsData;
@@ -77,7 +61,7 @@ const UMSFetchModal: React.FC<UMSFetchModalProps> = ({
 			subjects: (term.courses || []).map((course: UMSCourse, courseIndex: number) => ({
 				id: `subject_${term.id}_${courseIndex}`,
 				subjectName: course.courseName || course.courseCode || `Subject ${courseIndex + 1}`,
-				grade: convertGradeToPoints(course.grade),
+				grade: gradeToPoint(course.grade),
 				credit: course.credits || 3,
 			})),
 		}));

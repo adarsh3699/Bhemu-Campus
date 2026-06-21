@@ -78,13 +78,11 @@ const RenderModal: React.FC<RenderModalProps> = ({ isModalOpen, onClose, modalTy
 			isOpen={isModalOpen}
 			onClose={handleClose}
 			title={modalData?.name?.toUpperCase()}
-			maxWidth="600px"
+			maxWidth="800px"
 			className="bg-neutral-950 border border-white/10"
 		>
 			<div className="p-6 overflow-auto max-h-[calc(85vh-120px)] text-sm text-neutral-300">
-				<p className="leading-relaxed mb-5 text-neutral-200 font-normal">
-					{modalData?.info}
-				</p>
+				<p className="leading-relaxed mb-5 text-neutral-200 font-normal">{modalData?.info}</p>
 
 				{"tableData" in modalData && modalData.tableData && (
 					<div className="my-6 rounded-2xl border border-white/10 overflow-hidden shadow-lg bg-white/5">
@@ -104,16 +102,15 @@ const RenderModal: React.FC<RenderModalProps> = ({ isModalOpen, onClose, modalTy
 							</thead>
 							<tbody>
 								{modalData.tableData.map((data, index) => (
-									<tr key={index} className="transition-all duration-300 hover:bg-white/5 border-b border-white/5 last:border-b-0">
-										<td className="px-5 py-3 text-teal-400 font-bold text-sm">
-											{data.grade}
-										</td>
+									<tr
+										key={index}
+										className="transition-all duration-300 hover:bg-white/5 border-b border-white/5 last:border-b-0"
+									>
+										<td className="px-5 py-3 text-teal-400 font-bold text-sm">{data.grade}</td>
 										<td className="px-5 py-3 text-indigo-400 font-semibold text-sm">
 											{data.gradePoint}
 										</td>
-										<td className="px-5 py-3 text-neutral-300 text-sm">
-											{data.performance}
-										</td>
+										<td className="px-5 py-3 text-neutral-300 text-sm">{data.performance}</td>
 									</tr>
 								))}
 							</tbody>
@@ -132,9 +129,7 @@ const RenderModal: React.FC<RenderModalProps> = ({ isModalOpen, onClose, modalTy
 				)}
 
 				{"para2" in modalData && modalData.para2 && (
-					<p className="leading-relaxed mt-5 text-neutral-200 font-normal">
-						{modalData.para2}
-					</p>
+					<p className="leading-relaxed mt-5 text-neutral-200 font-normal">{modalData.para2}</p>
 				)}
 			</div>
 		</BaseModal>

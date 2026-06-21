@@ -1,10 +1,12 @@
-// Shared GPA domain types
+import type { SubjectMarks } from "./marks";
 
 export interface GPASubject {
 	id: string | number;
 	subjectName: string;
-	grade: number;
+	subjectCode?: string;
 	credit: number;
+	grade: number;        // numeric grade point (0-10); computed from marks or set directly
+	marks?: SubjectMarks; // optional — only present when marks have been entered
 }
 
 export interface GPASemester {
@@ -17,7 +19,7 @@ export interface GPASemester {
 export interface GPAProfile {
 	id: string | number;
 	name: string;
-	semesters: GPASemester[];
+	semesters?: GPASemester[];
 	isDefault?: boolean;
 	userId?: string;
 	createdAt?: unknown;

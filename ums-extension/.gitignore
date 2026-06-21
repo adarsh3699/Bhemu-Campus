@@ -5,6 +5,7 @@ responseWeGot/
 # Build outputs
 build/
 .plasmo/
+*.tsbuildinfo
 
 # Environment
 .env

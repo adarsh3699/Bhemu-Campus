@@ -1,4 +1,4 @@
-import { UMS_BASE_URL, UMS_COOKIE_NAME, UMS_DASHBOARD_URL, UMS_LOGIN_URL } from '~utils/constants';
+import { UMS_BASE_URL, UMS_COOKIE_NAME, UMS_DASHBOARD_URL } from '~utils/constants';
 
 export async function getUmsCookie(): Promise<string | null> {
   const cookie = await chrome.cookies.get({
@@ -37,7 +37,7 @@ export async function isSessionValid(): Promise<boolean> {
 }
 
 export function openLoginTab(): Promise<chrome.tabs.Tab> {
-  return chrome.tabs.create({ url: UMS_LOGIN_URL, active: true });
+  return chrome.tabs.create({ url: UMS_DASHBOARD_URL, active: true });
 }
 
 export function setupLoginDetection(tabId: number): Promise<void> {

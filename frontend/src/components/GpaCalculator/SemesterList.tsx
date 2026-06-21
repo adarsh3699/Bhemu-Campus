@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Pencil, Trash2 } from "lucide-react";
-import { calculateGPA, Subject, Semester } from "@/utils/gpaUtils";
+import { calculateGPA, Subject, Semester } from "@/lib/gpaUtils";
 
 interface SemesterListProps {
 	semesters: Semester[];

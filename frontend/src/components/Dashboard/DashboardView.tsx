@@ -10,26 +10,32 @@
  */
 
 import Link from "next/link";
-import { Calculator, GraduationCap, Flag, BookOpen, ArrowRight } from "lucide-react";
+import { Calculator, GraduationCap, Flag, BookOpen, ArrowRight, ClipboardList } from "lucide-react";
 import { useAuth } from "@/firebase/AuthContext";
 import { useGpaData } from "@/hooks/GpaDataContext";
-import { calculateCGPA } from "@/utils/gpaUtils";
+import { calculateCGPA } from "@/lib/gpaUtils";
 import LoginRecommendation from "@/components/common/LoginRecommendation";
 import DashboardStats from "@/components/Dashboard/DashboardStats";
 import SemesterBarChart from "@/components/Dashboard/SemesterBarChart";
 import SemesterRoadmap from "@/components/Dashboard/SemesterRoadmap";
+import AttendanceSummaryCard from "@/components/Dashboard/AttendanceSummaryCard";
+import MarksOverviewCard from "@/components/Dashboard/MarksOverviewCard";
+import { pointToGrade } from "@/lib/grades";
 
-// ─── Grade display helper (local — only used here) ───────────────────────────
-const GRADE_MAP: Record<number, { label: string; colorClass: string }> = {
-	10: { label: "O", colorClass: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20" },
-	9: { label: "A+", colorClass: "text-primary bg-primary/10 border-primary/20" },
-	8: { label: "A", colorClass: "text-primary bg-primary/10 border-primary/20" },
-	7: { label: "B+", colorClass: "text-yellow-400 bg-yellow-400/10 border-yellow-400/20" },
-	6: { label: "B", colorClass: "text-yellow-400 bg-yellow-400/10 border-yellow-400/20" },
-	5: { label: "C", colorClass: "text-orange-400 bg-orange-400/10 border-orange-400/20" },
-	0: { label: "F", colorClass: "text-red-400 bg-red-400/10 border-red-400/20" },
+// ─── Grade display helper (local — colours only, labels come from grades lib) ─
+const GRADE_COLOR: Record<number, string> = {
+	10: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20",
+	9:  "text-primary bg-primary/10 border-primary/20",
+	8:  "text-primary bg-primary/10 border-primary/20",
+	7:  "text-yellow-400 bg-yellow-400/10 border-yellow-400/20",
+	6:  "text-yellow-400 bg-yellow-400/10 border-yellow-400/20",
+	5:  "text-orange-400 bg-orange-400/10 border-orange-400/20",
+	0:  "text-red-400 bg-red-400/10 border-red-400/20",
 };
-const getGradeInfo = (grade: number) => GRADE_MAP[Math.round(grade)] ?? GRADE_MAP[0];
+const getGradeInfo = (grade: number) => ({
+	label: pointToGrade(grade),
+	colorClass: GRADE_COLOR[Math.round(grade)] ?? GRADE_COLOR[0],
+});
 
 // ─── Quick Actions config (static — no reason to extract) ────────────────────
 const QUICK_ACTIONS = [
@@ -41,6 +47,15 @@ const QUICK_ACTIONS = [
 		color: "text-primary",
 		bg: "bg-primary/10 border-primary/20",
 	},
+	{
+		href: "/attendance-calculator",
+		icon: <ClipboardList className="w-5 h-5" />,
+		title: "Attendance",
+		desc: "Track class attendance per subject",
+		color: "text-teal-400",
+		bg: "bg-teal-500/10 border-teal-500/20",
+	},
+
 	{
 		href: "/reappear-calculator",
 		icon: <GraduationCap className="w-5 h-5" />,
@@ -122,6 +137,12 @@ export default function DashboardView() {
 				totalSubjects={totalSubjects}
 				totalCredits={totalCredits}
 			/>
+
+			{/* Attendance + Marks summary row */}
+			<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+				<AttendanceSummaryCard />
+				<MarksOverviewCard />
+			</div>
 
 			{/* Chart + Roadmap */}
 			<div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -224,10 +245,10 @@ export default function DashboardView() {
 			{/* Quick Actions */}
 			<div>
 				<h2 className="text-base font-bold text-white mb-4">Quick Actions</h2>
-				<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 					{QUICK_ACTIONS.map((action) => (
 						<Link
-							key={action.href}
+							key={action.title}
 							href={action.href}
 							className="group bg-surface-dark border border-border rounded-xl p-5 hover:border-white/15 transition-all duration-300 flex items-center gap-4"
 							style={{ boxShadow: "inset 0 1px 0 0 rgba(255,255,255,0.04)" }}

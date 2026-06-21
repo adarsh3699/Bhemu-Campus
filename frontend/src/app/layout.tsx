@@ -5,7 +5,10 @@ import "./globals.css";
 import { AuthProvider } from "@/firebase/AuthContext";
 import { MessageProvider } from "@/components/common/MessageProvider";
 import { GpaDataProvider } from "@/hooks/GpaDataContext";
+import { AttendanceDataProvider } from "@/hooks/AttendanceDataContext";
+import { MarksDataProvider } from "@/hooks/MarksDataContext";
 import AppShell from "@/components/layout/AppShell";
+import GlobalHandlers from "@/components/common/GlobalHandlers";
 import { generatePageMetadata, generateWebsiteJsonLd, generateWebAppJsonLd } from "@/lib/seo";
 
 const inter = Inter({
@@ -45,14 +48,16 @@ export default function RootLayout({
 			</head>
 			<body className="min-h-screen bg-background text-foreground font-sans antialiased overflow-x-hidden">
 				{/* Global JSON-LD: WebSite + WebApplication schemas */}
-				<script
-					type="application/ld+json"
-					dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-				/>
+				<script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+				<GlobalHandlers />
 				<AuthProvider>
 					<MessageProvider>
 						<GpaDataProvider>
-							<AppShell>{children}</AppShell>
+							<AttendanceDataProvider>
+								<MarksDataProvider>
+									<AppShell>{children}</AppShell>
+								</MarksDataProvider>
+							</AttendanceDataProvider>
 						</GpaDataProvider>
 					</MessageProvider>
 				</AuthProvider>

@@ -1,20 +1,32 @@
-import React, { useState, useEffect, useCallback, startTransition } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { useGpaData } from "@/hooks/GpaDataContext";
 import { GPAProfile } from "@/firebase/gpaService";
-import { Subject } from "@/utils/gpaUtils";
+import { Subject } from "@/lib/gpaUtils";
+import { useMarksAnalysis } from "@/components/MarksAnalysis/hooks/useMarksAnalysis";
 
 export function useGpaCalculator() {
 	const gpaData = useGpaData();
 	const { profiles, semesters, updateSemesters, shareProfileWithUser, updateActiveProfile } = gpaData;
+	const marksAnalysis = useMarksAnalysis();
 
 	// ===== UI STATE =====
 	const [drawerOpen, setDrawerOpen] = useState(false);
+	const [viewMode, setViewMode] = useState<"gpa" | "marks">(() => {
+		if (typeof window === "undefined") return "marks";
+		return (localStorage.getItem("gpa_view_mode") as "gpa" | "marks") ?? "marks";
+	});
+
+	const setViewModeAndPersist = useCallback((mode: "gpa" | "marks") => {
+		setViewMode(mode);
+		localStorage.setItem("gpa_view_mode", mode);
+	}, []);
 
 	// Subject form state
 	const [newSubject, setNewSubject] = useState({ subjectName: "", grade: "", credit: "" });
 	const [editIndex, setEditIndex] = useState<number | string>(-1);
-	const [activeSemester, setActiveSemester] = useState<string | number | null>(null);
+	// User-explicit semester selection; null = "use default"
+	const [selectedSemesterId, setActiveSemester] = useState<string | number | null>(null);
 
 	// Info modal state (grade / credit-hour info panels)
 	const [isModalOpen, setIsModalOpen] = useState(false);
@@ -32,29 +44,19 @@ export function useGpaCalculator() {
 	const [semesterToDelete, setSemesterToDelete] = useState<{ id: string | number; name: string } | null>(null);
 
 	// ===== ACTIVE SEMESTER SYNC =====
-	// Simple rule: if URL has ?sem= → select it, else select the latest semester.
 	const searchParams = useSearchParams();
 	const semFromUrl = searchParams.get("sem");
 
-	useEffect(() => {
-		if (semesters.length === 0) return;
+	// Derived: URL param > user selection > last semester
+	const activeSemester = useMemo(() => {
+		if (semesters.length === 0) return null;
 		if (semFromUrl) {
 			const match = semesters.find((s) => String(s.id) === semFromUrl);
-			if (match) {
-				startTransition(() => setActiveSemester(match.id));
-				return;
-			}
+			if (match) return match.id;
 		}
-		
-		// Preserve the currently active semester if it still exists, 
-		// otherwise default to the latest semester.
-		setActiveSemester((currentActive) => {
-			if (currentActive && semesters.some((s) => s.id === currentActive)) {
-				return currentActive;
-			}
-			return semesters[semesters.length - 1].id;
-		});
-	}, [semFromUrl, semesters]);
+		if (selectedSemesterId && semesters.some((s) => s.id === selectedSemesterId)) return selectedSemesterId;
+		return semesters[semesters.length - 1].id;
+	}, [semFromUrl, selectedSemesterId, semesters]);
 
 	// ===== DRAWER / PROFILE HANDLERS =====
 
@@ -161,8 +163,9 @@ export function useGpaCalculator() {
 			const { subjectName, grade, credit } = newSubject;
 			if (!subjectName || !grade || !credit) return;
 
+			const isNew = editIndex === -1;
 			const subjectData = {
-				id: editIndex === -1 ? Date.now() : (editIndex as number),
+				id: isNew ? Date.now() : (editIndex as number),
 				subjectName,
 				grade: parseFloat(grade),
 				credit: parseFloat(credit),
@@ -170,7 +173,7 @@ export function useGpaCalculator() {
 
 			const updatedSemesters = semesters.map((semester) => {
 				if (semester.id !== activeSemester) return semester;
-				if (editIndex === -1) {
+				if (isNew) {
 					return { ...semester, subjects: [...semester.subjects, subjectData] };
 				}
 				return {
@@ -200,18 +203,49 @@ export function useGpaCalculator() {
 
 	const deleteSubject = useCallback(
 		(semesterId: string | number, subjectId: string | number) => {
-			const updatedSemesters = semesters.map((semester) => {
-				if (semester.id !== semesterId) return semester;
-				return { ...semester, subjects: semester.subjects.filter((s) => s.id !== subjectId) };
+			const updatedSemesters = semesters.map((s) => {
+				if (s.id !== semesterId) return s;
+				return { ...s, subjects: s.subjects.filter((sub) => sub.id !== subjectId) };
 			});
 			updateSemesters(updatedSemesters);
 		},
 		[semesters, updateSemesters]
 	);
 
+	// Keep marks context in sync with the active semester
+	useEffect(() => {
+		if (activeSemester != null) {
+			marksAnalysis.setActiveTermId(String(activeSemester));
+		}
+	}, [activeSemester]); // eslint-disable-line react-hooks/exhaustive-deps
+
+	const handleSetActiveSemester = useCallback((id: string | number) => {
+		setActiveSemester(id);
+	}, []);
+
 	return {
 		// Pass-through from useGpaData (view needs these directly)
 		...gpaData,
+
+		// View mode toggle
+		viewMode,
+		setViewMode: setViewModeAndPersist,
+
+		// Marks analysis (spread all marks state/actions)
+		marksSubjects: marksAnalysis.subjects,
+		marksEditingSubjectId: marksAnalysis.editingSubjectId,
+		marksForm: marksAnalysis.form,
+		handleMarksFormChange: marksAnalysis.handleFormChange,
+		handleMarksSave: marksAnalysis.handleSubmit,
+		handleMarksEdit: marksAnalysis.startEdit,
+		handleMarksCancel: marksAnalysis.cancelEdit,
+		handleDeleteSubjectFromMarks: marksAnalysis.deleteSubject,
+		// Add-subject form in marks view
+		marksShowSubjectForm: marksAnalysis.showSubjectForm,
+		marksSetShowSubjectForm: marksAnalysis.setShowSubjectForm,
+		marksSubjectForm: marksAnalysis.subjectForm,
+		handleMarksSubjectFormChange: marksAnalysis.handleSubjectFormChange,
+		handleMarksAddSubject: marksAnalysis.addSubject,
 
 		// Drawer
 		drawerOpen,
@@ -249,7 +283,7 @@ export function useGpaCalculator() {
 		setNewSubject,
 		editIndex,
 		activeSemester,
-		setActiveSemester,
+		setActiveSemester: handleSetActiveSemester,
 		handleInputChange,
 		addOrUpdateSubject,
 		editSubject,

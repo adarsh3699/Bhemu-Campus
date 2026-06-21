@@ -3,6 +3,7 @@
 import React, { useEffect, useRef } from "react";
 import BaseModal from "@/components/modal/BaseModal";
 import { Info } from "lucide-react";
+import { SELECTABLE_GRADES } from "@/lib/grades";
 
 interface SubjectToUpdate {
 	subjectName: string;
@@ -110,16 +111,11 @@ const UpdateSubjectModal: React.FC<UpdateSubjectModalProps> = ({
 									className="w-full px-4 py-3 border border-white/10 rounded-xl bg-neutral-900 text-sm transition-all duration-300 text-white focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60 disabled:cursor-not-allowed appearance-none"
 								>
 									<option value="">Select Grade</option>
-									<option value="10">O (10)</option>
-									<option value="9">A+ (9)</option>
-									<option value="8">A (8)</option>
-									<option value="7">B+ (7)</option>
-									<option value="6">B (6)</option>
-									<option value="5">C (5)</option>
-									<option value="4">D (4)</option>
-									<option value="0">E - Reappear (0)</option>
-									<option value="0">F - Fail (0)</option>
-									<option value="0">G - Backlog (0)</option>
+									{SELECTABLE_GRADES.map(({ grade, gradePoint, performance }) => (
+										<option key={grade} value={String(gradePoint)}>
+											{grade} ({gradePoint}) — {performance}
+										</option>
+									))}
 								</select>
 							</div>
 

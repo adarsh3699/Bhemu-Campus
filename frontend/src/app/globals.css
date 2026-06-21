@@ -264,5 +264,20 @@
 		border-radius: 9999px;
 		background: var(--color-primary);
 	}
+
+	/* Hide number input spinners globally */
+	input[type="number"]::-webkit-inner-spin-button,
+	input[type="number"]::-webkit-outer-spin-button {
+		-webkit-appearance: none;
+		margin: 0;
+	}
+	input[type="number"] {
+		-moz-appearance: textfield;
+	}
+
+	/* Prevent scroll from changing number input values */
+	input[type="number"] {
+		pointer-events: auto;
+	}
 }
 

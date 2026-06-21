@@ -44,26 +44,143 @@ export class GPAService {
 		this.incomingSharesRef = collection(db, "userShares", userId, "incoming");
 	}
 
+	// ===== GPA & MARKS SUBCOLLECTION =====
+
+	private gpaAndMarksRef(profileId: string | number): CollectionReference<DocumentData> {
+		return collection(db, "users", this.userId, "profiles", profileId.toString(), "gpaAndMarks");
+	}
+
+	private gpaAndMarksRefForUser(userId: string, profileId: string | number): CollectionReference<DocumentData> {
+		return collection(db, "users", userId, "profiles", profileId.toString(), "gpaAndMarks");
+	}
+
+	async getSemesters(profileId: string | number): Promise<{ success: boolean; semesters: GPASemester[]; error?: string }> {
+		try {
+			const snapshot = await getDocs(this.gpaAndMarksRef(profileId));
+			const semesters = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as unknown as GPASemester));
+			return { success: true, semesters };
+		} catch (error) {
+			console.error("Error fetching semesters:", error);
+			return { success: false, semesters: [], error: (error as Error).message };
+		}
+	}
+
+	async saveSemesters(profileId: string | number, semesters: GPASemester[]): Promise<{ success: boolean; error?: string }> {
+		try {
+			const batch = writeBatch(db);
+			const colRef = this.gpaAndMarksRef(profileId);
+
+			for (const semester of semesters) {
+				const semDoc = doc(colRef, semester.id.toString());
+				batch.set(semDoc, { id: semester.id, name: semester.name, subjects: semester.subjects || [] });
+			}
+
+			// Remove legacy embedded semesters field from profile doc
+			const profileRef = doc(this.userProfilesRef, profileId.toString());
+			batch.set(profileRef, { semesters: deleteField(), updatedAt: serverTimestamp() }, { merge: true });
+
+			await batch.commit();
+			return { success: true };
+		} catch (error) {
+			console.error("Error saving semesters:", error);
+			return { success: false, error: (error as Error).message };
+		}
+	}
+
+	async saveSingleSemester(profileId: string | number, semester: GPASemester): Promise<{ success: boolean; error?: string }> {
+		try {
+			const semDoc = doc(this.gpaAndMarksRef(profileId), semester.id.toString());
+			await setDoc(semDoc, { id: semester.id, name: semester.name, subjects: semester.subjects || [] });
+			return { success: true };
+		} catch (error) {
+			console.error("Error saving semester:", error);
+			return { success: false, error: (error as Error).message };
+		}
+	}
+
+	async deleteSemesterDoc(profileId: string | number, semesterId: string | number): Promise<{ success: boolean; error?: string }> {
+		try {
+			const semDoc = doc(this.gpaAndMarksRef(profileId), semesterId.toString());
+			const batch = writeBatch(db);
+			batch.delete(semDoc);
+			batch.set(doc(this.userProfilesRef, profileId.toString()), { updatedAt: serverTimestamp() }, { merge: true });
+			await batch.commit();
+			return { success: true };
+		} catch (error) {
+			console.error("Error deleting semester doc:", error);
+			return { success: false, error: (error as Error).message };
+		}
+	}
+
+	onSemestersChange(profileId: string | number, callback: (res: { success: boolean; semesters: GPASemester[]; error?: string }) => void): Unsubscribe {
+		try {
+			const colRef = this.gpaAndMarksRef(profileId);
+			const unsubscribe = onSnapshot(
+				colRef,
+				(snapshot) => {
+					const semesters = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as unknown as GPASemester));
+					callback({ success: true, semesters });
+				},
+				(error) => {
+					console.error("Error listening to semesters:", error);
+					callback({ success: false, semesters: [], error: error.message });
+				}
+			);
+			return unsubscribe;
+		} catch (error) {
+			console.error("Error setting up semesters listener:", error);
+			callback({ success: false, semesters: [], error: (error as Error).message });
+			return () => {};
+		}
+	}
+
+	onSemestersChangeForUser(userId: string, profileId: string | number, callback: (res: { success: boolean; semesters: GPASemester[]; error?: string }) => void): Unsubscribe {
+		try {
+			const colRef = this.gpaAndMarksRefForUser(userId, profileId);
+			const unsubscribe = onSnapshot(
+				colRef,
+				(snapshot) => {
+					const semesters = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as unknown as GPASemester));
+					callback({ success: true, semesters });
+				},
+				(error) => {
+					console.error("Error listening to semesters for user:", error);
+					callback({ success: false, semesters: [], error: error.message });
+				}
+			);
+			return unsubscribe;
+		} catch (error) {
+			console.error("Error setting up semesters listener for user:", error);
+			callback({ success: false, semesters: [], error: (error as Error).message });
+			return () => {};
+		}
+	}
+
 	// ===== PROFILE MANAGEMENT =====
 
 	async saveProfile(profile: GPAProfile): Promise<{ success: boolean; profile?: GPAProfile; error?: string }> {
 		try {
+			// Strip semesters from profile doc — they live in gpaAndMarks subcollection
+			const { semesters, ...profileMetadata } = profile;
 			const profileData = {
-				...profile,
+				...profileMetadata,
 				userId: this.userId,
 				updatedAt: serverTimestamp(),
 				createdAt: profile.createdAt || serverTimestamp(),
-				// Preserve UMS-related fields
 				...(profile.studentInfo ? { studentInfo: profile.studentInfo } : {}),
 				...(profile.allTermIds ? { allTermIds: profile.allTermIds } : {}),
 				...(profile.umsVerified ? { umsVerified: profile.umsVerified } : {}),
 				...(profile.lastUMSSync ? { lastUMSSync: profile.lastUMSSync } : {}),
 			};
 
-			// Save to private profile (using merge to preserve ACLs if they exist)
 			await setDoc(doc(this.userProfilesRef, profile.id.toString()), profileData, { merge: true });
 
-			return { success: true, profile: profileData };
+			// Write semesters to subcollection if provided
+			if (semesters && semesters.length > 0) {
+				await this.saveSemesters(profile.id, semesters);
+			}
+
+			return { success: true, profile: { ...profileData, semesters } as GPAProfile };
 		} catch (error) {
 			console.error("Error saving profile:", error);
 			return { success: false, error: (error as Error).message };
@@ -123,13 +240,23 @@ export class GPAService {
 	async deleteProfile(profileId: string | number): Promise<{ success: boolean; error?: string }> {
 		try {
 			const batch = writeBatch(db);
-			const id = profileId.toString();
+			const idStr = profileId.toString();
+			// profileId may be stored as string OR number in share docs — query both
+			const idNum = Number(profileId);
+			const idVariants: Array<string | number> = isNaN(idNum) ? [idStr] : [idStr, idNum];
 
-			// Delete main profile
-			batch.delete(doc(this.userProfilesRef, id));
+			// Delete main profile doc
+			batch.delete(doc(this.userProfilesRef, idStr));
 
-			// Clean up all related data
-			await Promise.all([this._cleanupOutgoingShares(batch, id), this._cleanupLegacyShares(batch, id)]);
+			// Delete all gpaAndMarks subcollection docs
+			const semSnapshot = await getDocs(this.gpaAndMarksRef(profileId));
+			semSnapshot.docs.forEach((d) => batch.delete(d.ref));
+
+			// Clean up all share records in parallel, then commit in one batch
+			await Promise.all([
+				this._cleanupOutgoingShares(batch, idVariants),
+				this._cleanupLegacyShares(batch, idVariants),
+			]);
 
 			await batch.commit();
 			return { success: true };
@@ -139,32 +266,41 @@ export class GPAService {
 		}
 	}
 
-	// Helper: Clean up outgoing shares
-	private async _cleanupOutgoingShares(batch: ReturnType<typeof writeBatch>, profileId: string): Promise<void> {
-		const sharesQuery = query(this.outgoingSharesRef, where("profileId", "==", profileId));
-		const sharesSnapshot = await getDocs(sharesQuery);
+	// Clean up userShares/{owner}/outgoing + each recipient's incoming entry
+	private async _cleanupOutgoingShares(
+		batch: ReturnType<typeof writeBatch>,
+		idVariants: Array<string | number>
+	): Promise<void> {
+		// Fetch once for each stored type variant (string & number) to handle legacy data
+		const snapshots = await Promise.all(
+			idVariants.map((v) => getDocs(query(this.outgoingSharesRef, where("profileId", "==", v))))
+		);
 
-		sharesSnapshot.docs.forEach((shareDoc) => {
-			const { targetUserId } = shareDoc.data();
-			const shareId = shareDoc.id;
-
-			// Remove from both outgoing and incoming
-			batch.delete(doc(this.outgoingSharesRef, shareId));
-			batch.delete(doc(db, "userShares", targetUserId, "incoming", shareId));
+		const seen = new Set<string>();
+		snapshots.flatMap((s) => s.docs).forEach((shareDoc) => {
+			if (seen.has(shareDoc.id)) return;
+			seen.add(shareDoc.id);
+			const { targetUserId } = shareDoc.data() as { targetUserId: string };
+			batch.delete(doc(this.outgoingSharesRef, shareDoc.id));
+			batch.delete(doc(db, "userShares", targetUserId, "incoming", shareDoc.id));
 		});
 	}
 
-	// Helper: Clean up legacy shared profiles
-	private async _cleanupLegacyShares(batch: ReturnType<typeof writeBatch>, profileId: string): Promise<void> {
-		const legacyQuery = query(this.userSharedRef, where("profileId", "==", profileId));
-		const legacySnapshot = await getDocs(legacyQuery);
+	// Clean up legacy sharedProfiles collection (old link-share system)
+	private async _cleanupLegacyShares(
+		batch: ReturnType<typeof writeBatch>,
+		idVariants: Array<string | number>
+	): Promise<void> {
+		const snapshots = await Promise.all(
+			idVariants.map((v) => getDocs(query(this.userSharedRef, where("profileId", "==", v))))
+		);
 
-		legacySnapshot.docs.forEach((shareDoc) => {
-			const shareId = shareDoc.id;
-
-			// Remove from both user and public collections
-			batch.delete(doc(this.userSharedRef, shareId));
-			batch.delete(doc(this.sharedProfilesRef, shareId));
+		const seen = new Set<string>();
+		snapshots.flatMap((s) => s.docs).forEach((shareDoc) => {
+			if (seen.has(shareDoc.id)) return;
+			seen.add(shareDoc.id);
+			batch.delete(doc(this.userSharedRef, shareDoc.id));
+			batch.delete(doc(this.sharedProfilesRef, shareDoc.id));
 		});
 	}
 
@@ -353,6 +489,7 @@ export class GPAService {
 				name?: string;
 				semesters?: GPASemester[];
 				originalUserId?: string;
+				originalProfileId?: string | number;
 				shareOptions?: {
 					allowCopy?: boolean;
 					allowView?: boolean;
@@ -366,7 +503,6 @@ export class GPAService {
 			const newProfile: GPAProfile = {
 				id: Date.now(),
 				name: newProfileName || `Copy of ${sharedProfile.name}`,
-				semesters: sharedProfile.semesters || [],
 				copiedFrom: {
 					shareId,
 					originalUserId: sharedProfile.originalUserId || "",
@@ -374,12 +510,25 @@ export class GPAService {
 				},
 			};
 
+			// Save profile metadata
 			const saveResult = await this.saveProfile(newProfile);
-			if (saveResult.success) {
-				return { success: true, profile: newProfile };
-			} else {
-				return { success: false, error: saveResult.error };
+			if (!saveResult.success) return { success: false, error: saveResult.error };
+
+			// Copy semesters: try subcollection from owner first, fall back to embedded
+			let semesters: GPASemester[] = [];
+			if (sharedProfile.originalUserId && sharedProfile.originalProfileId) {
+				const ownerColRef = this.gpaAndMarksRefForUser(sharedProfile.originalUserId, sharedProfile.originalProfileId);
+				const semSnap = await getDocs(ownerColRef);
+				semesters = semSnap.docs.map((d) => ({ id: d.id, ...d.data() } as unknown as GPASemester));
 			}
+			if (semesters.length === 0 && sharedProfile.semesters) {
+				semesters = sharedProfile.semesters;
+			}
+			if (semesters.length > 0) {
+				await this.saveSemesters(newProfile.id, semesters);
+			}
+
+			return { success: true, profile: { ...newProfile, semesters } };
 		} catch (error) {
 			console.error("Error copying shared profile:", error);
 			return { success: false, error: (error as Error).message };
@@ -518,8 +667,17 @@ export class GPAService {
 		const profileData = await this._getProfileDataByPermission(shareData);
 		if (!profileData) return null;
 
+		// Fetch semesters from subcollection if not embedded
+		let semesters = profileData.semesters;
+		if (!semesters || semesters.length === 0) {
+			const colRef = this.gpaAndMarksRefForUser(ownerUserId, profileId);
+			const semSnap = await getDocs(colRef);
+			semesters = semSnap.docs.map((d) => ({ id: d.id, ...d.data() } as unknown as GPASemester));
+		}
+
 		return {
 			...profileData,
+			semesters,
 			id: profileId,
 			shareId,
 			permission: permission as "read" | "edit",
@@ -635,31 +793,44 @@ export class GPAService {
 		try {
 			const correctUserId = profile.isShared && profile.ownerUserId ? profile.ownerUserId : this.userId;
 
+			const { semesters, ...profileMetadata } = profile;
 			const profileData = {
-				...profile,
+				...profileMetadata,
 				userId: correctUserId,
 				updatedAt: serverTimestamp(),
 				createdAt: profile.createdAt || serverTimestamp(),
 			};
 
 			await this._executeSaveWithCollaboration(profile, profileData);
-			return { success: true, profile: profileData };
+
+			// Write semesters to the correct user's subcollection
+			if (semesters && semesters.length > 0) {
+				const targetUserId = profile.isShared && profile.ownerUserId && profile.ownerUserId !== this.userId
+					? profile.ownerUserId
+					: this.userId;
+				const colRef = this.gpaAndMarksRefForUser(targetUserId, profile.id);
+				const batch = writeBatch(db);
+				for (const sem of semesters) {
+					batch.set(doc(colRef, sem.id.toString()), { id: sem.id, name: sem.name, subjects: sem.subjects || [] });
+				}
+				await batch.commit();
+			}
+
+			return { success: true, profile: { ...profileData, semesters } as GPAProfile };
 		} catch (error) {
 			console.error("Error saving profile with collaboration:", error);
 			return { success: false, error: (error as Error).message };
 		}
 	}
 
-	private async _executeSaveWithCollaboration(profile: GPAProfile, profileData: GPAProfile): Promise<void> {
+	private async _executeSaveWithCollaboration(profile: GPAProfile, profileData: Omit<GPAProfile, "semesters">): Promise<void> {
 		const batch = writeBatch(db);
 		const profileId = profile.id.toString();
 
 		if (profile.isShared && profile.ownerUserId && profile.ownerUserId !== this.userId) {
-			// I am Editor: Save to Owner's private profile
 			const ownerProfileRef = doc(db, "users", profile.ownerUserId, "profiles", profileId);
 			batch.set(ownerProfileRef, profileData, { merge: true });
 		} else {
-			// I am Owner: Save to my own profile
 			batch.set(doc(this.userProfilesRef, profileId), profileData, { merge: true });
 		}
 
@@ -738,7 +909,21 @@ export class GPAService {
 			}
 
 			const newProfile = this._createCopiedProfile(profileData, newProfileName, shareData);
-			return await this.saveProfile(newProfile);
+			const saveResult = await this.saveProfile(newProfile);
+			if (!saveResult.success) return { success: false, error: saveResult.error };
+
+			// Copy semesters from owner's subcollection
+			const ownerSemRef = this.gpaAndMarksRefForUser(shareData.ownerUserId, shareData.profileId);
+			const semSnap = await getDocs(ownerSemRef);
+			const semesters = semSnap.docs.map((d) => ({ id: d.id, ...d.data() } as unknown as GPASemester));
+
+			if (semesters.length > 0) {
+				await this.saveSemesters(newProfile.id, semesters);
+			} else if (profileData.semesters && profileData.semesters.length > 0) {
+				await this.saveSemesters(newProfile.id, profileData.semesters);
+			}
+
+			return { success: true, profile: { ...newProfile, semesters } };
 		} catch (error) {
 			console.error("Error copying shared profile:", error);
 			return { success: false, error: (error as Error).message };
@@ -759,7 +944,6 @@ export class GPAService {
 		return {
 			id: Date.now(),
 			name: newProfileName || `Copy of ${profileData.name}`,
-			semesters: profileData.semesters || [],
 			isDefault: false,
 			copiedFrom: {
 				shareId: shareData.shareId,
@@ -804,31 +988,6 @@ export class GPAService {
 	generateShareUrl(shareId: string): string {
 		const origin = typeof window !== "undefined" ? window.location.origin : "";
 		return `${origin}/shared/${shareId}`;
-	}
-
-	// ===== ACTIVE PROFILE MANAGEMENT =====
-
-	async saveActiveProfile(profileId: string | number): Promise<void> {
-		try {
-			const prefsRef = doc(db, "users", this.userId, "preferences", "gpa");
-			await setDoc(prefsRef, { activeProfileId: profileId.toString(), updatedAt: serverTimestamp() }, { merge: true });
-		} catch (error) {
-			console.error("Error saving active profile:", error);
-		}
-	}
-
-	async getActiveProfile(): Promise<string | null> {
-		try {
-			const prefsRef = doc(db, "users", this.userId, "preferences", "gpa");
-			const prefsSnap = await getDoc(prefsRef);
-			if (prefsSnap.exists()) {
-				return prefsSnap.data().activeProfileId || null;
-			}
-			return null;
-		} catch (error) {
-			console.error("Error getting active profile:", error);
-			return null;
-		}
 	}
 
 }
