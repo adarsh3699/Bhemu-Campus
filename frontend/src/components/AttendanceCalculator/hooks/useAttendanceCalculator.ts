@@ -52,7 +52,7 @@ export function useAttendanceCalculator() {
 	}, []);
 
 	const handleSubmit = useCallback(
-		async (e: React.FormEvent) => {
+		async (e: React.FormEvent<HTMLFormElement>) => {
 			e.preventDefault();
 			const totalClasses = Number(form.totalClasses);
 			const attended = Number(form.attended);
@@ -95,7 +95,7 @@ export function useAttendanceCalculator() {
 	}, []);
 
 	const handleUpdateThreshold = useCallback(
-		async (e: React.FormEvent) => {
+		async (e: React.FormEvent<HTMLFormElement>) => {
 			e.preventDefault();
 			const val = Number(thresholdInput);
 			if (isNaN(val) || val < 0 || val > 100) return;

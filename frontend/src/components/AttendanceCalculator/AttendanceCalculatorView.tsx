@@ -1,6 +1,6 @@
 "use client";
 
-import { ClipboardList, Settings } from "lucide-react";
+import { ClipboardList, X } from "lucide-react";
 import { useState } from "react";
 import LoginRecommendation from "@/components/common/LoginRecommendation";
 import ConfirmModal from "@/components/modal/ConfirmModal";
@@ -58,7 +58,6 @@ export default function AttendanceCalculatorView() {
 
 	return (
 		<>
-			{/* Delete Confirm */}
 			<ConfirmModal
 				isOpen={showDeleteConfirm}
 				onClose={handleCancelDelete}
@@ -74,10 +73,9 @@ export default function AttendanceCalculatorView() {
 				type="danger"
 			/>
 
-			{/* Page Content */}
-			<div className="w-full font-sans bg-transparent flex flex-col justify-start text-center transition-all duration-300 px-4 py-8 md:px-8 md:py-10 max-w-6xl mx-auto pb-10">
+			<div className="w-full font-sans bg-transparent flex flex-col items-center justify-start transition-all duration-300 px-4 py-8 md:px-8 md:py-10 max-w-6xl mx-auto pb-10">
 				{/* Header */}
-				<div className="w-full text-left mb-8 flex items-center gap-4">
+				<div className="w-full text-left mb-6 md:mb-14 flex items-center gap-4">
 					<div className="p-3 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center text-primary shrink-0 shadow-sm">
 						<ClipboardList className="w-6 h-6" />
 					</div>
@@ -91,61 +89,104 @@ export default function AttendanceCalculatorView() {
 					</div>
 				</div>
 
-				{/* Summary Card */}
-				<div className="flex flex-col lg:flex-row justify-center items-center gap-6 lg:gap-12 mb-8 md:mb-10 p-5 md:p-8 w-full max-w-4xl bg-neutral-900/60 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 relative overflow-hidden">
-					<div className="absolute -top-24 -left-24 w-48 h-48 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
-					<div className="absolute -bottom-24 -right-24 w-48 h-48 bg-accent/10 rounded-full blur-3xl pointer-events-none" />
-
-					{/* Overall % circle */}
-					<div
-						className={`flex flex-col items-center justify-center w-28 h-28 md:w-32 md:h-32 rounded-full relative z-10 shadow-glow transition-transform hover:scale-105 ${
-							overallAttendance === null
-								? "bg-white/10 border border-white/20"
-								: overallAttendance < defaultThreshold
-									? "bg-gradient-to-br from-red-500 to-orange-600"
-									: "bg-gradient-primary"
-						}`}
-					>
-						{overallAttendance !== null ? (
-							<>
-								<div className="text-2xl md:text-3xl font-bold text-white leading-none">
-									{overallAttendance}%
-								</div>
-								<div className="text-xs text-white/90 mt-1">Overall</div>
-							</>
-						) : (
-							<>
-								<div className="text-lg font-bold text-white/50 leading-none">—</div>
-								<div className="text-xs text-white/40 mt-1">No data</div>
-							</>
-						)}
-					</div>
-
-					{/* Stats */}
-					<div className="flex flex-row gap-3 sm:gap-8 flex-wrap justify-center z-10">
-						{[
-							{ label: "Subjects", value: subjects.length },
-							{
-								label: "Below Threshold",
-								value: belowThresholdCount,
-								highlight: belowThresholdCount > 0,
-							},
-							{ label: "Default Threshold", value: `${defaultThreshold}%` },
-						].map(({ label, value, highlight }) => (
-							<div
-								key={label}
-								className="flex flex-col items-center p-3 md:p-4 bg-white/5 rounded-2xl min-w-[85px] md:min-w-[100px] backdrop-blur-md border border-white/10"
+				{/* Summary card */}
+				<div className="w-full max-w-4xl mb-8 md:mb-10 px-5 md:px-6 py-4 md:py-5 bg-neutral-900/60 rounded-2xl border border-white/10">
+					{/* Top row: overall % + stats */}
+					<div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+						{/* Overall % */}
+						<div className="flex flex-col items-center sm:items-start shrink-0">
+							<span
+								className={`text-4xl md:text-5xl font-black leading-none ${
+									overallAttendance === null
+										? "text-white/30"
+										: overallAttendance < 75
+											? "text-red-400"
+											: overallAttendance < defaultThreshold
+												? "text-amber-400"
+												: "bg-gradient-to-r from-teal-400 to-blue-500 bg-clip-text text-transparent"
+								}`}
 							>
-								<span
-									className={`text-xl md:text-2xl font-bold leading-none ${highlight ? "text-red-400" : "text-white/90"}`}
-								>
-									{value}
-								</span>
-								<span className="text-xs md:text-sm text-muted-foreground mt-1 text-center">
-									{label}
-								</span>
+								{overallAttendance !== null ? `${overallAttendance}%` : "—"}
+							</span>
+							<span className="text-[10px] text-muted-foreground mt-1 uppercase tracking-widest font-semibold">
+								Overall
+							</span>
+						</div>
+
+						<div className="hidden sm:block w-px self-stretch bg-white/10 mx-1" />
+						<div className="block sm:hidden h-px w-full bg-white/10" />
+
+						{/* Stats + threshold button inline on desktop */}
+						<div className="flex flex-row gap-5 justify-center sm:justify-start flex-1 flex-wrap items-center">
+							{[
+								{ label: "Subjects", value: subjects.length },
+								{ label: "Below Threshold", value: belowThresholdCount, red: belowThresholdCount > 0 },
+								{ label: "Default Threshold", value: `${defaultThreshold}%` },
+							].map(({ label, value, red }) => (
+								<div key={label} className="flex flex-col items-center">
+									<span
+										className={`text-2xl md:text-3xl font-bold leading-none ${red ? "text-red-400" : "text-white"}`}
+									>
+										{value}
+									</span>
+									<span className="text-xs md:text-sm text-muted-foreground mt-1 text-center">
+										{label}
+									</span>
+								</div>
+							))}
+
+							{/* Threshold setter */}
+							<div className="sm:ml-auto shrink-0 mt-2 sm:mt-0">
+								{showThresholdForm ? (
+									<form
+										onSubmit={(e) => {
+											handleUpdateThreshold(e);
+											setShowThresholdForm(false);
+										}}
+										className="flex items-center gap-2"
+									>
+										<div className="relative">
+											<input
+												type="number"
+												min="0"
+												max="100"
+												placeholder={String(defaultThreshold)}
+												value={thresholdInput}
+												onChange={(e) => setThresholdInput(e.target.value)}
+												className="h-9 w-20 pl-3 pr-6 border border-white/10 rounded-xl bg-white/5 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/20 transition-all duration-200 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+											/>
+											<span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-neutral-400 pointer-events-none">%</span>
+										</div>
+										<button
+											type="submit"
+											className="h-9 px-3 bg-gradient-to-r from-teal-400 to-blue-500 hover:from-teal-500 hover:to-blue-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200"
+										>
+											Set
+										</button>
+										<button
+											type="button"
+											onClick={() => {
+												setShowThresholdForm(false);
+												setThresholdInput("");
+											}}
+											className="h-9 w-9 bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white border border-white/10 rounded-xl transition-all duration-200 flex items-center justify-center"
+										>
+											<X className="w-3.5 h-3.5" />
+										</button>
+									</form>
+								) : (
+									<button
+										onClick={() => {
+											setShowThresholdForm(true);
+											setThresholdInput(String(defaultThreshold));
+										}}
+										className="h-9 px-3 bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-neutral-200 border border-white/10 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-200"
+									>
+										Set Threshold
+									</button>
+								)}
 							</div>
-						))}
+						</div>
 					</div>
 				</div>
 
@@ -159,60 +200,7 @@ export default function AttendanceCalculatorView() {
 					</div>
 				)}
 
-				{/* Manage section */}
-				<div className="mb-8 md:mb-10 w-full max-w-4xl text-left">
-					<div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-						<h2 className="text-xl md:text-2xl font-semibold text-white/90">Manage Attendance</h2>
-						<button
-							onClick={() => setShowThresholdForm((v) => !v)}
-							className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 text-neutral-300 border border-white/10 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-300"
-						>
-							<Settings className="w-4 h-4" />
-							Set Default Threshold
-						</button>
-					</div>
-
-					{/* Threshold setter */}
-					{showThresholdForm && (
-						<form
-							onSubmit={handleUpdateThreshold}
-							className="mb-6 flex items-end gap-3 p-4 bg-neutral-900/60 rounded-2xl border border-white/10"
-						>
-							<div className="flex flex-col gap-1.5">
-								<label className="text-xs font-bold text-neutral-300 uppercase tracking-wider">
-									Default Threshold (%)
-								</label>
-								<input
-									type="number"
-									min="0"
-									max="100"
-									placeholder={String(defaultThreshold)}
-									value={thresholdInput}
-									onChange={(e) => setThresholdInput(e.target.value)}
-									className="px-4 py-2.5 border border-white/10 rounded-xl bg-white/5 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 w-40"
-								/>
-							</div>
-							<button
-								type="submit"
-								className="px-4 py-2.5 bg-gradient-to-r from-teal-400 to-blue-500 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-[1.02]"
-							>
-								Update
-							</button>
-							<button
-								type="button"
-								onClick={() => {
-									setShowThresholdForm(false);
-									setThresholdInput("");
-								}}
-								className="px-4 py-2.5 bg-white/5 hover:bg-white/10 text-neutral-300 border border-white/10 rounded-xl text-xs font-bold uppercase tracking-wider"
-							>
-								Cancel
-							</button>
-						</form>
-					)}
-				</div>
-
-				{/* Add/Edit Form */}
+				{/* Add / Edit Form */}
 				<AttendanceSubjectForm
 					form={form}
 					editingId={editingId}
