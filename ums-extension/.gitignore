@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+responseWeGot/
+
+# Build outputs
+build/
+.plasmo/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Package archives
+*.zip
+*.crx
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
