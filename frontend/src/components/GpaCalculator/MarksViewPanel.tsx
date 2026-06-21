@@ -24,9 +24,19 @@ interface MarksViewPanelProps {
 }
 
 export default function MarksViewPanel({
-	subjects, editingSubjectId, form,
-	onFormChange, onEdit, onSave, onCancel, onDeleteSubject,
-	showSubjectForm, setShowSubjectForm, subjectForm, onSubjectFormChange, onAddSubject,
+	subjects,
+	editingSubjectId,
+	form,
+	onFormChange,
+	onEdit,
+	onSave,
+	onCancel,
+	onDeleteSubject,
+	showSubjectForm,
+	setShowSubjectForm,
+	subjectForm,
+	onSubjectFormChange,
+	onAddSubject,
 }: MarksViewPanelProps) {
 	return (
 		<div className="w-full max-w-4xl">
@@ -36,9 +46,6 @@ export default function MarksViewPanel({
 				<div className="flex items-center justify-between mb-6">
 					<h3 className="text-xl font-bold text-white">
 						{subjects.length} subject{subjects.length !== 1 ? "s" : ""}
-						<span className="text-sm font-normal text-neutral-400 ml-2">
-							— {subjects.filter((s) => s.marks != null).length} with marks
-						</span>
 					</h3>
 					<button
 						onClick={() => setShowSubjectForm((v) => !v)}
@@ -50,73 +57,86 @@ export default function MarksViewPanel({
 				</div>
 
 				{/* Add subject form */}
-				{showSubjectForm && (() => {
-					const toN = (v: string) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
-					const runningTotal = toN(subjectForm.ca) + toN(subjectForm.midTerm) + toN(subjectForm.endTerm) + toN(subjectForm.attendanceMarks);
-					const totalOver = runningTotal > 100;
-					return (
-						<form
-							onSubmit={(e) => { e.preventDefault(); if (!totalOver) onAddSubject(); }}
-							className="mb-6 p-4 rounded-2xl bg-white/5 border border-white/10 flex flex-col gap-3"
-						>
-							<div className="flex gap-3">
-								<input
-									name="subjectName"
-									value={subjectForm.subjectName}
-									onChange={onSubjectFormChange}
-									placeholder="Subject name *"
-									required
-									className="flex-1 min-w-0 px-3 py-2 border border-white/10 rounded-lg bg-white/5 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:border-teal-500 transition-all"
-								/>
-								<input
-									name="credit"
-									type="number"
-									min="0.5"
-									step="0.5"
-									value={subjectForm.credit}
-									onChange={onSubjectFormChange}
-									placeholder="Credits *"
-									required
-									className="w-24 shrink-0 px-3 py-2 border border-white/10 rounded-lg bg-white/5 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:border-teal-500 transition-all"
-								/>
-							</div>
-							<div className="grid grid-cols-4 gap-2">
-								{(["ca", "midTerm", "endTerm", "attendanceMarks"] as const).map((field, i) => (
-									<input
-										key={field}
-										name={field}
-										type="number"
-										min="0"
-										step="0.5"
-										value={subjectForm[field]}
-										onChange={onSubjectFormChange}
-										placeholder={["CA", "Mid", "End", "Att."][i]}
-										className={`px-3 py-2 border rounded-lg bg-white/5 text-sm text-white placeholder:text-neutral-500 focus:outline-none transition-all ${
-											totalOver ? "border-red-500/50 focus:border-red-500" : "border-white/10 focus:border-indigo-500"
-										}`}
-									/>
-								))}
-							</div>
-							{totalOver && (
-								<p className="text-xs text-red-400 font-medium">
-									Total marks ({runningTotal}) exceed 100. Please correct the values.
-								</p>
-							)}
-							{!totalOver && runningTotal > 0 && (
-								<p className="text-xs text-neutral-400">
-									Total: <span className="text-white font-semibold">{runningTotal}</span> / 100
-								</p>
-							)}
-							<button
-								type="submit"
-								disabled={totalOver}
-								className="w-full py-2 text-sm font-bold rounded-lg bg-teal-500/20 border border-teal-500/30 text-teal-400 hover:bg-teal-500/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+				{showSubjectForm &&
+					(() => {
+						const toN = (v: string) => {
+							const n = parseFloat(v);
+							return isNaN(n) ? 0 : n;
+						};
+						const runningTotal =
+							toN(subjectForm.ca) +
+							toN(subjectForm.midTerm) +
+							toN(subjectForm.endTerm) +
+							toN(subjectForm.attendanceMarks);
+						const totalOver = runningTotal > 100;
+						return (
+							<form
+								onSubmit={(e) => {
+									e.preventDefault();
+									if (!totalOver) onAddSubject();
+								}}
+								className="mb-6 p-4 rounded-2xl bg-white/5 border border-white/10 flex flex-col gap-3"
 							>
-								Add Subject
-							</button>
-						</form>
-					);
-				})()}
+								<div className="flex gap-3">
+									<input
+										name="subjectName"
+										value={subjectForm.subjectName}
+										onChange={onSubjectFormChange}
+										placeholder="Subject name *"
+										required
+										className="flex-1 min-w-0 px-3 py-2 border border-white/10 rounded-lg bg-white/5 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:border-teal-500 transition-all"
+									/>
+									<input
+										name="credit"
+										type="number"
+										min="0.5"
+										step="0.5"
+										value={subjectForm.credit}
+										onChange={onSubjectFormChange}
+										placeholder="Credits *"
+										required
+										className="w-24 shrink-0 px-3 py-2 border border-white/10 rounded-lg bg-white/5 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:border-teal-500 transition-all"
+									/>
+								</div>
+								<div className="grid grid-cols-4 gap-2">
+									{(["ca", "midTerm", "endTerm", "attendanceMarks"] as const).map((field, i) => (
+										<input
+											key={field}
+											name={field}
+											type="number"
+											min="0"
+											step="0.5"
+											value={subjectForm[field]}
+											onChange={onSubjectFormChange}
+											placeholder={["CA", "Mid", "End", "Att."][i]}
+											className={`px-3 py-2 border rounded-lg bg-white/5 text-sm text-white placeholder:text-neutral-500 focus:outline-none transition-all ${
+												totalOver
+													? "border-red-500/50 focus:border-red-500"
+													: "border-white/10 focus:border-indigo-500"
+											}`}
+										/>
+									))}
+								</div>
+								{totalOver && (
+									<p className="text-xs text-red-400 font-medium">
+										Total marks ({runningTotal}) exceed 100. Please correct the values.
+									</p>
+								)}
+								{!totalOver && runningTotal > 0 && (
+									<p className="text-xs text-neutral-400">
+										Total: <span className="text-white font-semibold">{runningTotal}</span> / 100
+									</p>
+								)}
+								<button
+									type="submit"
+									disabled={totalOver}
+									className="w-full py-2 text-sm font-bold rounded-lg bg-teal-500/20 border border-teal-500/30 text-teal-400 hover:bg-teal-500/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+								>
+									Add Subject
+								</button>
+							</form>
+						);
+					})()}
 
 				{subjects.length === 0 ? (
 					<div className="text-center py-10 text-neutral-500 text-sm">

@@ -40,7 +40,7 @@ const modalData_ch = {
 			<b>Credit Hours</b> represent the weight of that course.
 		</>,
 		<>
-			A <b>theory</b> class might have 3 Credit Hours.
+			A <b>theory</b> class might have 3 to 4 Credit Hours.
 		</>,
 		<>
 			A <b>lab session</b> could have 1 or 2 Credit Hours.

@@ -77,7 +77,6 @@ export default function GpaCalculatorView() {
 		// Subject form
 		newSubject,
 		setNewSubject,
-		editIndex,
 		activeSemester,
 		setActiveSemester,
 		handleInputChange,
@@ -166,7 +165,7 @@ export default function GpaCalculatorView() {
 			/>
 
 			{/* Page Content */}
-			<div className="w-full font-sans bg-transparent flex flex-col items-center justify-start text-center transition-all duration-300 px-4 py-8 md:px-8 md:py-10 max-w-6xl mx-auto pb-10">
+			<div className="w-full font-sans bg-transparent flex flex-col items-center justify-start transition-all duration-300 px-4 py-8 md:px-8 md:py-10 max-w-6xl mx-auto pb-10">
 				{/* Header */}
 				<div className="w-full text-left mb-6 md:mb-14 flex items-center gap-4">
 					<div className="p-3 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center text-primary shrink-0 shadow-sm">
@@ -214,9 +213,15 @@ export default function GpaCalculatorView() {
 							{
 								label: "Avg. Marks",
 								value: (() => {
-									const all = semesters.flatMap((s) => s.subjects ?? []).filter((sub) => sub.marks?.total != null);
+									const all = semesters
+										.flatMap((s) => s.subjects ?? [])
+										.filter((sub) => sub.marks?.total != null);
 									return all.length > 0
-										? Math.round(all.reduce((acc, sub) => acc + (sub.marks!.total ?? 0), 0) / all.length * 10) / 10
+										? Math.round(
+												(all.reduce((acc, sub) => acc + (sub.marks!.total ?? 0), 0) /
+													all.length) *
+													10
+											) / 10
 										: "—";
 								})(),
 							},
@@ -336,9 +341,6 @@ export default function GpaCalculatorView() {
 						onSubmit={addOrUpdateSubject}
 						formState={newSubject}
 						onChange={handleInputChange}
-						editIndex={
-							editIndex === -1 ? -1 : typeof editIndex === "string" ? parseInt(editIndex) : editIndex
-						}
 						onInfoClick={handleModalToggle}
 					/>
 				)}

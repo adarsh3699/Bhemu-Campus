@@ -15,11 +15,25 @@ export default function AttendanceCalculatorView() {
 	const { loading: gpaLoading } = useGpaData();
 
 	const {
-		loading, saving,
-		subjects, defaultThreshold, overallAttendance,
-		form, editingId, handleFormChange, handleSubmit, startEdit, cancelEdit,
-		showDeleteConfirm, subjectToDelete, handleDeleteClick, handleConfirmDelete, handleCancelDelete,
-		thresholdInput, setThresholdInput, handleUpdateThreshold,
+		loading,
+		saving,
+		subjects,
+		defaultThreshold,
+		overallAttendance,
+		form,
+		editingId,
+		handleFormChange,
+		handleSubmit,
+		startEdit,
+		cancelEdit,
+		showDeleteConfirm,
+		subjectToDelete,
+		handleDeleteClick,
+		handleConfirmDelete,
+		handleCancelDelete,
+		thresholdInput,
+		setThresholdInput,
+		handleUpdateThreshold,
 	} = useAttendanceCalculator();
 
 	const [showThresholdForm, setShowThresholdForm] = useState(false);
@@ -61,15 +75,19 @@ export default function AttendanceCalculatorView() {
 			/>
 
 			{/* Page Content */}
-			<div className="w-full font-sans bg-transparent flex flex-col items-center justify-start text-center transition-all duration-300 px-4 py-8 md:px-8 md:py-10 max-w-6xl mx-auto pb-10">
+			<div className="w-full font-sans bg-transparent flex flex-col justify-start text-center transition-all duration-300 px-4 py-8 md:px-8 md:py-10 max-w-6xl mx-auto pb-10">
 				{/* Header */}
 				<div className="w-full text-left mb-8 flex items-center gap-4">
 					<div className="p-3 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center text-primary shrink-0 shadow-sm">
 						<ClipboardList className="w-6 h-6" />
 					</div>
 					<div>
-						<h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Attendance Calculator</h1>
-						<p className="text-sm text-muted-foreground mt-1">Track your class attendance and see how many classes you can skip or need to attend</p>
+						<h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+							Attendance Calculator
+						</h1>
+						<p className="text-sm text-muted-foreground mt-1">
+							Track your class attendance and see how many classes you can skip or need to attend
+						</p>
 					</div>
 				</div>
 
@@ -79,13 +97,15 @@ export default function AttendanceCalculatorView() {
 					<div className="absolute -bottom-24 -right-24 w-48 h-48 bg-accent/10 rounded-full blur-3xl pointer-events-none" />
 
 					{/* Overall % circle */}
-					<div className={`flex flex-col items-center justify-center w-28 h-28 md:w-32 md:h-32 rounded-full relative z-10 shadow-glow transition-transform hover:scale-105 ${
-						overallAttendance === null
-							? "bg-white/10 border border-white/20"
-							: overallAttendance < defaultThreshold
-							? "bg-gradient-to-br from-red-500 to-orange-600"
-							: "bg-gradient-primary"
-					}`}>
+					<div
+						className={`flex flex-col items-center justify-center w-28 h-28 md:w-32 md:h-32 rounded-full relative z-10 shadow-glow transition-transform hover:scale-105 ${
+							overallAttendance === null
+								? "bg-white/10 border border-white/20"
+								: overallAttendance < defaultThreshold
+									? "bg-gradient-to-br from-red-500 to-orange-600"
+									: "bg-gradient-primary"
+						}`}
+					>
 						{overallAttendance !== null ? (
 							<>
 								<div className="text-2xl md:text-3xl font-bold text-white leading-none">
@@ -112,11 +132,18 @@ export default function AttendanceCalculatorView() {
 							},
 							{ label: "Default Threshold", value: `${defaultThreshold}%` },
 						].map(({ label, value, highlight }) => (
-							<div key={label} className="flex flex-col items-center p-3 md:p-4 bg-white/5 rounded-2xl min-w-[85px] md:min-w-[100px] backdrop-blur-md border border-white/10">
-								<span className={`text-xl md:text-2xl font-bold leading-none ${highlight ? "text-red-400" : "text-white/90"}`}>
+							<div
+								key={label}
+								className="flex flex-col items-center p-3 md:p-4 bg-white/5 rounded-2xl min-w-[85px] md:min-w-[100px] backdrop-blur-md border border-white/10"
+							>
+								<span
+									className={`text-xl md:text-2xl font-bold leading-none ${highlight ? "text-red-400" : "text-white/90"}`}
+								>
 									{value}
 								</span>
-								<span className="text-xs md:text-sm text-muted-foreground mt-1 text-center">{label}</span>
+								<span className="text-xs md:text-sm text-muted-foreground mt-1 text-center">
+									{label}
+								</span>
 							</div>
 						))}
 					</div>
@@ -147,7 +174,10 @@ export default function AttendanceCalculatorView() {
 
 					{/* Threshold setter */}
 					{showThresholdForm && (
-						<form onSubmit={handleUpdateThreshold} className="mb-6 flex items-end gap-3 p-4 bg-neutral-900/60 rounded-2xl border border-white/10">
+						<form
+							onSubmit={handleUpdateThreshold}
+							className="mb-6 flex items-end gap-3 p-4 bg-neutral-900/60 rounded-2xl border border-white/10"
+						>
 							<div className="flex flex-col gap-1.5">
 								<label className="text-xs font-bold text-neutral-300 uppercase tracking-wider">
 									Default Threshold (%)
@@ -170,7 +200,10 @@ export default function AttendanceCalculatorView() {
 							</button>
 							<button
 								type="button"
-								onClick={() => { setShowThresholdForm(false); setThresholdInput(""); }}
+								onClick={() => {
+									setShowThresholdForm(false);
+									setThresholdInput("");
+								}}
 								className="px-4 py-2.5 bg-white/5 hover:bg-white/10 text-neutral-300 border border-white/10 rounded-xl text-xs font-bold uppercase tracking-wider"
 							>
 								Cancel
