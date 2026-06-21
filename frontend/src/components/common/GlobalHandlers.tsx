@@ -4,7 +4,7 @@ import { useEffect } from "react";
 
 export default function GlobalHandlers() {
 	useEffect(() => {
-		const handler = (e: WheelEvent) => {
+		const handler = () => {
 			if (document.activeElement instanceof HTMLInputElement && document.activeElement.type === "number") {
 				document.activeElement.blur();
 			}

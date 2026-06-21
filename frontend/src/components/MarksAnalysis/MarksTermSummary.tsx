@@ -11,7 +11,6 @@ export default function MarksTermSummary({ subjects }: MarksTermSummaryProps) {
 	const withMarks = subjects.filter((s) => s.marks != null);
 	if (withMarks.length === 0) return null;
 
-	const withTotal = withMarks.filter((s) => s.marks!.total !== null);
 	const withGrade = withMarks.filter((s) => s.marks!.umsGradePoint !== null || s.marks!.total !== null);
 	const pending = subjects.length - withGrade.length;
 

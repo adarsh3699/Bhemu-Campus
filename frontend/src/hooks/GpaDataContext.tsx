@@ -106,29 +106,23 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 
 	// ===== SEMESTERS SUBCOLLECTION LISTENER =====
 	useEffect(() => {
-		if (!gpaService || !activeProfile) {
-			setSemesters([]);
-			return;
-		}
+		if (!gpaService || !activeProfile) return;
 
-		// Determine if we need to listen to another user's subcollection (shared profile)
 		const profile = allProfiles.find((p) => p.id === activeProfile);
 		const isSharedEdit = profile?.isShared && profile?.permission === "edit" && profile?.ownerUserId;
 
 		const unsubscribe = isSharedEdit
 			? gpaService.onSemestersChangeForUser(profile.ownerUserId!, activeProfile, (result) => {
-				if (result.success) setSemesters(result.semesters);
+				setSemesters(result.success ? result.semesters : []);
 			})
 			: gpaService.onSemestersChange(activeProfile, (result) => {
-				if (result.success) {
-					// Backward compat: if subcollection is empty, check embedded semesters
-					if (result.semesters.length === 0 && profile?.semesters && profile.semesters.length > 0) {
-						setSemesters(profile.semesters);
-						// Auto-migrate: write embedded semesters to subcollection
-						gpaService.saveSemesters(activeProfile, profile.semesters);
-					} else {
-						setSemesters(result.semesters);
-					}
+				if (!result.success) { setSemesters([]); return; }
+				// Backward compat: if subcollection is empty, fall back to embedded semesters
+				if (result.semesters.length === 0 && profile?.semesters && profile.semesters.length > 0) {
+					setSemesters(profile.semesters);
+					gpaService.saveSemesters(activeProfile, profile.semesters);
+				} else {
+					setSemesters(result.semesters);
 				}
 			});
 

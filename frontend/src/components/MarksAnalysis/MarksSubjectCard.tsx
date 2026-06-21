@@ -158,7 +158,14 @@ export default function MarksSubjectCard({
 					</div>
 				</>
 			) : (
-				<p className="text-xs text-neutral-500 mt-2">No marks — click ✎ to add</p>
+				<div className="flex items-center justify-between mt-2">
+					<p className="text-xs text-neutral-500">No marks — click ✎ to add</p>
+					{gradeLabel !== null && (
+						<span className="text-base font-black bg-gradient-to-r from-teal-400 to-blue-500 bg-clip-text text-transparent">
+							{gradeLabel} ({displayGradePoint})
+						</span>
+					)}
+				</div>
 			)}
 		</div>
 	);
