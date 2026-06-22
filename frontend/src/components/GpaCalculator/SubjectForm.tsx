@@ -93,7 +93,7 @@ const SubjectForm: React.FC<SubjectFormProps> = ({
 							onChange={onChange}
 							disabled={isReadOnlyProfile}
 							required
-							className="w-full px-4 py-3 border border-white/10 rounded-xl bg-white/5 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:border-indigo-500 focus:bg-indigo-500/10 focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200"
+							className="w-full px-4 py-2 border border-white/10 rounded-xl bg-white/5 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:border-indigo-500 focus:bg-indigo-500/10 focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200"
 						/>
 					</div>
 
@@ -124,13 +124,13 @@ const SubjectForm: React.FC<SubjectFormProps> = ({
 								onChange={onChange}
 								disabled={isReadOnlyProfile}
 								required
-								className="w-24 px-4 py-3 border border-white/10 rounded-xl bg-white/5 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:border-indigo-500 focus:bg-indigo-500/10 focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200"
+								className="w-24 px-4 py-2 border border-white/10 rounded-xl bg-white/5 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:border-indigo-500 focus:bg-indigo-500/10 focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200"
 							/>
 						</div>
 						<button
 							type="submit"
 							disabled={isReadOnlyProfile || !formState.grade}
-							className="flex-1 md:flex-none px-6 py-3 bg-gradient-to-r from-teal-400 to-blue-500 hover:from-teal-500 hover:to-blue-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 min-h-[46px] whitespace-nowrap"
+							className="flex-1 md:flex-none px-6 py-2 bg-gradient-to-r from-teal-400 to-blue-500 hover:from-teal-500 hover:to-blue-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 min-h-[38px] whitespace-nowrap"
 						>
 							Add Subject
 						</button>

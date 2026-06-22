@@ -304,6 +304,7 @@ export default function GpaCalculatorView() {
 				) : (
 					<MarksViewPanel
 						subjects={marksSubjects}
+						semesterName={semesters.find((s) => s.id === activeSemester)?.name ?? ""}
 						editingSubjectId={marksEditingSubjectId}
 						form={marksForm}
 						onFormChange={handleMarksFormChange}

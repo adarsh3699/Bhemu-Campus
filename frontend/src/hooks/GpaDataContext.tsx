@@ -473,8 +473,12 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 					const currentProfiles = result.profiles;
 
 					if (currentProfiles.length === 0) {
-						// Only fires on first signup — default profile can never be deleted
-						if (creatingDefaultProfileRef.current) return;
+						// Only fires on first signup — default profile can never be deleted.
+						// Skip if account deletion is in progress (the batch that wiped profiles
+						// will fire this listener before the auth token is revoked).
+						let isDeleting = false;
+						try { isDeleting = !!localStorage.getItem("bhemu_account_deleting"); } catch {}
+						if (isDeleting || creatingDefaultProfileRef.current) return;
 						creatingDefaultProfileRef.current = true;
 						try {
 							const profileId = Date.now();

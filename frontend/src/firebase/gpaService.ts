@@ -70,9 +70,20 @@ export class GPAService {
 			const batch = writeBatch(db);
 			const colRef = this.gpaAndMarksRef(profileId);
 
+			// Write all current semesters
+			const currentIds = new Set<string>();
 			for (const semester of semesters) {
-				const semDoc = doc(colRef, semester.id.toString());
-				batch.set(semDoc, { id: semester.id, name: semester.name, subjects: semester.subjects || [] });
+				const id = semester.id.toString();
+				currentIds.add(id);
+				batch.set(doc(colRef, id), { id: semester.id, name: semester.name, subjects: semester.subjects || [] });
+			}
+
+			// Delete docs that no longer exist in the list
+			const existingSnap = await getDocs(colRef);
+			for (const existing of existingSnap.docs) {
+				if (!currentIds.has(existing.id)) {
+					batch.delete(existing.ref);
+				}
 			}
 
 			// Remove legacy embedded semesters field from profile doc

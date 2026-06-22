@@ -23,12 +23,10 @@ import {
 	setDoc,
 	serverTimestamp,
 	collection,
-	collectionGroup,
 	getDocs,
 	writeBatch,
 	query,
 	where,
-	arrayRemove,
 } from "firebase/firestore";
 import { auth, googleProvider, db } from "./config";
 import type { FirebaseError, AuthContextType } from "@/types";
@@ -287,6 +285,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		await _cleanupCrossUserReferences(userId, userEmail, batchManager);
 		await _deleteUserDocuments(userId, batchManager);
 
+		// Set flag BEFORE committing — prevents GpaDataContext from auto-recreating a default
+		// profile when it sees 0 profiles after the batch deletes them all.
+		try { localStorage.setItem("bhemu_account_deleting", "1"); } catch {}
+
 		// Commit all batches
 		await _commitBatches(batchManager);
 	}
@@ -323,38 +325,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 	// Delete user's own collections
 	async function _deleteUserCollections(userId: string, batchManager: BatchManager) {
-		// First delete subcollections within each profile (Firestore doesn't cascade)
+		// Delete profiles and their subcollections (Firestore doesn't cascade)
 		const profilesSnap = await getDocs(collection(db, "users", userId, "profiles"));
 		for (const profileDoc of profilesSnap.docs) {
-			const profileRef = profileDoc.ref;
-			const nestedCollections = ["gpaAndMarks", "attendanceData"];
-			for (const nested of nestedCollections) {
-				const nestedSnap = await getDocs(collection(profileRef, nested));
+			for (const nested of ["gpaAndMarks", "attendanceData"]) {
+				const nestedSnap = await getDocs(collection(profileDoc.ref, nested));
 				nestedSnap.docs.forEach((d) => batchManager.add((batch) => batch.delete(d.ref)));
 			}
-			batchManager.add((batch) => batch.delete(profileRef));
+			batchManager.add((batch) => batch.delete(profileDoc.ref));
 		}
 
-		// Delete other top-level subcollections
-		const otherCollections = [
-			["users", userId, "sharedProfiles"],
-			["userShares", userId, "outgoing"],
-			["userShares", userId, "incoming"],
-		];
+		// Delete users/{userId}/sharedProfiles
+		const sharedProfilesSnap = await getDocs(collection(db, "users", userId, "sharedProfiles"));
+		sharedProfilesSnap.docs.forEach((d) => batchManager.add((batch) => batch.delete(d.ref)));
 
-		for (const collectionPath of otherCollections) {
-			const snapshot = await getDocs(collection(db, collectionPath[0], collectionPath[1], collectionPath[2]));
-			snapshot.docs.forEach((d) => batchManager.add((batch) => batch.delete(d.ref)));
+		// Delete outgoing shares + mirror-delete the corresponding incoming doc in each target user's space.
+		// We read the docs first (before deleting) to get targetUserId from the data.
+		const outgoingSnap = await getDocs(collection(db, "userShares", userId, "outgoing"));
+		for (const outDoc of outgoingSnap.docs) {
+			const targetUserId = outDoc.data().targetUserId as string | undefined;
+			if (targetUserId) {
+				// Remove the mirrored incoming entry that lives under the target user
+				batchManager.add((batch) => batch.delete(doc(db, "userShares", targetUserId, "incoming", outDoc.id)));
+			}
+			batchManager.add((batch) => batch.delete(outDoc.ref));
+		}
+
+		// Delete incoming shares + mirror-delete the corresponding outgoing doc in each owner user's space.
+		const incomingSnap = await getDocs(collection(db, "userShares", userId, "incoming"));
+		for (const inDoc of incomingSnap.docs) {
+			const ownerUserId = inDoc.data().ownerUserId as string | undefined;
+			if (ownerUserId) {
+				// Remove the mirrored outgoing entry that lives under the owner user
+				batchManager.add((batch) => batch.delete(doc(db, "userShares", ownerUserId, "outgoing", inDoc.id)));
+			}
+			batchManager.add((batch) => batch.delete(inDoc.ref));
 		}
 	}
 
-	// Clean up cross-user references
+	// Clean up cross-user references (legacy collections)
 	async function _cleanupCrossUserReferences(userId: string, userEmail: string, batchManager: BatchManager) {
-		await Promise.all([
-			_cleanupCollaborativeProfilesEnhanced(batchManager.add, userId),
-			_cleanupUserReferencesInSharesEnhanced(batchManager.add, userId, userEmail),
-			_cleanupLegacySharedProfilesEnhanced(batchManager.add, userId, userEmail),
-		]);
+		await _cleanupLegacySharedProfiles(batchManager.add, userId, userEmail);
 	}
 
 	// Delete user documents
@@ -404,68 +415,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		};
 	}
 
-	// Enhanced Helper: Clean up collaborative profiles on account deletion
-	async function _cleanupCollaborativeProfilesEnhanced(
-		addToBatch: (operation: (batch: ReturnType<typeof writeBatch>) => void) => void,
-		userId: string
-	) {
-		try {
-			const collaborativeProfilesRef = collection(db, "collaborativeProfiles");
-			const allCollaborativeProfiles = await getDocs(collaborativeProfilesRef);
-
-			allCollaborativeProfiles.docs.forEach((docSnap) => {
-				const profileData = docSnap.data();
-				const profileId = docSnap.id;
-
-				if (profileData.permissions && profileData.permissions[userId] === "owner") {
-					addToBatch((batch) => batch.delete(doc(collaborativeProfilesRef, profileId)));
-				} else if (profileData.collaborators && profileData.collaborators.includes(userId)) {
-					addToBatch((batch) =>
-						batch.update(doc(collaborativeProfilesRef, profileId), {
-							collaborators: arrayRemove(userId),
-							[`permissions.${userId}`]: null,
-							lastModified: serverTimestamp(),
-						})
-					);
-				}
-			});
-		} catch (error) {
-			console.error("Error cleaning up collaborative profiles:", error);
-		}
-	}
-
-	// Clean up references to this user in other users' shares (using collectionGroup)
-	async function _cleanupUserReferencesInSharesEnhanced(
-		addToBatch: (operation: (batch: ReturnType<typeof writeBatch>) => void) => void,
-		userId: string,
-		userEmail: string
-	) {
-		try {
-			// Find all outgoing shares targeting this user (across all users)
-			const outgoingByUid = await getDocs(
-				query(collectionGroup(db, "outgoing"), where("targetUserId", "==", userId))
-			);
-			outgoingByUid.docs.forEach((d) => addToBatch((batch) => batch.delete(d.ref)));
-
-			if (userEmail) {
-				const outgoingByEmail = await getDocs(
-					query(collectionGroup(db, "outgoing"), where("targetUserEmail", "==", userEmail))
-				);
-				outgoingByEmail.docs.forEach((d) => addToBatch((batch) => batch.delete(d.ref)));
-			}
-
-			// Find all incoming shares from this user (across all users)
-			const incomingByOwner = await getDocs(
-				query(collectionGroup(db, "incoming"), where("ownerUserId", "==", userId))
-			);
-			incomingByOwner.docs.forEach((d) => addToBatch((batch) => batch.delete(d.ref)));
-		} catch (error) {
-			console.error("Error cleaning up user references in shares:", error);
-		}
-	}
-
-	// Enhanced Helper: Clean up legacy shared profiles
-	async function _cleanupLegacySharedProfilesEnhanced(
+	// Clean up legacy sharedProfiles collection (old link-share system)
+	async function _cleanupLegacySharedProfiles(
 		addToBatch: (operation: (batch: ReturnType<typeof writeBatch>) => void) => void,
 		userId: string,
 		userEmail: string
@@ -475,42 +426,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 			const sharedQuery = query(sharedProfilesRef, where("originalUserId", "==", userId));
 			const sharedSnapshot = await getDocs(sharedQuery);
-
-			sharedSnapshot.docs.forEach((doc) => {
-				addToBatch((batch) => batch.delete(doc.ref));
-			});
+			sharedSnapshot.docs.forEach((d) => addToBatch((batch) => batch.delete(d.ref)));
 
 			if (userEmail) {
-				try {
-					const emailQuery = query(sharedProfilesRef, where("originalUserEmail", "==", userEmail));
-					const emailSnapshot = await getDocs(emailQuery);
-
-					emailSnapshot.docs.forEach((doc) => {
-						addToBatch((batch) => batch.delete(doc.ref));
-					});
-				} catch (emailError) {
-					const msg = emailError instanceof Error ? emailError.message : String(emailError);
-					console.log("Email-based cleanup not needed or failed:", msg);
-				}
-			}
-
-			try {
-				const allSharedProfiles = await getDocs(sharedProfilesRef);
-				allSharedProfiles.docs.forEach((doc) => {
-					const data = doc.data();
-
-					const shouldDelete =
-						(data.sharedWith && data.sharedWith.includes(userId)) ||
-						(data.sharedWithEmails && userEmail && data.sharedWithEmails.includes(userEmail)) ||
-						(data.collaborators && data.collaborators.includes(userId)) ||
-						(data.permissions && data.permissions[userId]);
-
-					if (shouldDelete) {
-						addToBatch((batch) => batch.delete(doc.ref));
-					}
-				});
-			} catch (allProfilesError) {
-				console.error("Error cleaning up shared profiles by user references:", allProfilesError);
+				const emailQuery = query(sharedProfilesRef, where("originalUserEmail", "==", userEmail));
+				const emailSnapshot = await getDocs(emailQuery);
+				emailSnapshot.docs.forEach((d) => addToBatch((batch) => batch.delete(d.ref)));
 			}
 		} catch (error) {
 			console.error("Error cleaning up legacy shared profiles:", error);
