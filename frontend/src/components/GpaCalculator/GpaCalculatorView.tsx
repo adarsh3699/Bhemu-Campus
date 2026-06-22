@@ -317,6 +317,7 @@ export default function GpaCalculatorView() {
 						subjectForm={marksSubjectForm}
 						onSubjectFormChange={handleMarksSubjectFormChange}
 						onAddSubject={handleMarksAddSubject}
+						isReadOnly={isReadOnlyProfile}
 					/>
 				)}
 			</div>

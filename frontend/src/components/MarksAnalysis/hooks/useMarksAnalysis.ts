@@ -30,7 +30,7 @@ function toNum(val: string): number | null {
 
 export function useMarksAnalysis() {
 	const marksCtx = useMarksData();
-	const { semesters, updateSemesters } = useGpaData();
+	const { semesters, updateSemesters, isReadOnlyProfile } = useGpaData();
 
 	// Marks editing state
 	const [editingSubjectId, setEditingSubjectId] = useState<string | null>(null);
@@ -113,6 +113,7 @@ export function useMarksAnalysis() {
 
 	const addSubject = useCallback(async () => {
 		const { subjectName, credit, ca, midTerm, endTerm, attendanceMarks } = subjectForm;
+		if (isReadOnlyProfile) return;
 		if (!marksCtx.activeTermId || !subjectName.trim() || !credit) return;
 
 		const caNum = toNum(ca);
@@ -153,7 +154,7 @@ export function useMarksAnalysis() {
 		await updateSemesters(updated);
 		setSubjectForm(EMPTY_SUBJECT_FORM);
 		setShowSubjectForm(false);
-	}, [semesters, marksCtx.activeTermId, subjectForm, updateSemesters]);
+	}, [semesters, marksCtx.activeTermId, subjectForm, updateSemesters, isReadOnlyProfile]);
 
 	const deleteSubject = useCallback(
 		async (subjectId: string | number) => {

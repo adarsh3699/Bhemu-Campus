@@ -21,7 +21,6 @@ export interface GPAProfile {
 	name: string;
 	semesters?: GPASemester[];
 	isDefault?: boolean;
-	userId?: string;
 	createdAt?: unknown;
 	updatedAt?: unknown;
 	studentInfo?: unknown;
@@ -36,12 +35,7 @@ export interface GPAProfile {
 	};
 	isShared?: boolean;
 	ownerUserId?: string;
-	sharedAt?: unknown;
-	shareId?: string;
-	permission?: "read" | "edit" | "owner";
-	collaborators?: string[];
-	permissions?: Record<string, "read" | "edit" | "owner">;
-	lastModified?: unknown;
+	permission?: "read" | "edit";
 	lastOpened?: unknown;
 }
 

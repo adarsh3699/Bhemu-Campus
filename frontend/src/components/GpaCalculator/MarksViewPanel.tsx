@@ -23,6 +23,7 @@ interface MarksViewPanelProps {
 	subjectForm: SubjectFormState;
 	onSubjectFormChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 	onAddSubject: () => void;
+	isReadOnly?: boolean;
 }
 
 export default function MarksViewPanel({
@@ -40,6 +41,7 @@ export default function MarksViewPanel({
 	subjectForm,
 	onSubjectFormChange,
 	onAddSubject,
+	isReadOnly = false,
 }: MarksViewPanelProps) {
 	const [extensionModalOpen, setExtensionModalOpen] = useState(false);
 
@@ -64,9 +66,9 @@ export default function MarksViewPanel({
 						UMS Extension
 					</button>
 					<button
-						onClick={() => !semesterName ? undefined : setShowSubjectForm((v) => !v)}
-						disabled={!semesterName}
-						title={!semesterName ? "Add a semester first" : undefined}
+						onClick={() => (!isReadOnly && semesterName) ? setShowSubjectForm((v) => !v) : undefined}
+						disabled={isReadOnly || !semesterName}
+						title={isReadOnly ? "Read-only profile" : !semesterName ? "Add a semester first" : undefined}
 						className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-teal-400 border border-teal-400/30 rounded-xl bg-teal-400/5 hover:bg-teal-400/10 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-teal-400/5"
 					>
 						{showSubjectForm ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
@@ -85,7 +87,7 @@ export default function MarksViewPanel({
 				)}
 
 				{/* Add subject form — above the card */}
-				{showSubjectForm && (
+				{showSubjectForm && !isReadOnly && (
 					<form
 						onSubmit={(e) => { e.preventDefault(); if (!totalOver) onAddSubject(); }}
 						className="mb-4 p-4 rounded-2xl bg-neutral-900/60 border border-white/10 flex flex-col gap-3"
@@ -180,10 +182,11 @@ export default function MarksViewPanel({
 									isEditing={editingSubjectId === String(subject.id)}
 									formState={form}
 									onFormChange={onFormChange}
-									onEdit={onEdit}
+									onEdit={isReadOnly ? () => {} : onEdit}
 									onSave={onSave}
 									onCancel={onCancel}
-									onDeleteSubject={onDeleteSubject}
+									onDeleteSubject={isReadOnly ? () => {} : onDeleteSubject}
+									isReadOnly={isReadOnly}
 								/>
 							))}
 						</div>

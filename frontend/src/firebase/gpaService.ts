@@ -11,8 +11,6 @@ import {
 	serverTimestamp,
 	writeBatch,
 	onSnapshot,
-	arrayUnion,
-	arrayRemove,
 	deleteField,
 	CollectionReference,
 	DocumentData,
@@ -27,8 +25,6 @@ export type { GPASubject, GPASemester, GPAProfile, ShareData };
 export class GPAService {
 	private userId: string;
 	private userProfilesRef: CollectionReference<DocumentData>;
-	private sharedProfilesRef: CollectionReference<DocumentData>;
-	private userSharedRef: CollectionReference<DocumentData>;
 	private outgoingSharesRef: CollectionReference<DocumentData>;
 	private incomingSharesRef: CollectionReference<DocumentData>;
 	private _userIdCache?: Map<string, string | null>;
@@ -36,10 +32,6 @@ export class GPAService {
 	constructor(userId: string) {
 		this.userId = userId;
 		this.userProfilesRef = collection(db, "users", userId, "profiles");
-		this.sharedProfilesRef = collection(db, "sharedProfiles");
-		this.userSharedRef = collection(db, "users", userId, "sharedProfiles");
-
-		// Enhanced sharing collections
 		this.outgoingSharesRef = collection(db, "userShares", userId, "outgoing");
 		this.incomingSharesRef = collection(db, "userShares", userId, "incoming");
 	}
@@ -171,11 +163,10 @@ export class GPAService {
 
 	async saveProfile(profile: GPAProfile): Promise<{ success: boolean; profile?: GPAProfile; error?: string }> {
 		try {
-			// Strip semesters from profile doc — they live in gpaAndMarks subcollection
-			const { semesters, ...profileMetadata } = profile;
+			// Strip runtime-only fields before writing (permission is set from userShares, not stored on profile doc)
+			const { semesters, permission, ...profileMetadata } = profile;
 			const profileData = {
 				...profileMetadata,
-				userId: this.userId,
 				updatedAt: serverTimestamp(),
 				createdAt: profile.createdAt || serverTimestamp(),
 				...(profile.studentInfo ? { studentInfo: profile.studentInfo } : {}),
@@ -263,11 +254,8 @@ export class GPAService {
 			const semSnapshot = await getDocs(this.gpaAndMarksRef(profileId));
 			semSnapshot.docs.forEach((d) => batch.delete(d.ref));
 
-			// Clean up all share records in parallel, then commit in one batch
-			await Promise.all([
-				this._cleanupOutgoingShares(batch, idVariants),
-				this._cleanupLegacyShares(batch, idVariants),
-			]);
+			// Clean up outgoing share records
+			await this._cleanupOutgoingShares(batch, idVariants);
 
 			await batch.commit();
 			return { success: true };
@@ -297,23 +285,6 @@ export class GPAService {
 		});
 	}
 
-	// Clean up legacy sharedProfiles collection (old link-share system)
-	private async _cleanupLegacyShares(
-		batch: ReturnType<typeof writeBatch>,
-		idVariants: Array<string | number>
-	): Promise<void> {
-		const snapshots = await Promise.all(
-			idVariants.map((v) => getDocs(query(this.userSharedRef, where("profileId", "==", v))))
-		);
-
-		const seen = new Set<string>();
-		snapshots.flatMap((s) => s.docs).forEach((shareDoc) => {
-			if (seen.has(shareDoc.id)) return;
-			seen.add(shareDoc.id);
-			batch.delete(doc(this.userSharedRef, shareDoc.id));
-			batch.delete(doc(this.sharedProfilesRef, shareDoc.id));
-		});
-	}
 
 	// ===== REAL-TIME LISTENERS =====
 
@@ -378,209 +349,7 @@ export class GPAService {
 		}
 	}
 
-	onSharedProfilesChange(callback: (res: { success: boolean; sharedProfiles: unknown[]; error?: string }) => void): Unsubscribe {
-		try {
-			const q = query(this.userSharedRef, orderBy("sharedAt", "desc"));
-			const unsubscribe = onSnapshot(
-				q,
-				(snapshot) => {
-					const sharedProfiles = snapshot.docs.map((doc) => ({
-						id: doc.id,
-						...doc.data(),
-					}));
-					callback({ success: true, sharedProfiles });
-				},
-				(error) => {
-					console.error("Error listening to shared profiles:", error);
-					callback({ success: false, error: error.message, sharedProfiles: [] });
-				}
-			);
-
-			return unsubscribe;
-		} catch (error) {
-			console.error("Error setting up shared profiles listener:", error);
-			callback({ success: false, error: (error as Error).message, sharedProfiles: [] });
-			return () => {};
-		}
-	}
-
-	// ===== SHARING FUNCTIONALITY =====
-
-	async shareProfile(profileId: string | number, shareOptions: Record<string, unknown> = {}): Promise<{ success: boolean; shareId?: string; shareUrl?: string; sharedProfile?: unknown; error?: string }> {
-		try {
-			const profileResult = await this.getProfile(profileId);
-			if (!profileResult.success || !profileResult.profile) {
-				return { success: false, error: "Profile not found" };
-			}
-
-			const profile = profileResult.profile;
-			const shareId = this.generateShareId();
-
-			const sharedProfileData = {
-				...profile,
-				shareId,
-				originalUserId: this.userId,
-				originalProfileId: profileId,
-				sharedAt: serverTimestamp(),
-				isPublic: true,
-				shareOptions: {
-					allowCopy: shareOptions.allowCopy !== false,
-					allowView: shareOptions.allowView !== false,
-					expiresAt: shareOptions.expiresAt || null,
-					password: shareOptions.password || null,
-					...shareOptions,
-				},
-			};
-
-			const batch = writeBatch(db);
-
-			// Add to shared profiles collection
-			const sharedProfileRef = doc(this.sharedProfilesRef, shareId);
-			batch.set(sharedProfileRef, sharedProfileData);
-
-			// Add reference to user's shared profiles
-			const userSharedDocRef = doc(this.userSharedRef, shareId);
-			batch.set(userSharedDocRef, {
-				shareId,
-				profileId,
-				profileName: profile.name,
-				sharedAt: serverTimestamp(),
-				shareUrl: this.generateShareUrl(shareId),
-				isActive: true,
-			});
-
-			await batch.commit();
-
-			return {
-				success: true,
-				shareId,
-				shareUrl: this.generateShareUrl(shareId),
-				sharedProfile: sharedProfileData,
-			};
-		} catch (error) {
-			console.error("Error sharing profile:", error);
-			return { success: false, error: (error as Error).message };
-		}
-	}
-
-	async getSharedProfile(shareId: string): Promise<{ success: boolean; sharedProfile?: unknown; error?: string }> {
-		try {
-			const docRef = doc(this.sharedProfilesRef, shareId);
-			const docSnap = await getDoc(docRef);
-
-			if (docSnap.exists()) {
-				const sharedProfile = docSnap.data();
-
-				// Check if share is still valid
-				if (
-					(sharedProfile.shareOptions as { expiresAt?: { toDate: () => Date } })?.expiresAt &&
-					(sharedProfile.shareOptions as { expiresAt: { toDate: () => Date } }).expiresAt.toDate() < new Date()
-				) {
-					return { success: false, error: "Share link has expired" };
-				}
-
-				return { success: true, sharedProfile };
-			} else {
-				return { success: false, error: "Shared profile not found" };
-			}
-		} catch (error) {
-			console.error("Error fetching shared profile:", error);
-			return { success: false, error: (error as Error).message };
-		}
-	}
-
-	async copySharedProfile(shareId: string, newProfileName?: string): Promise<{ success: boolean; profile?: GPAProfile; error?: string }> {
-		try {
-			const sharedResult = await this.getSharedProfile(shareId);
-			if (!sharedResult.success || !sharedResult.sharedProfile) {
-				return { success: false, error: sharedResult.error || "Failed to fetch shared profile" };
-			}
-
-			const sharedProfile = sharedResult.sharedProfile as {
-				name?: string;
-				semesters?: GPASemester[];
-				originalUserId?: string;
-				originalProfileId?: string | number;
-				shareOptions?: {
-					allowCopy?: boolean;
-					allowView?: boolean;
-				};
-			};
-
-			if (!sharedProfile.shareOptions?.allowCopy) {
-				return { success: false, error: "Copying is not allowed for this profile" };
-			}
-
-			const newProfile: GPAProfile = {
-				id: Date.now(),
-				name: newProfileName || `Copy of ${sharedProfile.name}`,
-				copiedFrom: {
-					shareId,
-					originalUserId: sharedProfile.originalUserId || "",
-					copiedAt: serverTimestamp(),
-				},
-			};
-
-			// Save profile metadata
-			const saveResult = await this.saveProfile(newProfile);
-			if (!saveResult.success) return { success: false, error: saveResult.error };
-
-			// Copy semesters: try subcollection from owner first, fall back to embedded
-			let semesters: GPASemester[] = [];
-			if (sharedProfile.originalUserId && sharedProfile.originalProfileId) {
-				const ownerColRef = this.gpaAndMarksRefForUser(sharedProfile.originalUserId, sharedProfile.originalProfileId);
-				const semSnap = await getDocs(ownerColRef);
-				semesters = semSnap.docs.map((d) => ({ id: d.id, ...d.data() } as unknown as GPASemester));
-			}
-			if (semesters.length === 0 && sharedProfile.semesters) {
-				semesters = sharedProfile.semesters;
-			}
-			if (semesters.length > 0) {
-				await this.saveSemesters(newProfile.id, semesters);
-			}
-
-			return { success: true, profile: { ...newProfile, semesters } };
-		} catch (error) {
-			console.error("Error copying shared profile:", error);
-			return { success: false, error: (error as Error).message };
-		}
-	}
-
-	async getUserSharedProfiles(): Promise<{ success: boolean; sharedProfiles: unknown[]; error?: string }> {
-		try {
-			const snapshot = await getDocs(query(this.userSharedRef, orderBy("sharedAt", "desc")));
-			const sharedProfiles = snapshot.docs.map((doc) => ({
-				id: doc.id,
-				...doc.data(),
-			}));
-			return { success: true, sharedProfiles };
-		} catch (error) {
-			console.error("Error fetching shared profiles:", error);
-			return { success: false, error: (error as Error).message, sharedProfiles: [] };
-		}
-	}
-
-	async unshareProfile(shareId: string): Promise<{ success: boolean; error?: string }> {
-		try {
-			const batch = writeBatch(db);
-
-			// Remove from shared profiles collection
-			const sharedProfileRef = doc(this.sharedProfilesRef, shareId);
-			batch.delete(sharedProfileRef);
-
-			// Remove from user's shared profiles
-			const userSharedDocRef = doc(this.userSharedRef, shareId);
-			batch.delete(userSharedDocRef);
-
-			await batch.commit();
-			return { success: true };
-		} catch (error) {
-			console.error("Error unsharing profile:", error);
-			return { success: false, error: (error as Error).message };
-		}
-	}
-
-	// ===== ENHANCED USER-SPECIFIC SHARING =====
+	// ===== USER-SPECIFIC SHARING =====
 
 	async shareProfileWithUser(profileId: string | number, targetUserEmail: string, permission: "read" | "edit" = "read"): Promise<{ success: boolean; shareId?: string; shareData?: ShareData; error?: string }> {
 		try {
@@ -634,27 +403,10 @@ export class GPAService {
 
 	private async _executeShareOperation(shareData: ShareData, profile: GPAProfile, permission: "read" | "edit"): Promise<void> {
 		const batch = writeBatch(db);
-		const { shareId, profileId, targetUserId } = shareData;
+		const { shareId, targetUserId } = shareData;
 
-		// 1. Add Pointers
 		batch.set(doc(this.outgoingSharesRef, shareId), shareData);
 		batch.set(doc(db, "userShares", targetUserId, "incoming", shareId), shareData);
-
-		// 2. Update ORIGINAL profile collaborators metadata
-		const profileRef = doc(this.userProfilesRef, profileId.toString());
-
-		batch.set(
-			profileRef,
-			{
-				collaborators: arrayUnion(targetUserId),
-				permissions: {
-					[this.userId]: "owner",
-					[targetUserId]: permission,
-				},
-				lastModified: serverTimestamp(),
-			},
-			{ merge: true }
-		);
 
 		await batch.commit();
 	}
@@ -673,7 +425,7 @@ export class GPAService {
 	}
 
 	private async _buildSharedProfile(shareData: ShareData): Promise<GPAProfile | null> {
-		const { profileId, shareId, permission, ownerUserId, sharedAt } = shareData;
+		const { profileId, permission, ownerUserId } = shareData;
 
 		const profileData = await this._getProfileDataByPermission(shareData);
 		if (!profileData) return null;
@@ -690,10 +442,8 @@ export class GPAService {
 			...profileData,
 			semesters,
 			id: profileId,
-			shareId,
 			permission: permission as "read" | "edit",
 			ownerUserId,
-			sharedAt,
 			isShared: true,
 		};
 	}
@@ -731,17 +481,10 @@ export class GPAService {
 
 	private async _executeUnshareOperation(shareId: string, shareData: ShareData): Promise<void> {
 		const batch = writeBatch(db);
-		const { targetUserId, profileId } = shareData;
+		const { targetUserId } = shareData;
 
 		batch.delete(doc(this.outgoingSharesRef, shareId));
 		batch.delete(doc(db, "userShares", targetUserId, "incoming", shareId));
-
-		const profileRef = doc(this.userProfilesRef, profileId.toString());
-		batch.update(profileRef, {
-			collaborators: arrayRemove(targetUserId),
-			[`permissions.${targetUserId}`]: deleteField(),
-			lastModified: serverTimestamp(),
-		});
 
 		await batch.commit();
 	}
@@ -768,46 +511,22 @@ export class GPAService {
 
 	private async _executePermissionUpdate(shareId: string, shareData: ShareData, newPermission: "read" | "edit"): Promise<ShareData> {
 		const batch = writeBatch(db);
-		const { targetUserId, profileId } = shareData;
+		const { targetUserId } = shareData;
 
 		const updatedShareData = { ...shareData, permission: newPermission, updatedAt: serverTimestamp() };
 		batch.update(doc(this.outgoingSharesRef, shareId), updatedShareData as DocumentData);
 		batch.update(doc(db, "userShares", targetUserId, "incoming", shareId), updatedShareData as DocumentData);
 
-		await this._updateProfilePermissions(batch, profileId, targetUserId, newPermission);
-
 		await batch.commit();
 		return updatedShareData;
 	}
 
-	private async _updateProfilePermissions(
-		batch: ReturnType<typeof writeBatch>,
-		profileId: string | number,
-		targetUserId: string,
-		newPermission: "read" | "edit"
-	): Promise<void> {
-		const profileRef = doc(this.userProfilesRef, profileId.toString());
-
-		batch.set(
-			profileRef,
-			{
-				permissions: {
-					[targetUserId]: newPermission,
-				},
-				lastModified: serverTimestamp(),
-			},
-			{ merge: true }
-		);
-	}
-
 	async saveProfileWithCollaboration(profile: GPAProfile): Promise<{ success: boolean; profile?: GPAProfile; error?: string }> {
 		try {
-			const correctUserId = profile.isShared && profile.ownerUserId ? profile.ownerUserId : this.userId;
-
-			const { semesters, ...profileMetadata } = profile;
+			// Strip runtime-only fields before writing (permission is set from userShares, not stored on profile doc)
+			const { semesters, permission, ...profileMetadata } = profile;
 			const profileData = {
 				...profileMetadata,
-				userId: correctUserId,
 				updatedAt: serverTimestamp(),
 				createdAt: profile.createdAt || serverTimestamp(),
 			};
@@ -994,11 +713,6 @@ export class GPAService {
 
 	generateShareId(): string {
 		return Date.now().toString(36) + Math.random().toString(36).substring(2);
-	}
-
-	generateShareUrl(shareId: string): string {
-		const origin = typeof window !== "undefined" ? window.location.origin : "";
-		return `${origin}/shared/${shareId}`;
 	}
 
 }

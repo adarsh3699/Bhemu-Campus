@@ -16,6 +16,7 @@ interface MarksSubjectCardProps {
 	onSave: (id: string | number) => void;
 	onCancel: () => void;
 	onDeleteSubject: (id: string | number) => void;
+	isReadOnly?: boolean;
 }
 
 function MarkInput({
@@ -55,6 +56,7 @@ export default function MarksSubjectCard({
 	onSave,
 	onCancel,
 	onDeleteSubject,
+	isReadOnly = false,
 }: MarksSubjectCardProps) {
 	const { marks } = subject;
 	const hasMarks = marks != null;
@@ -133,16 +135,18 @@ export default function MarksSubjectCard({
 					) : (
 						<>
 							<button
-								onClick={() => onEdit(subject.id)}
-								title="Edit marks"
-								className="flex items-center justify-center w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20 hover:scale-105 transition-all duration-200"
+								onClick={() => !isReadOnly && onEdit(subject.id)}
+								disabled={isReadOnly}
+								title={isReadOnly ? "Read-only profile" : "Edit marks"}
+								className="flex items-center justify-center w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20 hover:scale-105 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:bg-indigo-500/10"
 							>
 								<Pencil className="w-3.5 h-3.5" />
 							</button>
 							<button
-								onClick={() => onDeleteSubject(subject.id)}
-								title="Delete subject"
-								className="flex items-center justify-center w-7 h-7 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:scale-105 transition-all duration-200"
+								onClick={() => !isReadOnly && onDeleteSubject(subject.id)}
+								disabled={isReadOnly}
+								title={isReadOnly ? "Read-only profile" : "Delete subject"}
+								className="flex items-center justify-center w-7 h-7 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:scale-105 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:bg-red-500/10"
 							>
 								<Trash2 className="w-3.5 h-3.5" />
 							</button>

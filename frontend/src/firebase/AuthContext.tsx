@@ -25,8 +25,6 @@ import {
 	collection,
 	getDocs,
 	writeBatch,
-	query,
-	where,
 } from "firebase/firestore";
 import { auth, googleProvider, db } from "./config";
 import type { FirebaseError, AuthContextType } from "@/types";
@@ -282,7 +280,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 		// Delete user data in organized steps
 		await _deleteUserCollections(userId, batchManager);
-		await _cleanupCrossUserReferences(userId, userEmail, batchManager);
 		await _deleteUserDocuments(userId, batchManager);
 
 		// Set flag BEFORE committing — prevents GpaDataContext from auto-recreating a default
@@ -363,11 +360,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		}
 	}
 
-	// Clean up cross-user references (legacy collections)
-	async function _cleanupCrossUserReferences(userId: string, userEmail: string, batchManager: BatchManager) {
-		await _cleanupLegacySharedProfiles(batchManager.add, userId, userEmail);
-	}
-
 	// Delete user documents
 	async function _deleteUserDocuments(userId: string, batchManager: BatchManager) {
 		batchManager.add((batch) => batch.delete(doc(db, "userShares", userId)));
@@ -413,29 +405,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			success: false,
 			...mapped,
 		};
-	}
-
-	// Clean up legacy sharedProfiles collection (old link-share system)
-	async function _cleanupLegacySharedProfiles(
-		addToBatch: (operation: (batch: ReturnType<typeof writeBatch>) => void) => void,
-		userId: string,
-		userEmail: string
-	) {
-		try {
-			const sharedProfilesRef = collection(db, "sharedProfiles");
-
-			const sharedQuery = query(sharedProfilesRef, where("originalUserId", "==", userId));
-			const sharedSnapshot = await getDocs(sharedQuery);
-			sharedSnapshot.docs.forEach((d) => addToBatch((batch) => batch.delete(d.ref)));
-
-			if (userEmail) {
-				const emailQuery = query(sharedProfilesRef, where("originalUserEmail", "==", userEmail));
-				const emailSnapshot = await getDocs(emailQuery);
-				emailSnapshot.docs.forEach((d) => addToBatch((batch) => batch.delete(d.ref)));
-			}
-		} catch (error) {
-			console.error("Error cleaning up legacy shared profiles:", error);
-		}
 	}
 
 	// Check if user has Google provider

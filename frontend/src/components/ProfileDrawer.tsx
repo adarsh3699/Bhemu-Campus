@@ -5,7 +5,6 @@ import {
 	Share2,
 	Copy,
 	Pencil,
-	Ban,
 	Eye,
 	Download,
 	X,
@@ -46,13 +45,11 @@ interface ProfileDrawerProps {
 	onCreateProfile: (name: string) => void;
 	onDeleteProfile: (profileId: string | number) => void;
 	onShareProfile?: (profileId: string | number) => void;
-	onUnshareProfile?: (shareId: string) => Promise<void>;
 	onCopySharedProfile?: (shareId: string, profileName: string) => Promise<void>;
 	onVerifyUMS?: (
 		profileId: string | number,
 		umsData: { semesters: GPASemester[]; studentInfo: unknown; allTermIds: unknown; fetchedAt?: string }
 	) => void;
-	sharedProfiles?: unknown[];
 	mySharedProfiles?: unknown[];
 	isLoading?: boolean;
 	currentUser?: { uid: string } | null;
@@ -67,15 +64,12 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 	onCreateProfile,
 	onDeleteProfile,
 	onShareProfile,
-	onUnshareProfile,
 	onCopySharedProfile,
 	onVerifyUMS,
-	sharedProfiles = [],
 	mySharedProfiles = [],
 	isLoading = false,
 	currentUser,
 }) => {
-	const typedSharedProfiles = (sharedProfiles || []) as SharedStatusItem[];
 	const typedMySharedProfiles = (mySharedProfiles || []) as SharedStatusItem[];
 
 	const [showInputModal, setShowInputModal] = useState(false);
@@ -132,13 +126,6 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 		}
 	};
 
-	const handleUnshareProfile = async (shareId: string, event: React.MouseEvent<HTMLButtonElement>) => {
-		event.stopPropagation();
-		if (onUnshareProfile) {
-			await onUnshareProfile(shareId);
-		}
-	};
-
 	const handleCopyProfile = async (shareId: string, profileName: string, event: React.MouseEvent<HTMLButtonElement>) => {
 		event.stopPropagation();
 		if (onCopySharedProfile) {
@@ -161,10 +148,6 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 			setProfileToVerify(null);
 		}
 		setShowUMSModal(false);
-	};
-
-	const getProfileSharedStatus = (profileId: string | number) => {
-		return typedSharedProfiles?.find((shared) => shared.profileId === profileId);
 	};
 
 	const getProfileUserShares = (profileId: string | number) => {
@@ -222,7 +205,6 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 							</h4>
 							<div className="grid grid-cols-1 gap-3">
 								{ownProfiles.map((profile) => {
-									const sharedStatus = getProfileSharedStatus(profile.id);
 									const userShares = getProfileUserShares(profile.id);
 									const hasUserShares = userShares.length > 0;
 									const isActive = currentProfile === profile.id;
@@ -253,7 +235,7 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 														Default
 													</span>
 												)}
-												{(sharedStatus || hasUserShares) && (
+												{hasUserShares && (
 													<span className="inline-flex mt-2.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 tracking-wider">
 														Shared {hasUserShares && `(${userShares.length} users)`}
 													</span>
@@ -383,42 +365,6 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 							</div>
 						)}
 
-						{/* Shared Profiles List Section */}
-						{typedSharedProfiles && typedSharedProfiles.length > 0 && (
-							<div className="space-y-4 pt-6 border-t border-white/5">
-								<h4 className="text-xs font-bold text-neutral-400 uppercase tracking-wider">
-									Outgoing Shares
-								</h4>
-								<div className="space-y-3">
-									{typedSharedProfiles.map((shared) => (
-										<div
-											key={shared.shareId}
-											className="flex items-center justify-between p-4 bg-white/5 border border-white/5 rounded-xl transition-all duration-300 hover:bg-white/10 hover:border-white/10"
-										>
-											<div className="flex-1 pr-4 min-w-0">
-												<h5 className="font-bold text-white text-xs truncate">
-													{shared.profileName}
-												</h5>
-												<p className="text-[10px] text-neutral-400 mt-1 font-semibold truncate">
-													Shared with {shared.targetUserEmail} •{" "}
-													<span className={shared.permission === "read" ? "text-blue-400" : "text-emerald-400"}>
-														{shared.permission === "read" ? "Read Only" : "Edit Access"}
-													</span>
-												</p>
-											</div>
-											<button
-												className="w-8 h-8 rounded-lg flex items-center justify-center bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all duration-200 flex-shrink-0"
-												onClick={(e) => handleUnshareProfile(shared.shareId, e)}
-												title="Unshare profile"
-												disabled={isLoading}
-											>
-												<Ban className="w-4 h-4" />
-											</button>
-										</div>
-									))}
-								</div>
-							</div>
-						)}
 					</div>
 				</div>
 			</div>

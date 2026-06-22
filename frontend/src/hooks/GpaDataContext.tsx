@@ -11,7 +11,6 @@ interface GpaDataContextValue {
 	activeProfile: string | number | null;
 	loading: boolean;
 	saving: boolean;
-	sharedProfiles: unknown[];
 	sharedWithMeProfiles: GPAProfile[];
 	mySharedProfiles: unknown[];
 	allProfiles: GPAProfile[];
@@ -29,7 +28,6 @@ interface GpaDataContextValue {
 		permission: "read" | "edit" | "unshare",
 		action?: string
 	) => Promise<void>;
-	unshareProfile: (shareId: string) => Promise<void>;
 	copySharedProfile: (shareId: string, profileName: string) => Promise<void>;
 	verifyUMS: (
 		profileId: string | number,
@@ -58,7 +56,6 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 	const [activeProfile, setActiveProfile] = useState<string | number | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
-	const [sharedProfiles, setSharedProfiles] = useState<unknown[]>([]);
 	const [sharedWithMeProfiles, setSharedWithMeProfiles] = useState<GPAProfile[]>([]);
 	const [mySharedProfiles, setMySharedProfiles] = useState<unknown[]>([]);
 
@@ -163,8 +160,11 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 		setActiveProfile(profileId);
 		// Persist to localStorage (same device only — new device always opens default)
 		try { localStorage.setItem("bhemu_activeProfileId", profileId.toString()); } catch {}
-		gpaService?.updateLastOpened(profileId);
-	}, [gpaService]);
+		// Only update lastOpened for own profiles — shared profiles live under the owner's
+		// collection and writing here would create a ghost doc under the recipient's collection.
+		const isShared = sharedWithMeProfiles.some((p) => p.id === profileId);
+		if (!isShared) gpaService?.updateLastOpened(profileId);
+	}, [gpaService, sharedWithMeProfiles]);
 
 	const createProfile = useCallback(
 		async (name: string) => {
@@ -295,24 +295,6 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 		[gpaService, showMessage]
 	);
 
-	const unshareProfile = useCallback(
-		async (shareId: string) => {
-			if (!gpaService) return;
-
-			try {
-				const result = await gpaService.unshareProfile(shareId);
-				if (result.success) {
-					showMessage("Profile unshared successfully", "success");
-				} else {
-					showMessage(result.error || "Error unsharing profile", "error");
-				}
-			} catch (error) {
-				console.error("Error unsharing profile:", error);
-				showMessage("Error unsharing profile. Please try again.", "error");
-			}
-		},
-		[gpaService, showMessage]
-	);
 
 	const copySharedProfile = useCallback(
 		async (shareId: string, profileName: string) => {
@@ -420,7 +402,6 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 		isInitializingRef.current = true;
 
 		let profilesUnsubscribe: (() => void) | null = null;
-		let sharedProfilesUnsubscribe: (() => void) | null = null;
 		let cleanupCollaborativeListeners: (() => void) | null = null;
 
 		const loadShares = async () => {
@@ -536,12 +517,6 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 				setLoading(false);
 			});
 
-			sharedProfilesUnsubscribe = gpaService.onSharedProfilesChange((result) => {
-				if (result.success) {
-					setSharedProfiles(result.sharedProfiles);
-				}
-			});
-
 			const incomingSharesUnsubscribe = gpaService.onIncomingSharesChange((result) => {
 				if (result.success) {
 					gpaService.getSharedWithMeProfiles().then((res) => {
@@ -562,7 +537,6 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 
 		return () => {
 			profilesUnsubscribe?.();
-			sharedProfilesUnsubscribe?.();
 			cleanupCollaborativeListeners?.();
 			// Allow re-initialization on next mount (React strict mode remount)
 			hasInitializedRef.current = false;
@@ -579,7 +553,6 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 				setActiveProfile(null);
 				setLoading(true);
 				setSaving(false);
-				setSharedProfiles([]);
 				setSharedWithMeProfiles([]);
 				setMySharedProfiles([]);
 			});
@@ -601,7 +574,7 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 
 		sharedWithMeProfiles.forEach((profile) => {
 			if (profile.permission === "edit" && !activeListeners.current[profile.id]) {
-				const ownerId = profile.ownerUserId || profile.userId || "";
+				const ownerId = profile.ownerUserId || "";
 
 				const unsubscribe = gpaService.onCollaborativeProfileChange(profile.id, ownerId, (result) => {
 					if (result.success && result.profile) {
@@ -611,15 +584,11 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 							if (index === -1) return prev;
 
 							const oldProfile = prev[index];
-							const updatedLastModifiedObj = updatedProfile.lastModified as { toMillis?: () => number } | null | undefined;
-							const oldLastModifiedObj = oldProfile.lastModified as { toMillis?: () => number } | null | undefined;
+							const updatedAtObj = updatedProfile.updatedAt as { toMillis?: () => number } | null | undefined;
+							const oldAtObj = oldProfile.updatedAt as { toMillis?: () => number } | null | undefined;
 
-							const newTime = updatedLastModifiedObj?.toMillis
-								? updatedLastModifiedObj.toMillis()
-								: updatedProfile.lastModified;
-							const oldTime = oldLastModifiedObj?.toMillis
-								? oldLastModifiedObj.toMillis()
-								: oldProfile.lastModified;
+							const newTime = updatedAtObj?.toMillis ? updatedAtObj.toMillis() : updatedProfile.updatedAt;
+							const oldTime = oldAtObj?.toMillis ? oldAtObj.toMillis() : oldProfile.updatedAt;
 
 							if (newTime && oldTime && newTime === oldTime) {
 								return prev;
@@ -676,7 +645,6 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 			activeProfile,
 			loading,
 			saving,
-			sharedProfiles,
 			sharedWithMeProfiles,
 			mySharedProfiles,
 			allProfiles,
@@ -689,7 +657,6 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 			deleteProfile,
 			updateSemesters,
 			shareProfileWithUser,
-			unshareProfile,
 			copySharedProfile,
 			verifyUMS,
 		}),
@@ -698,7 +665,6 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 			activeProfile,
 			loading,
 			saving,
-			sharedProfiles,
 			sharedWithMeProfiles,
 			mySharedProfiles,
 			allProfiles,
@@ -710,7 +676,6 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 			deleteProfile,
 			updateSemesters,
 			shareProfileWithUser,
-			unshareProfile,
 			copySharedProfile,
 			verifyUMS,
 		]
