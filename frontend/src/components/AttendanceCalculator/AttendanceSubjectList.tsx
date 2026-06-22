@@ -64,7 +64,7 @@ function computeRow(subject: AttendanceSubject, defaultThreshold: number) {
 	const status = getStatus(percentage, threshold);
 	// Each class attended also increases total — solve: ceil((a+n)/(t+n)*100) >= threshold
 	const needed =
-		status !== "safe"
+		status !== "safe" && subject.totalClasses > 0
 			? (() => {
 					let n = 0;
 					while (
@@ -73,19 +73,21 @@ function computeRow(subject: AttendanceSubject, defaultThreshold: number) {
 						) < threshold
 					) {
 						n++;
+						if (n > 1000) break;
 					}
 					return n;
 				})()
 			: 0;
 	// Each class skipped only increases total, attended stays same
 	const safeToSkip =
-		status === "safe"
+		status === "safe" && subject.totalClasses > 0
 			? (() => {
 					let skip = 0;
 					let total = subject.totalClasses;
 					while (Math.ceil((subject.attended / (total + 1)) * 100) >= threshold) {
 						skip++;
 						total++;
+						if (skip > 1000) break;
 					}
 					return skip;
 				})()
@@ -126,7 +128,6 @@ export default function AttendanceSubjectList({
 								<th className="px-4 py-4 text-[10px] font-bold text-neutral-400 uppercase tracking-widest text-center">
 									Total
 								</th>
-								{/* Progress column hidden on mobile */}
 								<th className="px-4 py-4 text-[10px] font-bold text-neutral-400 uppercase tracking-widest">
 									Progress
 								</th>
@@ -201,7 +202,7 @@ export default function AttendanceSubjectList({
 											</span>
 										</td>
 
-											{/* Status */}
+										{/* Status */}
 										<td className="px-4 py-4">
 											{status !== "safe" && needed > 0 ? (
 												<span className={`text-xs font-medium whitespace-nowrap ${styles.text}`}>

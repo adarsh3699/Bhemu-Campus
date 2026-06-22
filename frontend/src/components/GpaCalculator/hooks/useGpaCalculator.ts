@@ -1,20 +1,19 @@
 import React, { useState, useCallback, useMemo, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { useGpaData } from "@/hooks/GpaDataContext";
-import { GPAProfile } from "@/firebase/gpaService";
 import { Subject } from "@/lib/gpaUtils";
 import { useMarksAnalysis } from "@/components/MarksAnalysis/hooks/useMarksAnalysis";
 
 export function useGpaCalculator() {
 	const gpaData = useGpaData();
-	const { profiles, semesters, updateSemesters, shareProfileWithUser, updateActiveProfile } = gpaData;
+	const { profiles, semesters, updateSemesters, updateActiveProfile } = gpaData;
 	const marksAnalysis = useMarksAnalysis();
 
 	// ===== UI STATE =====
-	const [drawerOpen, setDrawerOpen] = useState(false);
 	const [viewMode, setViewMode] = useState<"gpa" | "marks">(() => {
 		if (typeof window === "undefined") return "marks";
-		return (localStorage.getItem("gpa_view_mode") as "gpa" | "marks") ?? "marks";
+		const stored = localStorage.getItem("gpa_view_mode");
+		return stored === "gpa" || stored === "marks" ? stored : "marks";
 	});
 
 	const setViewModeAndPersist = useCallback((mode: "gpa" | "marks") => {
@@ -35,10 +34,6 @@ export function useGpaCalculator() {
 	// Edit-subject modal state
 	const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
 
-	// Share modal state
-	const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-	const [profileToShare, setProfileToShare] = useState<GPAProfile | null>(null);
-
 	// Semester delete confirmation state
 	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 	const [semesterToDelete, setSemesterToDelete] = useState<{ id: string | number; name: string } | null>(null);
@@ -58,20 +53,6 @@ export function useGpaCalculator() {
 		return semesters[semesters.length - 1].id;
 	}, [semFromUrl, selectedSemesterId, semesters]);
 
-	// ===== DRAWER / PROFILE HANDLERS =====
-
-	const toggleDrawer = useCallback(() => {
-		setDrawerOpen((open) => !open);
-	}, []);
-
-	const handleUpdateActiveProfile = useCallback(
-		(id: string | number) => {
-			updateActiveProfile(id);
-			setDrawerOpen(false);
-		},
-		[updateActiveProfile]
-	);
-
 	// ===== INFO MODAL HANDLERS =====
 
 	const handleModalToggle = useCallback((type: "grade" | "ch", event: React.MouseEvent<HTMLButtonElement>) => {
@@ -84,28 +65,6 @@ export function useGpaCalculator() {
 	const handleModalClose = useCallback(() => {
 		setIsModalOpen(false);
 	}, []);
-
-	// ===== SHARE HANDLERS =====
-
-	const handleShareProfile = useCallback(
-		(profileId: string | number) => {
-			const profile = profiles.find((p) => p.id === profileId);
-			if (profile) {
-				setProfileToShare(profile);
-				setIsShareModalOpen(true);
-			}
-		},
-		[profiles]
-	);
-
-	const handleShareWithUser = useCallback(
-		async (emailOrAction: string, permission: string, action = "share") => {
-			if (profileToShare) {
-				await shareProfileWithUser(profileToShare, emailOrAction, permission as "read" | "edit", action);
-			}
-		},
-		[shareProfileWithUser, profileToShare]
-	);
 
 	// ===== SEMESTER HANDLERS =====
 
@@ -164,21 +123,25 @@ export function useGpaCalculator() {
 			if (!subjectName || !grade || !credit) return;
 
 			const isNew = editIndex === -1;
-			const subjectData = {
-				id: isNew ? Date.now() : (editIndex as number),
-				subjectName,
-				grade: parseFloat(grade),
-				credit: parseFloat(credit),
-			};
 
 			const updatedSemesters = semesters.map((semester) => {
 				if (semester.id !== activeSemester) return semester;
 				if (isNew) {
+					const subjectData = {
+						id: Date.now(),
+						subjectName,
+						grade: parseFloat(grade),
+						credit: parseFloat(credit),
+					};
 					return { ...semester, subjects: [...semester.subjects, subjectData] };
 				}
 				return {
 					...semester,
-					subjects: semester.subjects.map((s) => (s.id === editIndex ? subjectData : s)),
+					subjects: semester.subjects.map((s) => {
+						if (s.id !== editIndex) return s;
+						// Preserve existing marks — only update grade/name/credit
+						return { ...s, subjectName, grade: parseFloat(grade), credit: parseFloat(credit) };
+					}),
 				};
 			});
 
@@ -231,7 +194,7 @@ export function useGpaCalculator() {
 		viewMode,
 		setViewMode: setViewModeAndPersist,
 
-		// Marks analysis (spread all marks state/actions)
+		// Marks analysis
 		marksSubjects: marksAnalysis.subjects,
 		marksEditingSubjectId: marksAnalysis.editingSubjectId,
 		marksForm: marksAnalysis.form,
@@ -240,18 +203,11 @@ export function useGpaCalculator() {
 		handleMarksEdit: marksAnalysis.startEdit,
 		handleMarksCancel: marksAnalysis.cancelEdit,
 		handleDeleteSubjectFromMarks: marksAnalysis.deleteSubject,
-		// Add-subject form in marks view
 		marksShowSubjectForm: marksAnalysis.showSubjectForm,
 		marksSetShowSubjectForm: marksAnalysis.setShowSubjectForm,
 		marksSubjectForm: marksAnalysis.subjectForm,
 		handleMarksSubjectFormChange: marksAnalysis.handleSubjectFormChange,
 		handleMarksAddSubject: marksAnalysis.addSubject,
-
-		// Drawer
-		drawerOpen,
-		setDrawerOpen,
-		toggleDrawer,
-		handleUpdateActiveProfile,
 
 		// Info modal
 		isModalOpen,
@@ -262,14 +218,6 @@ export function useGpaCalculator() {
 		// Edit-subject modal
 		isUpdateModalOpen,
 		setIsUpdateModalOpen,
-
-		// Share modal
-		isShareModalOpen,
-		setIsShareModalOpen,
-		profileToShare,
-		setProfileToShare,
-		handleShareProfile,
-		handleShareWithUser,
 
 		// Semester delete confirm
 		showDeleteConfirm,
@@ -291,5 +239,9 @@ export function useGpaCalculator() {
 
 		// Semester actions
 		addSemester,
+
+		// Unused but kept for potential future use via ...gpaData spread
+		profiles,
+		updateActiveProfile,
 	};
 }

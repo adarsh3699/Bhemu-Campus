@@ -4,21 +4,26 @@ import React, { useState, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/firebase/AuthContext";
 import { useGpaData } from "@/hooks/GpaDataContext";
+import { type GPAProfile } from "@/types/gpa";
 import SideBar from "./SideBar";
 import TopBar from "./TopBar";
 import ProfileDrawer from "@/components/ProfileDrawer";
+import ShareModal, { ShareItem } from "@/components/modal/ShareModal";
 
 const NO_LAYOUT_PATHS = ["/login", "/register", "/forgot-password", "/reset-password", "/verify-email", "/"];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
 	const [sidebarOpen, setSidebarOpen] = useState(false);
 	const [profileDrawerOpen, setProfileDrawerOpen] = useState(false);
+	const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+	const [profileToShare, setProfileToShare] = useState<GPAProfile | null>(null);
+
 	const pathname = usePathname();
 	const { currentUser } = useAuth();
 	const {
 		allProfiles, activeProfile, sharedProfiles, mySharedProfiles, saving,
 		updateActiveProfile, createProfile, deleteProfile,
-		unshareProfile, copySharedProfile, verifyUMS,
+		unshareProfile, copySharedProfile, verifyUMS, shareProfileWithUser,
 	} = useGpaData();
 
 	const showLayout = !NO_LAYOUT_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
@@ -32,6 +37,23 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 		updateActiveProfile(id);
 		setProfileDrawerOpen(false);
 	}, [updateActiveProfile]);
+
+	const handleShareProfile = useCallback((profileId: string | number) => {
+		const profile = allProfiles.find((p) => p.id === profileId);
+		if (profile) {
+			setProfileToShare(profile);
+			setIsShareModalOpen(true);
+		}
+	}, [allProfiles]);
+
+	const handleShareWithUser = useCallback(
+		async (emailOrAction: string, permission: string, action = "share") => {
+			if (profileToShare) {
+				await shareProfileWithUser(profileToShare, emailOrAction, permission as "read" | "edit", action);
+			}
+		},
+		[shareProfileWithUser, profileToShare]
+	);
 
 	if (!showLayout) {
 		return <>{children}</>;
@@ -59,6 +81,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 					onProfileSelect={handleProfileSelect}
 					onCreateProfile={createProfile}
 					onDeleteProfile={deleteProfile}
+					onShareProfile={handleShareProfile}
 					onUnshareProfile={unshareProfile}
 					onCopySharedProfile={copySharedProfile}
 					onVerifyUMS={verifyUMS}
@@ -68,6 +91,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 					currentUser={currentUser}
 				/>
 			)}
+
+			{/* Share Modal - wired to the global drawer */}
+			<ShareModal
+				isOpen={isShareModalOpen}
+				onClose={() => {
+					setIsShareModalOpen(false);
+					setTimeout(() => setProfileToShare(null), 300);
+				}}
+				onShareWithUser={handleShareWithUser}
+				profileName={profileToShare?.name || ""}
+				currentShares={(mySharedProfiles as (ShareItem & { profileId: string | number })[]).filter(
+					(share) => share.profileId === profileToShare?.id
+				)}
+			/>
 		</>
 	);
 }

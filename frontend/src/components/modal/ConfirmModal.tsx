@@ -27,7 +27,6 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
 }) => {
 	const handleConfirm = () => {
 		onConfirm();
-		onClose();
 	};
 
 	const getIcon = () => {

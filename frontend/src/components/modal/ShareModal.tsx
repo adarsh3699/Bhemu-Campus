@@ -116,7 +116,12 @@ const ShareModal: React.FC<ShareModalProps> = ({
 	const formatShareDate = (sharedAt: unknown): string => {
 		if (!sharedAt) return "N/A";
 		try {
-			if (sharedAt && typeof sharedAt === "object" && "toDate" in sharedAt && typeof (sharedAt as { toDate: unknown }).toDate === "function") {
+			if (
+				sharedAt &&
+				typeof sharedAt === "object" &&
+				"toDate" in sharedAt &&
+				typeof (sharedAt as { toDate: unknown }).toDate === "function"
+			) {
 				return (sharedAt as { toDate: () => Date }).toDate().toLocaleDateString();
 			}
 			return new Date(sharedAt as string | number | Date).toLocaleDateString();
@@ -130,13 +135,15 @@ const ShareModal: React.FC<ShareModalProps> = ({
 			isOpen={isOpen}
 			onClose={handleClose}
 			title="Share Profile"
-			maxWidth="600px"
+			maxWidth="800px"
 			closeOnEsc={!isSharing}
 			closeOnOverlayClick={!isSharing}
 			className="bg-neutral-950 border border-white/10"
 		>
 			<div className="p-6 overflow-auto max-h-[calc(85vh-120px)]">
-				<p className="mb-6 text-sm text-neutral-400 font-medium">Share &quot;{profileName}&quot; with another user</p>
+				<p className="mb-6 text-sm text-neutral-400 font-medium">
+					Share &quot;{profileName}&quot; with another user
+				</p>
 
 				<form onSubmit={handleSubmit} className="flex flex-col gap-5">
 					<div className="flex flex-col gap-2">
@@ -221,7 +228,9 @@ const ShareModal: React.FC<ShareModalProps> = ({
 								<div key={share.shareId} className="bg-white/5 rounded-xl p-4 border border-white/10">
 									<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
 										<div className="flex-1">
-											<div className="font-semibold text-white text-sm mb-1">{share.targetUserEmail}</div>
+											<div className="font-semibold text-white text-sm mb-1">
+												{share.targetUserEmail}
+											</div>
 											<div className="flex items-center gap-3 mb-2">
 												<span
 													className={`px-3 py-1 rounded-full text-xs font-semibold ${

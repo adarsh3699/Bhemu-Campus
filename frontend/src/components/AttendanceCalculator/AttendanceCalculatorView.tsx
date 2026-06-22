@@ -52,7 +52,7 @@ export default function AttendanceCalculatorView() {
 	}
 
 	const belowThresholdCount = subjects.filter((s) => {
-		const pct = s.totalClasses > 0 ? (s.attended / s.totalClasses) * 100 : 0;
+		const pct = s.totalClasses > 0 ? Math.ceil((s.attended / s.totalClasses) * 100) : 0;
 		return pct < (s.threshold ?? defaultThreshold);
 	}).length;
 

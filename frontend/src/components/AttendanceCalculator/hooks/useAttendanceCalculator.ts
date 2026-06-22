@@ -112,12 +112,11 @@ export function useAttendanceCalculator() {
 	const defaultThreshold = attendanceCtx.attendanceData?.defaultThreshold ?? 75;
 
 	const overallAttendance = subjects.length
-		? Math.round(
+		? Math.ceil(
 				(subjects.reduce((acc, s) => acc + s.attended, 0) /
 					subjects.reduce((acc, s) => acc + s.totalClasses, 0)) *
-					100 *
-					10
-			) / 10
+					100
+			)
 		: null;
 
 	return {

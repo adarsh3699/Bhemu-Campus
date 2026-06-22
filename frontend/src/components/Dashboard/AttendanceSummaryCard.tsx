@@ -14,16 +14,15 @@ export default function AttendanceSummaryCard() {
 
 	const overallPct =
 		subjects.length > 0 && subjects.reduce((a, s) => a + s.totalClasses, 0) > 0
-			? Math.round(
+			? Math.ceil(
 					(subjects.reduce((a, s) => a + s.attended, 0) /
 						subjects.reduce((a, s) => a + s.totalClasses, 0)) *
-						100 *
-						10
-				) / 10
+						100
+				)
 			: null;
 
 	const belowCount = subjects.filter((s) => {
-		const pct = s.totalClasses > 0 ? (s.attended / s.totalClasses) * 100 : 0;
+		const pct = s.totalClasses > 0 ? Math.ceil((s.attended / s.totalClasses) * 100) : 0;
 		return pct < (s.threshold ?? defaultThreshold);
 	}).length;
 

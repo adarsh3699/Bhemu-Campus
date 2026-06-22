@@ -4,6 +4,7 @@ import React from "react";
 import { Pencil, Trash2 } from "lucide-react";
 import CutoffIndicator from "./CutoffIndicator";
 import { pointToGrade } from "@/lib/grades";
+import { computeGradeFromMarks } from "@/lib/marksUtils";
 import type { GPASubject } from "@/types";
 
 interface MarksSubjectCardProps {
@@ -82,6 +83,10 @@ export default function MarksSubjectCard({
 				: { text: "Partial", cls: "bg-neutral-500/10 border-neutral-500/20 text-neutral-400" }
 		: null;
 
+	// Grade was manually overridden from Grades tab (doesn't match what marks compute)
+	const gradeOverridden = hasMarks && marks.total != null
+		&& subject.grade !== computeGradeFromMarks(marks.total, marks.customCutoff);
+
 	return (
 		<div
 			className={`bg-white/5 rounded-2xl p-5 border transition-all duration-300 hover:bg-white/8 hover:shadow-xl ${
@@ -106,6 +111,11 @@ export default function MarksSubjectCard({
 								className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${sourceBadge.cls}`}
 							>
 								{sourceBadge.text}
+							</span>
+						)}
+						{gradeOverridden && (
+							<span className="text-[10px] px-2 py-0.5 rounded-full border font-semibold bg-violet-500/10 border-violet-500/20 text-violet-400">
+								Grade ✎
 							</span>
 						)}
 						{marks?.customCutoff && <CutoffIndicator cutoff={marks.customCutoff} />}

@@ -23,6 +23,7 @@ import {
 	setDoc,
 	serverTimestamp,
 	collection,
+	collectionGroup,
 	getDocs,
 	writeBatch,
 	query,
@@ -322,16 +323,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 	// Delete user's own collections
 	async function _deleteUserCollections(userId: string, batchManager: BatchManager) {
-		const collections = [
-			["users", userId, "profiles"],
+		// First delete subcollections within each profile (Firestore doesn't cascade)
+		const profilesSnap = await getDocs(collection(db, "users", userId, "profiles"));
+		for (const profileDoc of profilesSnap.docs) {
+			const profileRef = profileDoc.ref;
+			const nestedCollections = ["gpaAndMarks", "attendanceData"];
+			for (const nested of nestedCollections) {
+				const nestedSnap = await getDocs(collection(profileRef, nested));
+				nestedSnap.docs.forEach((d) => batchManager.add((batch) => batch.delete(d.ref)));
+			}
+			batchManager.add((batch) => batch.delete(profileRef));
+		}
+
+		// Delete other top-level subcollections
+		const otherCollections = [
 			["users", userId, "sharedProfiles"],
 			["userShares", userId, "outgoing"],
 			["userShares", userId, "incoming"],
 		];
 
-		for (const collectionPath of collections) {
+		for (const collectionPath of otherCollections) {
 			const snapshot = await getDocs(collection(db, collectionPath[0], collectionPath[1], collectionPath[2]));
-			snapshot.docs.forEach((doc) => batchManager.add((batch) => batch.delete(doc.ref)));
+			snapshot.docs.forEach((d) => batchManager.add((batch) => batch.delete(d.ref)));
 		}
 	}
 
@@ -421,45 +434,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		}
 	}
 
-	// Enhanced Helper: Clean up all user references in other users' shares
+	// Clean up references to this user in other users' shares (using collectionGroup)
 	async function _cleanupUserReferencesInSharesEnhanced(
 		addToBatch: (operation: (batch: ReturnType<typeof writeBatch>) => void) => void,
 		userId: string,
 		userEmail: string
 	) {
 		try {
-			const usersRef = collection(db, "users");
-			const allUsers = await getDocs(usersRef);
+			// Find all outgoing shares targeting this user (across all users)
+			const outgoingByUid = await getDocs(
+				query(collectionGroup(db, "outgoing"), where("targetUserId", "==", userId))
+			);
+			outgoingByUid.docs.forEach((d) => addToBatch((batch) => batch.delete(d.ref)));
 
-			for (const userDoc of allUsers.docs) {
-				const otherUserId = userDoc.id;
-				if (otherUserId === userId) continue;
-
-				const outgoingSharesRef = collection(db, "userShares", otherUserId, "outgoing");
-				const outgoingQuery = query(outgoingSharesRef, where("targetUserId", "==", userId));
-				const outgoingSnapshot = await getDocs(outgoingQuery);
-
-				outgoingSnapshot.docs.forEach((doc) => {
-					addToBatch((batch) => batch.delete(doc.ref));
-				});
-
-				if (userEmail) {
-					const outgoingEmailQuery = query(outgoingSharesRef, where("targetUserEmail", "==", userEmail));
-					const outgoingEmailSnapshot = await getDocs(outgoingEmailQuery);
-
-					outgoingEmailSnapshot.docs.forEach((doc) => {
-						addToBatch((batch) => batch.delete(doc.ref));
-					});
-				}
-
-				const incomingSharesRef = collection(db, "userShares", otherUserId, "incoming");
-				const incomingQuery = query(incomingSharesRef, where("ownerUserId", "==", userId));
-				const incomingSnapshot = await getDocs(incomingQuery);
-
-				incomingSnapshot.docs.forEach((doc) => {
-					addToBatch((batch) => batch.delete(doc.ref));
-				});
+			if (userEmail) {
+				const outgoingByEmail = await getDocs(
+					query(collectionGroup(db, "outgoing"), where("targetUserEmail", "==", userEmail))
+				);
+				outgoingByEmail.docs.forEach((d) => addToBatch((batch) => batch.delete(d.ref)));
 			}
+
+			// Find all incoming shares from this user (across all users)
+			const incomingByOwner = await getDocs(
+				query(collectionGroup(db, "incoming"), where("ownerUserId", "==", userId))
+			);
+			incomingByOwner.docs.forEach((d) => addToBatch((batch) => batch.delete(d.ref)));
 		} catch (error) {
 			console.error("Error cleaning up user references in shares:", error);
 		}

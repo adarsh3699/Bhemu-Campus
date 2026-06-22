@@ -3,10 +3,8 @@
 import { Plus, X, Calculator, BarChart2 } from "lucide-react";
 
 import RenderModal from "@/components/modal/RenderModal";
-import ProfileDrawer from "@/components/ProfileDrawer";
 import UpdateSubjectModal from "@/components/GpaCalculator/UpdateSubjectModal";
 import LoginRecommendation from "@/components/common/LoginRecommendation";
-import ShareModal, { ShareItem } from "@/components/modal/ShareModal";
 import ConfirmModal from "@/components/modal/ConfirmModal";
 import SubjectForm from "@/components/GpaCalculator/SubjectForm";
 import SemesterList from "@/components/GpaCalculator/SemesterList";
@@ -19,19 +17,10 @@ export default function GpaCalculatorView() {
 	const { currentUser } = useAuth();
 	const {
 		// Data from useGpaData
-		allProfiles,
-		activeProfile,
 		semesters,
 		loading,
 		saving,
-		sharedProfiles,
-		mySharedProfiles,
 		isReadOnlyProfile,
-		createProfile,
-		deleteProfile,
-		unshareProfile,
-		copySharedProfile,
-		verifyUMS,
 		// View mode
 		viewMode,
 		setViewMode,
@@ -49,10 +38,6 @@ export default function GpaCalculatorView() {
 		marksSubjectForm,
 		handleMarksSubjectFormChange,
 		handleMarksAddSubject,
-		// Drawer
-		drawerOpen,
-		setDrawerOpen,
-		handleUpdateActiveProfile,
 		// Info modal
 		isModalOpen,
 		modalType,
@@ -61,13 +46,6 @@ export default function GpaCalculatorView() {
 		// Edit-subject modal
 		isUpdateModalOpen,
 		setIsUpdateModalOpen,
-		// Share modal
-		isShareModalOpen,
-		setIsShareModalOpen,
-		profileToShare,
-		setProfileToShare,
-		handleShareProfile,
-		handleShareWithUser,
 		// Semester delete confirm
 		showDeleteConfirm,
 		semesterToDelete,
@@ -102,38 +80,6 @@ export default function GpaCalculatorView() {
 
 	return (
 		<>
-			{/* Overlays & Modals */}
-			<ProfileDrawer
-				isOpen={drawerOpen}
-				onClose={() => setDrawerOpen(false)}
-				profiles={allProfiles}
-				currentProfile={activeProfile}
-				onProfileSelect={handleUpdateActiveProfile}
-				onCreateProfile={createProfile}
-				onDeleteProfile={deleteProfile}
-				onShareProfile={handleShareProfile}
-				onUnshareProfile={unshareProfile}
-				onCopySharedProfile={copySharedProfile}
-				onVerifyUMS={verifyUMS}
-				sharedProfiles={sharedProfiles}
-				mySharedProfiles={mySharedProfiles}
-				isLoading={saving}
-				currentUser={currentUser}
-			/>
-
-			<ShareModal
-				isOpen={isShareModalOpen}
-				onClose={() => {
-					setIsShareModalOpen(false);
-					setTimeout(() => setProfileToShare(null), 300);
-				}}
-				onShareWithUser={handleShareWithUser}
-				profileName={profileToShare?.name || ""}
-				currentShares={(mySharedProfiles as (ShareItem & { profileId: string | number })[]).filter(
-					(share) => share.profileId === profileToShare?.id
-				)}
-			/>
-
 			<RenderModal modalType={modalType} isModalOpen={isModalOpen} onClose={handleModalClose} />
 
 			<UpdateSubjectModal
