@@ -275,7 +275,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	}
 
 	// Execute comprehensive data deletion with batch management
-	async function _executeComprehensiveDataDeletion(userId: string, userEmail: string) {
+	async function _executeComprehensiveDataDeletion(userId: string, _userEmail: string) {
 		const batchManager = _createBatchManager();
 
 		// Delete user data in organized steps

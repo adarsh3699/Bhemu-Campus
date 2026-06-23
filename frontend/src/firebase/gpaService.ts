@@ -164,7 +164,7 @@ export class GPAService {
 	async saveProfile(profile: GPAProfile): Promise<{ success: boolean; profile?: GPAProfile; error?: string }> {
 		try {
 			// Strip runtime-only fields before writing (permission is set from userShares, not stored on profile doc)
-			const { semesters, permission, ...profileMetadata } = profile;
+			const { semesters, permission: _permission, ...profileMetadata } = profile;
 			const profileData = {
 				...profileMetadata,
 				updatedAt: serverTimestamp(),
@@ -401,7 +401,7 @@ export class GPAService {
 		};
 	}
 
-	private async _executeShareOperation(shareData: ShareData, profile: GPAProfile, permission: "read" | "edit"): Promise<void> {
+	private async _executeShareOperation(shareData: ShareData, _profile: GPAProfile, _permission: "read" | "edit"): Promise<void> {
 		const batch = writeBatch(db);
 		const { shareId, targetUserId } = shareData;
 
@@ -524,7 +524,7 @@ export class GPAService {
 	async saveProfileWithCollaboration(profile: GPAProfile): Promise<{ success: boolean; profile?: GPAProfile; error?: string }> {
 		try {
 			// Strip runtime-only fields before writing (permission is set from userShares, not stored on profile doc)
-			const { semesters, permission, ...profileMetadata } = profile;
+			const { semesters, permission: _permission2, ...profileMetadata } = profile;
 			const profileData = {
 				...profileMetadata,
 				updatedAt: serverTimestamp(),

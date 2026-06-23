@@ -41,6 +41,7 @@ export async function startGradesSync(profileId: string): Promise<{ success: boo
     const data = await fetchAllData();
 
     if ('error' in data) {
+      console.error('[BhemuSync] fetchAllData error:', data.error);
       await updateStatus({ lastSyncedAt: null, status: 'error', message: data.error });
       return { success: false, reason: data.error };
     }
@@ -52,7 +53,8 @@ export async function startGradesSync(profileId: string): Promise<{ success: boo
     await updateStatus({ lastSyncedAt: now, status: 'success', message: 'Grades & marks synced successfully' });
     return { success: true };
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Unknown error';
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[BhemuSync] grades sync failed:', err);
     await updateStatus({ lastSyncedAt: null, status: 'error', message: msg });
     return { success: false, reason: msg };
   }
@@ -68,6 +70,7 @@ export async function startAttendanceSync(profileId: string): Promise<{ success:
     const data = await fetchAllData();
 
     if ('error' in data) {
+      console.error('[BhemuSync] fetchAllData error:', data.error);
       await updateStatus({ lastSyncedAt: null, status: 'error', message: data.error });
       return { success: false, reason: data.error };
     }
@@ -79,7 +82,8 @@ export async function startAttendanceSync(profileId: string): Promise<{ success:
     await updateStatus({ lastSyncedAt: now, status: 'success', message: 'Attendance synced successfully' });
     return { success: true };
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Unknown error';
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[BhemuSync] attendance sync failed:', err);
     await updateStatus({ lastSyncedAt: null, status: 'error', message: msg });
     return { success: false, reason: msg };
   }
@@ -113,6 +117,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     storage.get<SyncStatus>('syncStatus').then(status => {
       sendResponse(status ?? { lastSyncedAt: null, status: 'idle' });
     });
+    return true;
+  }
+  if (message.type === 'CLEAR_STATUS') {
+    updateStatus({ lastSyncedAt: null, status: 'idle' }).then(() => sendResponse({ ok: true }));
     return true;
   }
 });

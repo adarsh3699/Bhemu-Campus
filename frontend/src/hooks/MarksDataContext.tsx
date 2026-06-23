@@ -116,7 +116,6 @@ export function MarksDataProvider({ children }: { children: React.ReactNode }) {
 						...sem,
 						subjects: sem.subjects.map((s) => {
 							if (String(s.id) !== id) return s;
-							// eslint-disable-next-line @typescript-eslint/no-unused-vars
 							const { marks: _m, ...rest } = s;
 							return rest;
 						}),
