@@ -16,7 +16,7 @@ export default function UMSExtensionModal({ isOpen, onClose }: UMSExtensionModal
 				{/* Demo video thumbnail */}
 				<div className="relative rounded-2xl overflow-hidden bg-black/40 border border-white/8 aspect-video flex items-center justify-center group">
 					<iframe
-						src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+						src="https://www.youtube.com/embed/YvIqRSH9NDM"
 						title="UMS Extension Demo"
 						className="w-full h-full"
 						allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -63,7 +63,8 @@ export default function UMSExtensionModal({ isOpen, onClose }: UMSExtensionModal
 					className="flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-teal-400 to-blue-500 hover:from-teal-500 hover:to-blue-600 text-white rounded-xl text-sm font-bold uppercase tracking-wider transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
 				>
 					<Download className="w-4 h-4" />
-					Install Chrome Extension — Free
+					{/* Install Chrome Extension — Free */}
+					Coming Soon
 				</a>
 				<p className="text-center text-xs text-neutral-500">Works on Chrome & Chromium-based browsers</p>
 			</div>

@@ -61,11 +61,7 @@ export default function MarksSubjectCard({
 	const { marks } = subject;
 	const hasMarks = marks != null;
 
-	const displayGradePoint = marks
-		? (marks.umsGradePoint ?? (marks.total !== null ? subject.grade : null))
-		: subject.grade > 0
-			? subject.grade
-			: null;
+	const displayGradePoint = subject.grade > 0 ? subject.grade : null;
 	const gradeLabel = displayGradePoint !== null ? pointToGrade(displayGradePoint) : null;
 
 	const toN = (v: string) => {

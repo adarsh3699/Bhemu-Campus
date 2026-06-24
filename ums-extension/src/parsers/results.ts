@@ -272,8 +272,9 @@ function extractAllTermIds(doc: Document): string[] {
   const ids: string[] = [];
   doc.querySelectorAll('ul.rcbList li.rcbItem').forEach(li => {
     const text = li.textContent?.trim() ?? '';
-    // Only Regular (pure-digit) terms need POST switching
-    if (/^\d+$/.test(text)) ids.push(text);
+    // Fetch Regular (pure-digit) AND Reappear (A/B suffix) terms — both have course-wise marks
+    // RPL (R suffix) terms are skipped — they don't have component marks
+    if (/^\d+$/.test(text) || /^\d+[AB]$/i.test(text)) ids.push(text);
   });
   return ids;
 }

@@ -5,7 +5,7 @@ import {
   signOut,
   onAuthStateChanged,
   initializeAuth,
-  browserLocalPersistence,
+  indexedDBLocalPersistence,
   getAuth,
 } from 'firebase/auth';
 import type { Auth, User } from 'firebase/auth';
@@ -29,7 +29,7 @@ function ensureApp(): FirebaseApp {
 export function getFirebaseAuth(): Auth {
   if (_auth) return _auth;
   try {
-    _auth = initializeAuth(ensureApp(), { persistence: [browserLocalPersistence] });
+    _auth = initializeAuth(ensureApp(), { persistence: [indexedDBLocalPersistence] });
   } catch {
     _auth = getAuth(ensureApp());
   }
@@ -47,6 +47,35 @@ export async function signInWithEmail(email: string, password: string): Promise<
   const cred = await signInWithEmailAndPassword(auth, email, password);
   await storage.set('fb_uid', cred.user.uid);
   return cred.user;
+}
+
+/**
+ * Write a Firebase auth state record into the extension's IndexedDB.
+ * Firebase v9+ with indexedDBLocalPersistence stores each record as:
+ *   { fbase_key: "firebase:authUser:{apiKey}:[DEFAULT]", value: <authObject> }
+ */
+function writeFirebaseAuthToIDB(key: string, value: unknown): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const openReq = indexedDB.open('firebaseLocalStorageDb', 1);
+
+    openReq.onupgradeneeded = () => {
+      const db = openReq.result;
+      if (!db.objectStoreNames.contains('firebaseLocalStorage')) {
+        db.createObjectStore('firebaseLocalStorage', { keyPath: 'fbase_key' });
+      }
+    };
+
+    openReq.onerror = () => reject(openReq.error);
+
+    openReq.onsuccess = () => {
+      const db = openReq.result;
+      const tx = db.transaction('firebaseLocalStorage', 'readwrite');
+      const store = tx.objectStore('firebaseLocalStorage');
+      const req = store.put({ fbase_key: key, value });
+      req.onerror = () => { db.close(); reject(req.error); };
+      tx.oncomplete = () => { db.close(); resolve(); };
+    };
+  });
 }
 
 /**
@@ -118,12 +147,14 @@ export async function signInWithCalcSession(): Promise<User> {
     authStateJson = result;
   }
 
-  // 3. Write the web app auth state into the extension's localStorage
-  //    Firebase reads from: firebase:authUser:{apiKey}:[DEFAULT]
+  // 3. Write the web app auth state into the extension's IndexedDB
+  //    Firebase v9+ with indexedDBLocalPersistence reads from:
+  //    DB: "firebaseLocalStorageDb", store: "firebaseLocalStorage"
+  //    key: "firebase:authUser:{apiKey}:[DEFAULT]"
   const authKey = `firebase:authUser:${FIREBASE_CONFIG.apiKey}:[DEFAULT]`;
-  localStorage.setItem(authKey, authStateJson);
+  await writeFirebaseAuthToIDB(authKey, JSON.parse(authStateJson));
 
-  // 4. Reinitialize Firebase Auth so it picks up the new localStorage state
+  // 4. Reinitialize Firebase Auth so it picks up the new IndexedDB state
   if (_app) {
     try { await deleteApp(_app); } catch { /* ignore */ }
   }
@@ -132,10 +163,10 @@ export async function signInWithCalcSession(): Promise<User> {
   _db = null;
 
   _app = initializeApp(FIREBASE_CONFIG);
-  _auth = initializeAuth(_app, { persistence: [browserLocalPersistence] });
+  _auth = initializeAuth(_app, { persistence: [indexedDBLocalPersistence] });
   _db = getFirestore(_app);
 
-  // 5. Wait for auth state to restore from localStorage
+  // 5. Wait for auth state to restore from IndexedDB
   await _auth.authStateReady();
   const user = _auth.currentUser;
 

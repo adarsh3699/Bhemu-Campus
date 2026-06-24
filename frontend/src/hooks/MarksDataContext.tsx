@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useCallback, useMemo } from "react";
 import { useGpaData } from "@/hooks/GpaDataContext";
 import { useMessage } from "@/components/common/MessageProvider";
-import { computeGradeFromMarks, computeTotal, shouldCreateCutoff, createCutoff } from "@/lib/marksUtils";
+import { computeGradeFromMarks, computeTotal } from "@/lib/marksUtils";
 import type { SubjectMarks } from "@/types/marks";
 import type { GPASubject } from "@/types";
 
@@ -64,10 +64,8 @@ export function MarksDataProvider({ children }: { children: React.ReactNode }) {
 				const umsGradePoint = incoming.umsGradePoint !== undefined ? incoming.umsGradePoint : prev?.umsGradePoint ?? null;
 				const source = incoming.source ?? (umsGradePoint !== null ? "ums" : total !== null ? "manual" : "partial");
 
-				let customCutoff = incoming.customCutoff !== undefined ? incoming.customCutoff : prev?.customCutoff ?? null;
-				if (umsGradePoint !== null && total !== null && shouldCreateCutoff(total, umsGradePoint)) {
-					customCutoff = createCutoff(total, umsGradePoint);
-				}
+				// customCutoff is ONLY set during UMS sync (relative grading) — never writable from frontend.
+				const customCutoff = prev?.customCutoff ?? null;
 
 				const computedGradePoint = total !== null
 					? computeGradeFromMarks(total, customCutoff)

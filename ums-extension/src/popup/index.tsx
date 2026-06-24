@@ -4,6 +4,8 @@ import { loadUserProfiles } from "~lib/firebaseSync";
 import type { SyncStatus } from "~lib/types";
 import "./style.css";
 
+const LAST_PROFILE_KEY = 'ums_last_profile_id';
+
 interface Profile {
 	id: string;
 	name: string;
@@ -32,7 +34,12 @@ function Popup() {
 		try {
 			const list = await loadUserProfiles();
 			setProfiles(list);
-			if (list.length > 0) setSelectedProfileId(list[0].id);
+			if (list.length > 0) {
+				const saved = await chrome.storage.local.get(LAST_PROFILE_KEY);
+				const lastId = saved[LAST_PROFILE_KEY] as string | undefined;
+				const match = lastId && list.some(p => p.id === lastId);
+				setSelectedProfileId(match ? lastId : list[0].id);
+			}
 		} catch {
 			// silently ignore
 		} finally {
@@ -41,13 +48,18 @@ function Popup() {
 	}, []);
 
 	useEffect(() => {
-		fetchStatus();
+		// On popup open: always show idle with lastSyncedAt — never show stale "success".
+		// Don't clear background storage so lastSyncedAt persists across opens.
+		chrome.runtime.sendMessage({ type: "GET_STATUS" }, (res) => {
+			if (!res) return;
+			setStatus({ ...res, status: res.status === "success" ? "idle" : res.status });
+		});
 		getCurrentUser().then((user) => {
 			setIsLoggedIn(!!user);
 			setAuthLoading(false);
 			if (user) loadProfiles();
 		});
-	}, [fetchStatus, loadProfiles]);
+	}, [loadProfiles]);
 
 	const handleCalcLogin = async () => {
 		setAuthError("");
@@ -80,6 +92,7 @@ function Popup() {
 
 	const handleLogout = async () => {
 		await firebaseSignOut();
+		chrome.storage.local.remove(LAST_PROFILE_KEY);
 		setIsLoggedIn(false);
 		setProfiles([]);
 		setSelectedProfileId("");
@@ -87,20 +100,31 @@ function Popup() {
 		setAuthError("");
 	};
 
+	// Poll status every second while syncing, stop when terminal state reached
+	const pollUntilDone = useCallback(() => {
+		const interval = setInterval(() => {
+			chrome.runtime.sendMessage({ type: "GET_STATUS" }, (res) => {
+				if (!res) return;
+				setStatus(res);
+				if (res.status !== "syncing") clearInterval(interval);
+			});
+		}, 800);
+		// Safety: always stop polling after 60s
+		setTimeout(() => clearInterval(interval), 60000);
+	}, []);
+
 	const handleSyncGrades = () => {
 		if (!selectedProfileId) return;
 		setStatus({ ...status, status: "syncing", message: "Starting grades & marks sync..." });
-		chrome.runtime.sendMessage({ type: "SYNC_GRADES", profileId: selectedProfileId }, () => {
-			setTimeout(fetchStatus, 2000);
-		});
+		chrome.runtime.sendMessage({ type: "SYNC_GRADES", profileId: selectedProfileId });
+		pollUntilDone();
 	};
 
 	const handleSyncAttendance = () => {
 		if (!selectedProfileId) return;
 		setStatus({ ...status, status: "syncing", message: "Starting attendance sync..." });
-		chrome.runtime.sendMessage({ type: "SYNC_ATTENDANCE", profileId: selectedProfileId }, () => {
-			setTimeout(fetchStatus, 2000);
-		});
+		chrome.runtime.sendMessage({ type: "SYNC_ATTENDANCE", profileId: selectedProfileId });
+		pollUntilDone();
 	};
 
 	const handleLoginToUMS = () => {
@@ -214,13 +238,17 @@ function Popup() {
 				<div className={`status-indicator ${status.status}`} />
 				<div className="status-text">
 					<p className="status-label">
-						{status.status === "idle" && "Ready to sync"}
+						{status.status === "idle" && (status.lastSyncedAt ? "Last synced" : "Ready to sync")}
 						{status.status === "syncing" && "Syncing…"}
 						{status.status === "success" && "Synced successfully"}
 						{status.status === "error" && "Sync error"}
 						{status.status === "needs_login" && "UMS login required"}
 					</p>
-					{status.message && <p className="status-message">{status.message}</p>}
+					{status.message && (
+						<p className={status.status === "error" ? "status-message error-detail" : "status-message"}>
+							{status.message}
+						</p>
+					)}
 					{status.lastSyncedAt && (
 						<p className="status-time">Last: {new Date(status.lastSyncedAt).toLocaleString()}</p>
 					)}
@@ -237,7 +265,10 @@ function Popup() {
 					<select
 						className="profile-select"
 						value={selectedProfileId}
-						onChange={(e) => setSelectedProfileId(e.target.value)}
+						onChange={(e) => {
+						setSelectedProfileId(e.target.value);
+						chrome.storage.local.set({ [LAST_PROFILE_KEY]: e.target.value });
+					}}
 					>
 						{profiles.map((p) => (
 							<option key={p.id} value={p.id}>
@@ -260,7 +291,7 @@ function Popup() {
 							className="btn-primary"
 							disabled={status.status === "syncing" || !selectedProfileId}
 						>
-							{status.status === "syncing" ? "Syncing…" : "Sync Grades & Marks"}
+							{status.status === "syncing" ? "Syncing…" : "Sync Everything"}
 						</button>
 						<button
 							onClick={handleSyncAttendance}
@@ -269,6 +300,14 @@ function Popup() {
 						>
 							Sync Attendance Only
 						</button>
+						{process.env.PLASMO_PUBLIC_DEV_MODE === "true" && (
+							<button
+								onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL("tabs/data-viewer.html") })}
+								className="btn-secondary"
+							>
+								View Last Sync Data
+							</button>
+						)}
 					</>
 				)}
 			</div>

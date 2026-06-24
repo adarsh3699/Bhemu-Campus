@@ -1,12 +1,10 @@
 import { getUmsCookie } from '~lib/ums-auth';
 import {
   UMS_RESULTS_URL,
-  UMS_TIMETABLE_URL,
 } from '~utils/constants';
 import { parseHTML } from 'linkedom';
 import { parseResultsPage } from '~parsers/results';
-import { parseTimetablePage } from '~parsers/timetable';
-import { fetchAllApiData } from '~lib/ums-api';
+import { fetchSyncData } from '~lib/ums-api';
 import type { SyncResult, Course, ExamMark, CourseAssessment } from '~lib/types';
 
 async function fetchPage(url: string): Promise<string> {
@@ -62,11 +60,11 @@ export async function fetchAllData(): Promise<SyncResult | { error: string }> {
   if (!cookieValue) return { error: 'No UMS session cookie found' };
 
   // Fetch HTML pages + JSON APIs in parallel
+  // Timetable (frmStudentTimeTable.aspx) uses SSRS ReportViewer — JS-rendered, not scrapable via fetch.
   // Attendance now comes from JSON API (StudentAttendanceSummary), not HTML scraping
-  const [resultsHtml, timetableHtml, apiData] = await Promise.all([
+  const [resultsHtml, apiData] = await Promise.all([
     fetchPage(UMS_RESULTS_URL),
-    fetchPage(UMS_TIMETABLE_URL).catch(() => ''),
-    fetchAllApiData(),
+    fetchSyncData(),
   ]);
 
   // Parse initial results page
@@ -120,15 +118,8 @@ export async function fetchAllData(): Promise<SyncResult | { error: string }> {
     percentage: a.Percentage,
   }));
 
-  // Parse timetable
-  let timetable: SyncResult['timetable'] = [];
-  if (timetableHtml) {
-    const timetableDoc = htmlToDoc(timetableHtml);
-    const timetableResult = parseTimetablePage(timetableDoc);
-    if (!('error' in timetableResult)) {
-      timetable = timetableResult.timetable;
-    }
-  }
+  // Timetable (frmStudentTimeTable.aspx) uses SSRS ReportViewer — JS-rendered, not fetchable.
+  const timetable: SyncResult['timetable'] = [];
 
   // Prefer API student info (cleaner) over HTML-parsed, fallback to HTML
   const studentInfo = apiData.studentInfo
@@ -140,8 +131,6 @@ export async function fetchAllData(): Promise<SyncResult | { error: string }> {
         cgpa: apiData.studentInfo.CGPA ?? null,
       }
     : undefined;
-
-  console.log(`API data fetched — courses: ${apiData.courses?.length ?? 0}, announcements: ${apiData.announcements?.length ?? 0}, seating: ${apiData.seatingPlan?.length ?? 0}, messages: ${apiData.messages?.length ?? 0}`);
 
   return {
     studentInfo,

@@ -182,7 +182,7 @@ function ComponentWiseMarks({ assessments, terms }: { assessments: CourseAssessm
           ))}
         </div>
       ))}
-      <RawJson label="componentWiseMarks (grouped)" data={structured} />
+      <RawJson label="examMarks (grouped by term)" data={structured} />
     </div>
   );
 }
@@ -295,8 +295,7 @@ export default function DataViewer() {
               {[
                 { label: 'Terms', value: data.terms.length, color: '#6366f1' },
                 { label: 'Courses (grades)', value: data.courses.length, color: '#0ea5e9' },
-                { label: 'Exam Marks', value: data.examMarks.length, color: '#8b5cf6' },
-                { label: 'Assessments (CA)', value: data.courseAssessments.length, color: '#14b8a6' },
+                { label: 'Exam Marks', value: data.courseAssessments.length, color: '#8b5cf6' },
                 { label: 'Attendance Records', value: data.attendance.length, color: '#22c55e' },
                 { label: 'Timetable Slots', value: data.timetable.length, color: '#f59e0b' },
                 { label: 'Current Courses', value: data.apiData?.courses?.length ?? 0, color: '#ec4899' },
@@ -398,18 +397,9 @@ export default function DataViewer() {
 
         {/* EXAMS */}
         {tab === 'exams' && (
-          <div>
-            <Section title="Exam Marks" count={data.examMarks.length}>
-              <Table
-                headers={['Course Code', 'Course Name', 'Exam Type', 'Date', 'Max', 'Obtained', 'Term']}
-                rows={data.examMarks.map(e => [e.courseCode, e.courseName, e.examType, e.examDate ?? '—', e.maxMarks, e.obtainedMarks, e.termId ?? '—'])}
-              />
-              <RawJson label="examMarks" data={data.examMarks} />
-            </Section>
-            <Section title="Component Wise Marks" count={data.courseAssessments.length}>
-              <ComponentWiseMarks assessments={data.courseAssessments} terms={termsWithCourses} />
-            </Section>
-          </div>
+          <Section title="Exam Marks" count={data.courseAssessments.length}>
+            <ComponentWiseMarks assessments={data.courseAssessments} terms={termsWithCourses} />
+          </Section>
         )}
 
         {/* CURRENT COURSES (API) */}

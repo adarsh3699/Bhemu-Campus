@@ -70,6 +70,20 @@ Last audited & cleaned: 2026-06-23. 124 profiles verified clean.
 }
 ```
 
+**Why `grade` and `umsGradePoint` both exist:**
+- `grade` — **single source of truth** for GPA/CGPA calculation and display. Shown everywhere.
+- `marks.umsGradePoint` — what **UMS originally reported**. Used only for comparison: when `grade !== computeGradeFromMarks(marks.total)`, the "Grade ✎" badge shows. Never used for display.
+- Display priority: `grade` → computed from `marks.total` (fallback if grade=0)
+- During UMS fetch: both `grade` and `umsGradePoint` are written with the same value initially
+
+**`customCutoff` — Relative Grading (WRITE-ONCE, UMS-ONLY):**
+- Set ONLY during UMS sync when the standard grade table disagrees with UMS grade.
+  - Example: marks total = 66, UMS says A(8), standard table says B+(7) → `customCutoff: { gradePoint: 8, cutoffMarks: 66 }`
+- The frontend NEVER creates, modifies, or recalculates `customCutoff`. It is read-only after sync.
+- `computeGradeFromMarks(total, customCutoff)` uses the cutoff: if `total >= cutoffMarks`, return `gradePoint`.
+- If no relative grading: `customCutoff` is `null`.
+- The "✦ Relative" badge shows when `customCutoff` is non-null.
+
 ---
 
 ## `users/{userId}/profiles/{profileId}/attendanceData/main`

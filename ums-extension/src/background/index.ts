@@ -1,7 +1,7 @@
 import { Storage } from '@plasmohq/storage';
 import { isSessionValid, openLoginTab, setupLoginDetection } from '~lib/ums-auth';
 import { fetchAllData } from './fetcher';
-import { syncGradesAndMarks, syncAttendanceOnly } from './sync';
+import { syncGradesAndMarks, syncAttendanceOnly } from '~lib/firebaseSync';
 import type { SyncStatus } from '~lib/types';
 
 const storage = new Storage({ area: 'local' });
@@ -46,11 +46,17 @@ export async function startGradesSync(profileId: string): Promise<{ success: boo
       return { success: false, reason: data.error };
     }
 
+    // Persist fetched data so the data viewer tab can display it
+    await storage.set('lastSyncData', data);
+
     await updateStatus({ lastSyncedAt: null, status: 'syncing', message: 'Saving grades & marks to Firebase...' });
     await syncGradesAndMarks(data, profileId);
 
+    await updateStatus({ lastSyncedAt: null, status: 'syncing', message: 'Saving attendance to Firebase...' });
+    await syncAttendanceOnly(data, profileId);
+
     const now = new Date().toISOString();
-    await updateStatus({ lastSyncedAt: now, status: 'success', message: 'Grades & marks synced successfully' });
+    await updateStatus({ lastSyncedAt: now, status: 'success', message: 'Grades, marks & attendance synced successfully' });
     return { success: true };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -74,6 +80,8 @@ export async function startAttendanceSync(profileId: string): Promise<{ success:
       await updateStatus({ lastSyncedAt: null, status: 'error', message: data.error });
       return { success: false, reason: data.error };
     }
+
+    await storage.set('lastSyncData', data);
 
     await updateStatus({ lastSyncedAt: null, status: 'syncing', message: 'Saving attendance to Firebase...' });
     await syncAttendanceOnly(data, profileId);
