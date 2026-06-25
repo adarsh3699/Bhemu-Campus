@@ -6,6 +6,7 @@ import {
   getDocs,
 } from 'firebase/firestore';
 import { getFirebaseDb, getCurrentUser } from '~lib/firebase';
+import { mapExamType } from '~utils/examTypes';
 import type { SyncResult, Course } from '~lib/types';
 
 const GRADE_POINT_MAP: Record<string, number> = {
@@ -27,6 +28,10 @@ function gradeToPoint(grade: string): number {
   return GRADE_POINT_MAP[grade?.toUpperCase()] ?? 0;
 }
 
+function toWeighted(v: number | string): number {
+  return typeof v === 'number' ? v : parseFloat(String(v));
+}
+
 function standardGradePoint(totalMarks: number): number {
   const clamped = Math.max(0, Math.min(100, totalMarks));
   return STANDARD_GRADE_TABLE.find((e) => clamped >= e.minMarks && clamped <= e.maxMarks)?.gradePoint ?? 0;
@@ -38,15 +43,6 @@ function computeCustomCutoff(total: number, umsGradePoint: number): { gradePoint
   return { gradePoint: umsGradePoint, cutoffMarks: total };
 }
 
-function mapExamType(examType: string): 'ca' | 'midTerm' | 'endTerm' | 'attendanceMarks' | null {
-  const t = examType.toLowerCase();
-  // Check attendance FIRST — "attendance" contains "end" as substring
-  if (t.includes('attendance')) return 'attendanceMarks';
-  if (t.includes('continuous') || t === 'ca') return 'ca';
-  if (t.includes('mid')) return 'midTerm';
-  if (t.includes('end') || t.includes('final')) return 'endTerm';
-  return null;
-}
 
 /**
  * Sync grades + marks into the selected profile.
@@ -95,9 +91,7 @@ export async function syncGradesAndMarks(data: SyncResult, profileId: string): P
     if (ca.isAwaited) continue;
     const component = mapExamType(ca.assessmentType);
     if (component !== 'endTerm') continue;
-    const weighted = typeof ca.weightedMarksObtained === 'number'
-      ? ca.weightedMarksObtained
-      : parseFloat(String(ca.weightedMarksObtained));
+    const weighted = toWeighted(ca.weightedMarksObtained);
     if (isNaN(weighted)) continue;
     reappearEndByCode.set(ca.courseCode, (reappearEndByCode.get(ca.courseCode) ?? 0) + weighted);
   }
@@ -154,9 +148,7 @@ export async function syncGradesAndMarks(data: SyncResult, profileId: string): P
       const assessments = assessmentsByCode.get(course.courseCode) ?? [];
       for (const a of assessments) {
         if (a.isAwaited) continue;
-        const weighted = typeof a.weightedMarksObtained === 'number'
-          ? a.weightedMarksObtained
-          : parseFloat(String(a.weightedMarksObtained));
+        const weighted = toWeighted(a.weightedMarksObtained);
         if (isNaN(weighted)) continue;
         const component = mapExamType(a.assessmentType);
         if (component === 'ca') ca = (ca ?? 0) + weighted;

@@ -1,4 +1,5 @@
 import type { Course, ExamMark, CourseAssessment, Term } from '~lib/types';
+import { mapExamType } from '~utils/examTypes';
 
 export function parseResultsPage(doc: Document, termId?: string) {
   const pageText = doc.body?.textContent ?? '';
@@ -151,22 +152,14 @@ function extractExamMarks(doc: Document): ExamMark[] {
   return exams;
 }
 
+
 function extractCourseWiseMarks(doc: Document, termId?: string): CourseAssessment[] {
   const assessments: CourseAssessment[] = [];
-  const validTypes = [
-    'Continuous Assessment',
-    'Practical End Term',
-    'Attendance Marks',
-    'Objective Type End Term',
-    'Objective Type Mid Term',
-    'Theory Mid Term',
-    'Theory End Term',
-  ];
 
   let currentCourse = '';
   doc.querySelectorAll('tr').forEach(row => {
     const rowText = row.textContent ?? '';
-    const courseMatch = rowText.match(/Course:\s*([A-Z]{2,4}\d{3}::[^,\n]+)/);
+    const courseMatch = rowText.match(/Course:\s*([A-Z]{2,4}\d{3,4}[A-Z]?::[^,\n]+)/);
 
     if (courseMatch) {
       currentCourse = courseMatch[1]!.trim();
@@ -178,7 +171,7 @@ function extractCourseWiseMarks(doc: Document, termId?: string): CourseAssessmen
     if (cells.length < 6) return;
 
     const assessmentType = cells[1] ?? '';
-    if (!validTypes.some(t => assessmentType.includes(t))) return;
+    if (!mapExamType(assessmentType)) return;
 
     const parseMarks = (val: string): number | string => {
       if (val.toLowerCase() === 'awaited') return 'Awaited';

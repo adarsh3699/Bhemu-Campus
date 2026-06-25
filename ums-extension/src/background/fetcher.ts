@@ -1,20 +1,28 @@
-import {
-  UMS_RESULTS_URL,
-} from '~utils/constants';
+import { UMS_RESULTS_URL } from '~utils/constants';
 import { parseHTML } from 'linkedom';
 import { parseResultsPage } from '~parsers/results';
+
+function htmlToDoc(html: string): Document {
+  const { document } = parseHTML(html);
+  return document as unknown as Document;
+}
 import { fetchSyncData } from '~lib/ums-api';
 import type { SyncResult, Course, ExamMark, CourseAssessment } from '~lib/types';
+
+function mapAttendance(apiData: Awaited<ReturnType<typeof fetchSyncData>>): SyncResult['attendance'] {
+  return (apiData.attendance ?? []).map(a => ({
+    courseCode: a.CourseCode,
+    courseName: a.CourseName,
+    totalLectures: a.TotalDuty,
+    attendedLectures: a.Present,
+    percentage: a.Percentage,
+  }));
+}
 
 async function fetchPage(url: string): Promise<string> {
   const response = await fetch(url, { credentials: 'include' });
   if (!response.ok) throw new Error(`HTTP ${response.status} fetching ${url}`);
   return response.text();
-}
-
-function htmlToDoc(html: string): Document {
-  const { document } = parseHTML(html);
-  return document as unknown as Document;
 }
 
 async function fetchTermData(termId: string, viewState: string, eventValidation: string, vstate: string): Promise<string> {
@@ -56,15 +64,7 @@ async function fetchTermData(termId: string, viewState: string, eventValidation:
 
 export async function fetchAttendanceOnly(): Promise<Pick<SyncResult, 'attendance'>> {
   const apiData = await fetchSyncData();
-  return {
-    attendance: (apiData.attendance ?? []).map(a => ({
-      courseCode: a.CourseCode,
-      courseName: a.CourseName,
-      totalLectures: a.TotalDuty,
-      attendedLectures: a.Present,
-      percentage: a.Percentage,
-    })),
-  };
+  return { attendance: mapAttendance(apiData) };
 }
 
 export async function fetchAllData(): Promise<SyncResult | { error: string }> {
@@ -122,14 +122,7 @@ export async function fetchAllData(): Promise<SyncResult | { error: string }> {
     if (!courseMap.has(key)) courseMap.set(key, c);
   });
 
-  // Attendance comes from JSON API — map to AttendanceRecord shape
-  const attendance: SyncResult['attendance'] = (apiData.attendance ?? []).map(a => ({
-    courseCode: a.CourseCode,
-    courseName: a.CourseName,
-    totalLectures: a.TotalDuty,
-    attendedLectures: a.Present,
-    percentage: a.Percentage,
-  }));
+  const attendance = mapAttendance(apiData);
 
   // Timetable (frmStudentTimeTable.aspx) uses SSRS ReportViewer — JS-rendered, not fetchable.
   const timetable: SyncResult['timetable'] = [];
