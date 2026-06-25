@@ -39,7 +39,7 @@ const SemesterList: React.FC<SemesterListProps> = ({
 			{semesters.map((semester) => (
 				<div
 					key={semester.id}
-					className={`bg-neutral-900/60 backdrop-blur-xl rounded-3xl p-6 md:p-8 mb-6 md:mb-8 shadow-2xl border border-white/10 relative transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 ${
+					className={`bg-neutral-900/60 backdrop-blur-xl rounded-3xl p-4 md:p-6 mb-6 md:mb-8 shadow-2xl border border-white/10 relative transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 ${
 						activeSemester === semester.id ? "block" : "hidden"
 					}`}
 				>
@@ -69,13 +69,13 @@ const SemesterList: React.FC<SemesterListProps> = ({
 					</div>
 
 					{semester.subjects.length > 0 ? (
-						<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 							{semester.subjects.map((subject) => {
 								const gradeLabel = pointToGrade(subject.grade);
 								return (
 									<div
 										key={subject.id}
-										className="bg-white/5 rounded-2xl p-5 border border-white/5 transition-all duration-300 hover:bg-white/8 hover:border-white/10 hover:shadow-xl"
+										className="bg-white/5 rounded-2xl p-3 md:p-4 border border-white/5 transition-all duration-300 hover:bg-white/8 hover:border-white/10 hover:shadow-xl"
 									>
 										{/* Card header */}
 										<div className="flex justify-between items-start mb-4">
@@ -84,7 +84,9 @@ const SemesterList: React.FC<SemesterListProps> = ({
 													className="text-sm font-bold text-white truncate mb-1"
 													title={subject.subjectName}
 												>
-													{subject.subjectName}
+													{subject.subjectName.length > 23 && subject.subjectCode
+														? subject.subjectCode
+														: subject.subjectName}
 												</h4>
 												<div className="flex items-center gap-1.5">
 													<span className="text-[10px] font-semibold text-neutral-300 bg-white/8 px-2 py-0.5 rounded-full border border-white/10">

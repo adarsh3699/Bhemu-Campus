@@ -11,6 +11,8 @@ const nextConfig: NextConfig = {
 		removeConsole: process.env.NODE_ENV === "production",
 	},
 
+	allowedDevOrigins: ["192.168.1.105"],
+
 	// Image optimisation — serve WebP/AVIF automatically, long cache TTL
 	images: {
 		formats: ["image/webp", "image/avif"],

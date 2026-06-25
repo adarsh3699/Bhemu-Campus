@@ -1,6 +1,6 @@
 import { Storage } from '@plasmohq/storage';
 import { isSessionValid, openLoginTab, setupLoginDetection } from '~lib/ums-auth';
-import { fetchAllData } from './fetcher';
+import { fetchAllData, fetchAttendanceOnly } from './fetcher';
 import { syncGradesAndMarks, syncAttendanceOnly } from '~lib/firebaseSync';
 import type { SyncStatus } from '~lib/types';
 
@@ -49,11 +49,11 @@ export async function startGradesSync(profileId: string): Promise<{ success: boo
     // Persist fetched data so the data viewer tab can display it
     await storage.set('lastSyncData', data);
 
-    await updateStatus({ lastSyncedAt: null, status: 'syncing', message: 'Saving grades & marks to Firebase...' });
-    await syncGradesAndMarks(data, profileId);
-
-    await updateStatus({ lastSyncedAt: null, status: 'syncing', message: 'Saving attendance to Firebase...' });
-    await syncAttendanceOnly(data, profileId);
+    await updateStatus({ lastSyncedAt: null, status: 'syncing', message: 'Saving to Firebase...' });
+    await Promise.all([
+      syncGradesAndMarks(data, profileId),
+      syncAttendanceOnly(data, profileId),
+    ]);
 
     const now = new Date().toISOString();
     await updateStatus({ lastSyncedAt: now, status: 'success', message: 'Grades, marks & attendance synced successfully' });
@@ -73,15 +73,7 @@ export async function startAttendanceSync(profileId: string): Promise<{ success:
 
   try {
     await updateStatus({ lastSyncedAt: null, status: 'syncing', message: 'Fetching attendance from UMS...' });
-    const data = await fetchAllData();
-
-    if ('error' in data) {
-      console.error('[BhemuSync] fetchAllData error:', data.error);
-      await updateStatus({ lastSyncedAt: null, status: 'error', message: data.error });
-      return { success: false, reason: data.error };
-    }
-
-    await storage.set('lastSyncData', data);
+    const data = await fetchAttendanceOnly();
 
     await updateStatus({ lastSyncedAt: null, status: 'syncing', message: 'Saving attendance to Firebase...' });
     await syncAttendanceOnly(data, profileId);
@@ -99,12 +91,16 @@ export async function startAttendanceSync(profileId: string): Promise<{ success:
 
 export async function startLoginFlow(): Promise<{ success: boolean; reason?: string }> {
   const tab = await openLoginTab();
-  if (tab.id) {
+  if (!tab.id) return { success: false, reason: 'Could not open UMS login tab' };
+  try {
     await setupLoginDetection(tab.id);
-    // Detection resolved — user is now logged in to UMS, reset to idle so sync buttons appear
     await updateStatus({ lastSyncedAt: null, status: 'idle', message: 'UMS login successful' });
+    return { success: true };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    await updateStatus({ lastSyncedAt: null, status: 'needs_login', message: msg });
+    return { success: false, reason: msg };
   }
-  return { success: true };
 }
 
 // Listen for messages from popup

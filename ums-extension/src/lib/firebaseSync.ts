@@ -102,7 +102,15 @@ export async function syncGradesAndMarks(data: SyncResult, profileId: string): P
     reappearEndByCode.set(ca.courseCode, (reappearEndByCode.get(ca.courseCode) ?? 0) + weighted);
   }
 
-  // ----- 3. Write each Regular semester as a doc in gpaAndMarks subcollection -----
+  // ----- 3. Delete all existing gpaAndMarks docs before writing fresh ones -----
+  // This ensures old manually-added or stale semesters don't persist alongside synced data.
+  const gpaAndMarksRef = collection(db, 'users', uid, 'profiles', profileId, 'gpaAndMarks');
+  const existingSnap = await getDocs(gpaAndMarksRef);
+  for (const existingDoc of existingSnap.docs) {
+    batch.delete(existingDoc.ref);
+  }
+
+  // ----- 4. Write each Regular semester as a doc in gpaAndMarks subcollection -----
   // term.courses is always empty — courses are in data.courses with a termId field.
   // Build a map: termId → courses for O(1) lookup.
   const coursesByTerm = new Map<string, typeof data.courses>();
@@ -215,7 +223,7 @@ export async function syncGradesAndMarks(data: SyncResult, profileId: string): P
  * Writes all subjects (across all terms) to a single flat doc:
  *   users/{uid}/profiles/{pid}/attendanceData/main
  */
-export async function syncAttendanceOnly(data: SyncResult, profileId: string): Promise<void> {
+export async function syncAttendanceOnly(data: Pick<SyncResult, 'attendance'>, profileId: string): Promise<void> {
   const db = getFirebaseDb();
   const user = await getCurrentUser();
   if (!user) throw new Error('Not signed in to Bhemu Calculator. Please open the app and sign in first.');

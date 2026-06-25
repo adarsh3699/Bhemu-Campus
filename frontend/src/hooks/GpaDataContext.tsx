@@ -102,6 +102,15 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 	const isReadOnlyProfile = !!(currentProfile?.isShared && currentProfile?.permission === "read");
 
 	// ===== SEMESTERS SUBCOLLECTION LISTENER =====
+	const sortSemesters = useCallback((list: GPASemester[]) => {
+		return [...list].sort((a, b) => {
+			const numA = parseInt(a.name?.match(/\d+/)?.[0] ?? "0", 10);
+			const numB = parseInt(b.name?.match(/\d+/)?.[0] ?? "0", 10);
+			if (numA !== numB) return numA - numB;
+			return (a.name ?? "").localeCompare(b.name ?? "");
+		});
+	}, []);
+
 	useEffect(() => {
 		if (!gpaService || !activeProfile) return;
 
@@ -110,22 +119,22 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 
 		const unsubscribe = isSharedEdit
 			? gpaService.onSemestersChangeForUser(profile.ownerUserId!, activeProfile, (result) => {
-				setSemesters(result.success ? result.semesters : []);
+				setSemesters(result.success ? sortSemesters(result.semesters) : []);
 			})
 			: gpaService.onSemestersChange(activeProfile, (result) => {
 				if (!result.success) { setSemesters([]); return; }
 				// Backward compat: if subcollection is empty, fall back to embedded semesters
 				if (result.semesters.length === 0 && profile?.semesters && profile.semesters.length > 0) {
-					setSemesters(profile.semesters);
+					setSemesters(sortSemesters(profile.semesters));
 					gpaService.saveSemesters(activeProfile, profile.semesters);
 				} else {
-					setSemesters(result.semesters);
+					setSemesters(sortSemesters(result.semesters));
 				}
 			});
 
 		return () => unsubscribe();
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [gpaService, activeProfile]);
+	}, [gpaService, activeProfile, sortSemesters]);
 
 	// ===== UTILITY FUNCTIONS =====
 	const generateProfileName = useCallback(() => {

@@ -52,6 +52,12 @@ export default function GpaCalculatorView() {
 		handleDeleteSemesterClick,
 		handleConfirmDeleteSemester,
 		handleCancelDeleteSemester,
+		// Subject delete confirm
+		showSubjectDeleteConfirm,
+		subjectToDelete,
+		confirmSubjectDelete,
+		handleConfirmDeleteSubject,
+		handleCancelDeleteSubject,
 		// Subject form
 		newSubject,
 		setNewSubject,
@@ -94,7 +100,7 @@ export default function GpaCalculatorView() {
 				isReadOnly={isReadOnlyProfile}
 				onInfoClick={handleModalToggle}
 			/>
-
+			{/* Semester Delete Confirmation Modal */}
 			<ConfirmModal
 				isOpen={showDeleteConfirm}
 				onClose={handleCancelDeleteSemester}
@@ -104,6 +110,21 @@ export default function GpaCalculatorView() {
 					semesterToDelete
 						? `Are you sure you want to delete "${semesterToDelete.name}"? This action cannot be undone and will permanently remove all subjects in this semester.`
 						: "Are you sure you want to delete this semester?"
+				}
+				confirmText="Delete"
+				cancelText="Cancel"
+				type="danger"
+			/>
+			{/* Subject Delete Confirmation Modal */}
+			<ConfirmModal
+				isOpen={showSubjectDeleteConfirm}
+				onClose={handleCancelDeleteSubject}
+				onConfirm={handleConfirmDeleteSubject}
+				title="Delete Subject"
+				message={
+					subjectToDelete
+						? `Are you sure you want to delete "${subjectToDelete.subjectName}"? This cannot be undone.`
+						: "Are you sure you want to delete this subject?"
 				}
 				confirmText="Delete"
 				cancelText="Cancel"
@@ -141,7 +162,7 @@ export default function GpaCalculatorView() {
 					<div className="block sm:hidden h-px w-full bg-white/10" />
 
 					{/* Stats */}
-					<div className="flex flex-row gap-5 justify-center sm:justify-start">
+					<div className="flex flex-row gap-3 sm:gap-5 justify-center sm:justify-start flex-wrap">
 						{[
 							{ label: "Semesters", value: semesters.length },
 							{
@@ -192,7 +213,7 @@ export default function GpaCalculatorView() {
 
 				{/* Semester Management */}
 				<div className="w-full max-w-4xl text-left">
-					<div className="flex flex-col sm:flex-row justify-between items-center mb-6 md:mb-8 gap-4">
+					<div className="flex flex-col sm:flex-row justify-between items-center mb-4 md:mb-6 gap-4">
 						<h2 className="text-xl md:text-2xl font-semibold text-white/90">
 							{isReadOnlyProfile ? "View Semesters" : "Manage Semesters"}
 						</h2>
@@ -208,7 +229,7 @@ export default function GpaCalculatorView() {
 
 					{/* Semester Tabs */}
 					{semesters.length > 0 && (
-						<div className="flex gap-3 md:gap-4 mb-4 md:mb-8 overflow-x-auto p-2 box-border w-full justify-start md:flex-wrap no-scrollbar">
+						<div className="flex gap-3 md:gap-4 mb-4 md:mb-8 overflow-x-auto p-1 pt-4 box-border w-full justify-start md:flex-wrap no-scrollbar">
 							{semesters.map((semester) => (
 								<div
 									key={semester.id}
@@ -298,7 +319,11 @@ export default function GpaCalculatorView() {
 						activeSemester={activeSemester}
 						isReadOnlyProfile={isReadOnlyProfile}
 						onEditSubject={editSubject}
-						onDeleteSubject={deleteSubject}
+						onDeleteSubject={(semId, subId) => {
+							const sem = semesters.find((s) => s.id === semId);
+							const sub = sem?.subjects.find((s) => s.id === subId);
+							confirmSubjectDelete(sub?.subjectName ?? "this subject", () => deleteSubject(semId, subId));
+						}}
 						onAddSemesterClick={addSemester}
 					/>
 				) : (
@@ -311,7 +336,12 @@ export default function GpaCalculatorView() {
 						onEdit={handleMarksEdit}
 						onSave={handleMarksSave}
 						onCancel={handleMarksCancel}
-						onDeleteSubject={handleDeleteSubjectFromMarks}
+						onDeleteSubject={(id) => {
+							const sub = marksSubjects.find((s) => String(s.id) === String(id));
+							confirmSubjectDelete(sub?.subjectName ?? "this subject", () =>
+								handleDeleteSubjectFromMarks(id)
+							);
+						}}
 						showSubjectForm={marksShowSubjectForm}
 						setShowSubjectForm={marksSetShowSubjectForm}
 						subjectForm={marksSubjectForm}

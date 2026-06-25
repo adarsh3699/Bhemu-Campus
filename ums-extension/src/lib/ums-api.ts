@@ -66,7 +66,7 @@ function parseAttendanceHtml(html: string): UMSAttendanceSummary[] {
       Slot: parseInt(tds[2].textContent?.trim() ?? '0') || 0,
       TotalDuty: parseInt(tds[3].textContent?.trim() ?? '0') || 0,
       Present: parseInt(tds[4].textContent?.trim() ?? '0') || 0,
-      Percentage: parseInt(tds[5].textContent?.trim() ?? '0') || 0,
+      Percentage: parseFloat(tds[5].textContent?.trim() ?? '0') || 0,
     });
   });
   return results;

@@ -1,4 +1,3 @@
-import { getUmsCookie } from '~lib/ums-auth';
 import {
   UMS_RESULTS_URL,
 } from '~utils/constants';
@@ -55,10 +54,20 @@ async function fetchTermData(termId: string, viewState: string, eventValidation:
   return response.text();
 }
 
-export async function fetchAllData(): Promise<SyncResult | { error: string }> {
-  const cookieValue = await getUmsCookie();
-  if (!cookieValue) return { error: 'No UMS session cookie found' };
+export async function fetchAttendanceOnly(): Promise<Pick<SyncResult, 'attendance'>> {
+  const apiData = await fetchSyncData();
+  return {
+    attendance: (apiData.attendance ?? []).map(a => ({
+      courseCode: a.CourseCode,
+      courseName: a.CourseName,
+      totalLectures: a.TotalDuty,
+      attendedLectures: a.Present,
+      percentage: a.Percentage,
+    })),
+  };
+}
 
+export async function fetchAllData(): Promise<SyncResult | { error: string }> {
   // Fetch HTML pages + JSON APIs in parallel
   // Timetable (frmStudentTimeTable.aspx) uses SSRS ReportViewer — JS-rendered, not scrapable via fetch.
   // Attendance now comes from JSON API (StudentAttendanceSummary), not HTML scraping
@@ -86,19 +95,23 @@ export async function fetchAllData(): Promise<SyncResult | { error: string }> {
   const allExamMarks: ExamMark[] = [...resultsResult.examMarks];
   const allAssessments: CourseAssessment[] = [...resultsResult.courseAssessments];
 
-  for (const termId of resultsResult.allTermIds) {
-    try {
-      const termHtml = await fetchTermData(termId, viewState, eventValidation, vstate);
-      const termDoc = htmlToDoc(termHtml);
-      const termResult = parseResultsPage(termDoc, termId);
+  const termResults = await Promise.allSettled(
+    resultsResult.allTermIds.map(termId =>
+      fetchTermData(termId, viewState, eventValidation, vstate)
+        .then(html => parseResultsPage(htmlToDoc(html), termId))
+    )
+  );
 
-      if (!('error' in termResult)) {
-        allCourses.push(...termResult.courses);
-        allExamMarks.push(...termResult.examMarks);
-        allAssessments.push(...termResult.courseAssessments);
-      }
-    } catch (err) {
-      console.warn(`Failed to fetch term ${termId}:`, err);
+  for (const [i, result] of termResults.entries()) {
+    if (result.status === 'rejected') {
+      console.warn(`Failed to fetch term ${resultsResult.allTermIds[i]}:`, result.reason);
+      continue;
+    }
+    const termResult = result.value;
+    if (!('error' in termResult)) {
+      allCourses.push(...termResult.courses);
+      allExamMarks.push(...termResult.examMarks);
+      allAssessments.push(...termResult.courseAssessments);
     }
   }
 

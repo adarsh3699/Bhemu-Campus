@@ -82,25 +82,24 @@ export default function MarksSubjectCard({
 		: null;
 
 	// Grade was manually overridden from Grades tab (doesn't match what marks compute)
-	const gradeOverridden = hasMarks && marks.total != null
-		&& subject.grade !== computeGradeFromMarks(marks.total, marks.customCutoff);
+	const gradeOverridden =
+		hasMarks && marks.total != null && subject.grade !== computeGradeFromMarks(marks.total, marks.customCutoff);
 
 	return (
 		<div
-			className={`bg-white/5 rounded-2xl p-5 border transition-all duration-300 hover:bg-white/8 hover:shadow-xl ${
+			className={`bg-white/5 rounded-2xl p-3 md:p-4 border transition-all duration-300 hover:bg-white/8 hover:shadow-xl ${
 				hasMarks ? "border-white/10" : "border-dashed border-white/5"
 			}`}
 		>
 			{/* Header */}
 			<div className="flex justify-between items-start mb-3">
 				<div className="flex-1 pr-2">
-					<h4 className="text-sm font-bold text-white truncate mb-1">{subject.subjectName}</h4>
+					<h4 className="text-sm font-bold text-white truncate mb-1">
+						{subject.subjectName.length > 23 && subject.subjectCode
+							? subject.subjectCode
+							: subject.subjectName}
+					</h4>
 					<div className="flex flex-wrap items-center gap-1.5">
-						{subject.subjectCode && (
-							<span className="text-[10px] text-neutral-300 bg-white/8 px-2 py-0.5 rounded-full border border-white/10">
-								{subject.subjectCode}
-							</span>
-						)}
 						<span className="text-[10px] text-neutral-300 font-semibold bg-white/8 px-2 py-0.5 rounded-full border border-white/10">
 							{subject.credit} cr
 						</span>
@@ -154,7 +153,7 @@ export default function MarksSubjectCard({
 			{/* Inline edit form */}
 			{isEditing ? (
 				<div className="mt-3 flex flex-col gap-2">
-					<div className="grid grid-cols-4 gap-2">
+					<div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
 						<MarkInput name="ca" label="CA" value={formState.ca} onChange={onFormChange} />
 						<MarkInput name="midTerm" label="Mid" value={formState.midTerm} onChange={onFormChange} />
 						<MarkInput name="endTerm" label="End" value={formState.endTerm} onChange={onFormChange} />
@@ -182,7 +181,7 @@ export default function MarksSubjectCard({
 				</div>
 			) : hasMarks ? (
 				<>
-					<div className="grid grid-cols-4 gap-2 mb-3">
+					<div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
 						{(
 							[
 								["CA", marks.ca],

@@ -1,36 +1,18 @@
-import { UMS_BASE_URL, UMS_COOKIE_NAME, UMS_DASHBOARD_URL } from '~utils/constants';
+import { UMS_DASHBOARD_URL } from '~utils/constants';
 
-export async function getUmsCookie(): Promise<string | null> {
-  const cookie = await chrome.cookies.get({
-    url: UMS_BASE_URL,
-    name: UMS_COOKIE_NAME,
-  });
-  return cookie?.value ?? null;
-}
-
+/**
+ * Probe the UMS dashboard with redirect: 'manual'.
+ * A valid session returns 200 with dashboard HTML.
+ * An expired/absent session returns a 302 redirect to the login page (opaqueredirect).
+ */
 export async function isSessionValid(): Promise<boolean> {
-  const cookieValue = await getUmsCookie();
-  if (!cookieValue) return false;
-
   try {
     const response = await fetch(UMS_DASHBOARD_URL, {
       method: 'GET',
       credentials: 'include',
       redirect: 'manual',
     });
-
-    if (response.type === 'opaqueredirect' || response.status !== 200) {
-      return false;
-    }
-
-    const text = await response.text();
-    const lower = text.toLowerCase();
-    return !(
-      lower.includes('session expired') ||
-      lower.includes('please login') ||
-      lower.includes('login.aspx') ||
-      lower.includes('login required')
-    );
+    return response.type !== 'opaqueredirect' && response.status === 200;
   } catch {
     return false;
   }
@@ -41,13 +23,16 @@ export function openLoginTab(): Promise<chrome.tabs.Tab> {
 }
 
 export function setupLoginDetection(tabId: number): Promise<void> {
-  return new Promise((resolve) => {
-    const listener = (details: chrome.webNavigation.WebNavigationTransitionCallbackDetails) => {
-      if (details.tabId !== tabId) return;
-      const url = details.url.toLowerCase();
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      chrome.webNavigation.onCommitted.removeListener(navListener);
+      chrome.tabs.onRemoved.removeListener(closeListener);
+    };
 
-      if (url.includes('studentdashboard')) {
-        chrome.webNavigation.onCommitted.removeListener(listener);
+    const navListener = (details: chrome.webNavigation.WebNavigationTransitionCallbackDetails) => {
+      if (details.tabId !== tabId) return;
+      if (details.url.toLowerCase().includes('studentdashboard')) {
+        cleanup();
         setTimeout(() => {
           chrome.tabs.remove(tabId).catch(() => {});
           resolve();
@@ -55,6 +40,13 @@ export function setupLoginDetection(tabId: number): Promise<void> {
       }
     };
 
-    chrome.webNavigation.onCommitted.addListener(listener);
+    const closeListener = (closedTabId: number) => {
+      if (closedTabId !== tabId) return;
+      cleanup();
+      reject(new Error('UMS login tab was closed before login completed.'));
+    };
+
+    chrome.webNavigation.onCommitted.addListener(navListener);
+    chrome.tabs.onRemoved.addListener(closeListener);
   });
 }

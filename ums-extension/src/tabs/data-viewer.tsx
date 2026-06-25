@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Storage } from '@plasmohq/storage';
-import type { SyncResult } from '~lib/types';
+import type { SyncResult, CourseAssessment, Term } from '~lib/types';
 import { CATEGORY_NAME } from '~lib/ums-api';
 
 const storage = new Storage({ area: 'local' });
@@ -110,7 +110,6 @@ function AttendanceBar({ pct }: { pct: number }) {
   );
 }
 
-import type { CourseAssessment, Term } from '~lib/types';
 
 function ComponentWiseMarks({ assessments, terms }: { assessments: CourseAssessment[]; terms: Term[] }) {
   if (!assessments.length) return <p style={{ color: '#9ca3af', fontSize: 13 }}>No data</p>;

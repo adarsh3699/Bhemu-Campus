@@ -260,7 +260,7 @@ function extractTerms(doc: Document): Term[] {
   let counter = 1;
   terms.forEach(t => {
     if (t.category === 'Regular') {
-      t.displayName = `Term ${counter++}`;
+      t.displayName = `Semester ${counter++}`;
       t.isActive = activeSet.has(t.id);
     }
   });

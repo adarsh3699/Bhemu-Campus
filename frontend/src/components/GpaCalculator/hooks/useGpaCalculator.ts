@@ -38,6 +38,12 @@ export function useGpaCalculator() {
 	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 	const [semesterToDelete, setSemesterToDelete] = useState<{ id: string | number; name: string } | null>(null);
 
+	// Subject delete confirmation state
+	const [showSubjectDeleteConfirm, setShowSubjectDeleteConfirm] = useState(false);
+	const [subjectToDelete, setSubjectToDelete] = useState<{ semesterId: string | number; subjectId: string | number; subjectName: string } | null>(null);
+	// Stores the actual delete fn to call on confirm (handles both GPA and Marks tabs)
+	const pendingSubjectDeleteRef = React.useRef<(() => void) | null>(null);
+
 	// ===== ACTIVE SEMESTER SYNC =====
 	const searchParams = useSearchParams();
 	const semFromUrl = searchParams.get("sem");
@@ -175,6 +181,25 @@ export function useGpaCalculator() {
 		[semesters, updateSemesters]
 	);
 
+	const confirmSubjectDelete = useCallback((subjectName: string, deleteFn: () => void) => {
+		pendingSubjectDeleteRef.current = deleteFn;
+		setSubjectToDelete({ semesterId: '', subjectId: '', subjectName });
+		setShowSubjectDeleteConfirm(true);
+	}, []);
+
+	const handleConfirmDeleteSubject = useCallback(() => {
+		pendingSubjectDeleteRef.current?.();
+		pendingSubjectDeleteRef.current = null;
+		setSubjectToDelete(null);
+		setShowSubjectDeleteConfirm(false);
+	}, []);
+
+	const handleCancelDeleteSubject = useCallback(() => {
+		pendingSubjectDeleteRef.current = null;
+		setSubjectToDelete(null);
+		setShowSubjectDeleteConfirm(false);
+	}, []);
+
 	// Keep marks context in sync with the active semester
 	useEffect(() => {
 		if (activeSemester != null) {
@@ -225,6 +250,13 @@ export function useGpaCalculator() {
 		handleDeleteSemesterClick,
 		handleConfirmDeleteSemester,
 		handleCancelDeleteSemester,
+
+		// Subject delete confirm
+		showSubjectDeleteConfirm,
+		subjectToDelete,
+		confirmSubjectDelete,
+		handleConfirmDeleteSubject,
+		handleCancelDeleteSubject,
 
 		// Subject form
 		newSubject,

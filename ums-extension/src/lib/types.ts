@@ -13,7 +13,6 @@ export interface Term {
   isActive: boolean;
   tgpa?: number | null;
   courses: Course[];
-  averageGrade?: number;
 }
 
 export interface ExamMark {
