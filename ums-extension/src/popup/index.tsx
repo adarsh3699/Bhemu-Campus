@@ -153,7 +153,7 @@ function Popup() {
 			<div className="popup">
 				<div className="brand">
 					<span className="brand-dot" />
-					<span className="brand-name">UMS Data Sync</span>
+					<span className="brand-name">Bhemu UMS Sync</span>
 				</div>
 
 				{!showManualLogin ? (
@@ -215,6 +215,12 @@ function Popup() {
 							<button onClick={handleEmailLogin} className="btn-primary" disabled={authLoading}>
 								{authLoading ? "Signing in…" : "Sign In"}
 							</button>
+							<button
+								className="btn-link"
+								onClick={() => chrome.tabs.create({ url: "https://calc.bhemu.in/forgot-password" })}
+							>
+								Forgot password?
+							</button>
 						</div>
 					</div>
 				)}
@@ -227,7 +233,7 @@ function Popup() {
 		<div className="popup">
 			<div className="brand">
 				<span className="brand-dot" />
-				<span className="brand-name">UMS Data Sync</span>
+				<span className="brand-name">Bhemu UMS Sync</span>
 				<button onClick={handleLogout} className="btn-signout" title="Sign Out">
 					↩
 				</button>

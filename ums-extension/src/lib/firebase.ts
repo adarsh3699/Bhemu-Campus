@@ -127,7 +127,13 @@ export async function signInWithCalcSession(): Promise<User> {
 
   if (existingTabs.length > 0 && existingTabs[0].id) {
     const tabId = existingTabs[0].id;
-    const result = await retryMsg(tabId, 2);
+    let result = await retryMsg(tabId, 2);
+    if (!result) {
+      // Content script may not be injected yet — reload and retry
+      await chrome.tabs.reload(tabId);
+      await waitForLoad(tabId);
+      result = await retryMsg(tabId, 3);
+    }
     if (!result) {
       await chrome.tabs.update(tabId, { active: true });
       throw new Error('Not logged in on Bhemu Calculator. Please log in there, then try again.');
