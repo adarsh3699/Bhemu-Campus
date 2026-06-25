@@ -427,7 +427,7 @@ export default function DataViewer() {
                       <span style={{ marginLeft: 'auto', fontSize: 11, color: '#9ca3af' }}>{a.date} {a.time}</span>
                     </div>
                     <p style={{ fontSize: 11, color: '#6b7280', margin: '0 0 4px' }}>By: {a.employeename}</p>
-                    <p style={{ fontSize: 12, color: '#4b5563', margin: 0, whiteSpace: 'pre-wrap' }} dangerouslySetInnerHTML={{ __html: a.announcement }} />
+                    <p style={{ fontSize: 12, color: '#4b5563', margin: 0, whiteSpace: 'pre-wrap' }}>{a.announcement?.replace(/<[^>]*>/g, '') ?? ''}</p>
                   </div>
                 ))}
               </div>

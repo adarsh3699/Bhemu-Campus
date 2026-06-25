@@ -35,9 +35,6 @@
   "manifest": {
     "permissions": [
       "storage",
-      "cookies",
-      "offscreen",
-      "identity",
       "tabs",
       "webNavigation"
     ],

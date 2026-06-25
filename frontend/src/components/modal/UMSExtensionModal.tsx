@@ -57,14 +57,13 @@ export default function UMSExtensionModal({ isOpen, onClose }: UMSExtensionModal
 
 				{/* CTA */}
 				<a
-					href="https://chromewebstore.google.com"
+					href="https://github.com/adarsh3699/Bhemu-Calculator/releases/tag/ums-extension-v1.0.0"
 					target="_blank"
 					rel="noopener noreferrer"
 					className="flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-teal-400 to-blue-500 hover:from-teal-500 hover:to-blue-600 text-white rounded-xl text-sm font-bold uppercase tracking-wider transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
 				>
 					<Download className="w-4 h-4" />
-					{/* Install Chrome Extension — Free */}
-					Coming Soon
+					Download Extension
 				</a>
 				<p className="text-center text-xs text-neutral-500">Works on Chrome & Chromium-based browsers</p>
 			</div>

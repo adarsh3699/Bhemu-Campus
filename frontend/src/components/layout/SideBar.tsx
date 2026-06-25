@@ -190,29 +190,22 @@ export default function SideBar({ isOpen, onClose }: SideBarProps) {
 				{/* User profile section */}
 				<div className="border-t border-white/5 p-4">
 					{currentUser ? (
-						<div className="space-y-3">
-							{/* User info */}
-							<div className="flex items-center gap-3">
-								<div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold text-sm shrink-0">
-									{getUserInitial()}
-								</div>
-								<div className="flex-1 min-w-0">
-									<p className="text-white text-xs font-semibold truncate">
-										{currentUser.displayName || "User"}
-									</p>
-									<p className="text-muted-foreground text-[11px] truncate">{currentUser.email}</p>
-								</div>
+						<div className="flex items-center gap-3">
+							<div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold text-sm shrink-0">
+								{getUserInitial()}
 							</div>
-							{/* Logout button */}
+							<div className="flex-1 min-w-0">
+								<p className="text-white text-xs font-semibold truncate">
+									{currentUser.displayName || "User"}
+								</p>
+								<p className="text-muted-foreground text-[11px] truncate">{currentUser.email}</p>
+							</div>
 							<button
-								onClick={() => {
-									onClose();
-									handleLogout();
-								}}
-								className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-xs font-medium text-red-400 hover:bg-red-950/20 hover:text-red-300 transition-all duration-200"
+								onClick={() => { onClose(); handleLogout(); }}
+								title="Sign Out"
+								className="shrink-0 p-1.5 rounded-lg text-red-400 hover:bg-red-950/20 hover:text-red-300 transition-all duration-200"
 							>
-								<LogOut className="w-4 h-4 shrink-0" />
-								Sign Out
+								<LogOut className="w-4 h-4" />
 							</button>
 						</div>
 					) : (
