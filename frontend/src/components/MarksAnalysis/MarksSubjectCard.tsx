@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Pencil, Trash2 } from "lucide-react";
 import CutoffIndicator from "./CutoffIndicator";
 import { pointToGrade } from "@/lib/grades";
@@ -24,16 +24,25 @@ function MarkInput({
 	label,
 	value,
 	onChange,
+	autoFocus,
 }: {
 	name: string;
 	label: string;
 	value: string;
 	onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+	autoFocus?: boolean;
 }) {
+	const ref = useRef<HTMLInputElement>(null);
+
+	useEffect(() => {
+		if (autoFocus) ref.current?.focus();
+	}, [autoFocus]);
+
 	return (
 		<div className="flex flex-col gap-1">
 			<label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">{label}</label>
 			<input
+				ref={ref}
 				type="number"
 				name={name}
 				min="0"
@@ -60,6 +69,8 @@ export default function MarksSubjectCard({
 }: MarksSubjectCardProps) {
 	const { marks } = subject;
 	const hasMarks = marks != null;
+
+	const [focusCredit, setFocusCredit] = useState(false);
 
 	const displayGradePoint = subject.grade > 0 ? subject.grade : null;
 	const gradeLabel = displayGradePoint !== null ? pointToGrade(displayGradePoint) : null;
@@ -100,9 +111,25 @@ export default function MarksSubjectCard({
 							: subject.subjectName}
 					</h4>
 					<div className="flex flex-wrap items-center gap-1.5">
-						<span className="text-[10px] text-neutral-300 font-semibold bg-white/8 px-2 py-0.5 rounded-full border border-white/10">
-							{subject.credit} cr
-						</span>
+						{subject.credit === 0 ? (
+							<span
+								className="relative group text-[10px] font-semibold text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded-full border border-orange-500/20 cursor-pointer"
+								onClick={() => {
+									if (isReadOnly) return;
+									setFocusCredit(true);
+									onEdit(subject.id);
+								}}
+							>
+								Credits?
+								<span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-max max-w-[180px] rounded-lg bg-neutral-900 border border-white/10 px-2.5 py-1.5 text-[11px] font-normal text-neutral-200 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-50">
+									UMS didn&apos;t provide credits — click to add
+								</span>
+							</span>
+						) : (
+							<span className="text-[10px] text-neutral-300 font-semibold bg-white/8 px-2 py-0.5 rounded-full border border-white/10">
+								{subject.credit} cr
+							</span>
+						)}
 						{sourceBadge && (
 							<span
 								className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${sourceBadge.cls}`}
@@ -121,7 +148,7 @@ export default function MarksSubjectCard({
 				<div className="flex gap-1.5 shrink-0">
 					{isEditing ? (
 						<button
-							onClick={onCancel}
+							onClick={() => { setFocusCredit(false); onCancel(); }}
 							title="Cancel"
 							className="flex items-center justify-center w-7 h-7 rounded-lg bg-neutral-500/10 border border-neutral-500/20 text-neutral-400 hover:bg-neutral-500/20 hover:scale-105 transition-all duration-200"
 						>
@@ -130,7 +157,7 @@ export default function MarksSubjectCard({
 					) : (
 						<>
 							<button
-								onClick={() => !isReadOnly && onEdit(subject.id)}
+								onClick={() => { if (!isReadOnly) { setFocusCredit(false); onEdit(subject.id); } }}
 								disabled={isReadOnly}
 								title={isReadOnly ? "Read-only profile" : "Edit marks"}
 								className="flex items-center justify-center w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20 hover:scale-105 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:bg-indigo-500/10"
@@ -155,7 +182,7 @@ export default function MarksSubjectCard({
 				<div className="mt-3 flex flex-col gap-2">
 					<div className="flex flex-col sm:hidden gap-2">
 						<div className="grid grid-cols-3 gap-2">
-							<MarkInput name="credit" label="Credits" value={formState.credit} onChange={onFormChange} />
+							<MarkInput name="credit" label="Credits" value={formState.credit} onChange={onFormChange} autoFocus={focusCredit} />
 							<MarkInput name="ca" label="CA" value={formState.ca} onChange={onFormChange} />
 							<MarkInput name="midTerm" label="Mid" value={formState.midTerm} onChange={onFormChange} />
 						</div>
@@ -165,7 +192,7 @@ export default function MarksSubjectCard({
 						</div>
 					</div>
 					<div className="hidden sm:grid grid-cols-5 gap-2">
-						<MarkInput name="credit" label="Credits" value={formState.credit} onChange={onFormChange} />
+						<MarkInput name="credit" label="Credits" value={formState.credit} onChange={onFormChange} autoFocus={focusCredit} />
 						<MarkInput name="ca" label="CA" value={formState.ca} onChange={onFormChange} />
 						<MarkInput name="midTerm" label="Mid" value={formState.midTerm} onChange={onFormChange} />
 						<MarkInput name="endTerm" label="End" value={formState.endTerm} onChange={onFormChange} />

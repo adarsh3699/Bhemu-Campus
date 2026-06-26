@@ -62,7 +62,8 @@ export function MarksDataProvider({ children }: { children: React.ReactNode }) {
 				const total = computeTotal(ca, midTerm, endTerm, attendanceMarks);
 
 				const umsGradePoint = incoming.umsGradePoint !== undefined ? incoming.umsGradePoint : prev?.umsGradePoint ?? null;
-				const source = incoming.source ?? (umsGradePoint !== null ? "ums" : total !== null ? "manual" : "partial");
+				// Once edited from the frontend, always "manual" — strip UMS provenance.
+				const source = incoming.source ?? "manual";
 
 				// customCutoff is ONLY set during UMS sync (relative grading) — never writable from frontend.
 				const customCutoff = prev?.customCutoff ?? null;

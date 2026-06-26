@@ -180,7 +180,7 @@ export async function syncGradesAndMarks(data: SyncResult, profileId: string): P
         subjectName: course.courseName || course.courseCode || `Subject ${i + 1}`,
         subjectCode: course.courseCode ?? undefined,
         grade: umsGradePoint ?? (total !== null ? standardGradePoint(total) : 0),
-        credit: course.credits ?? 3,
+        credit: course.credits ?? 0,
       };
 
       if (hasAnyMark || umsGradePoint !== null) {

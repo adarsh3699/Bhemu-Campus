@@ -26,9 +26,20 @@ export function computeGradeFromMarks(
 	totalMarks: number,
 	customCutoff?: CustomCutoff | null
 ): number {
-	if (customCutoff && totalMarks >= customCutoff.cutoffMarks) {
-		return customCutoff.gradePoint;
+	if (!customCutoff) return lookupStandardGrade(totalMarks).gradePoint;
+
+	const { gradePoint: rGrade, cutoffMarks } = customCutoff;
+	const standardEntry = STANDARD_GRADE_TABLE.find((e) => e.gradePoint === rGrade);
+	if (!standardEntry) return lookupStandardGrade(totalMarks).gradePoint;
+
+	if (cutoffMarks < standardEntry.minMarks) {
+		// Relative curve shifted lower bound DOWN (better grade): applies in [cutoffMarks, standardMax]
+		if (totalMarks >= cutoffMarks && totalMarks <= standardEntry.maxMarks) return rGrade;
+	} else {
+		// Relative curve shifted upper bound UP (harsher grade): applies in [standardMin, cutoffMarks]
+		if (totalMarks >= standardEntry.minMarks && totalMarks <= cutoffMarks) return rGrade;
 	}
+
 	return lookupStandardGrade(totalMarks).gradePoint;
 }
 

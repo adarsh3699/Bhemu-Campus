@@ -89,9 +89,15 @@ const SemesterList: React.FC<SemesterListProps> = ({
 														: subject.subjectName}
 												</h4>
 												<div className="flex items-center gap-1.5">
-													<span className="text-[10px] font-semibold text-neutral-300 bg-white/8 px-2 py-0.5 rounded-full border border-white/10">
-														{subject.credit} cr
-													</span>
+													{subject.credit === 0 ? (
+														<span className="text-[10px] font-semibold text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded-full border border-orange-500/20">
+															Credits?
+														</span>
+													) : (
+														<span className="text-[10px] font-semibold text-neutral-300 bg-white/8 px-2 py-0.5 rounded-full border border-white/10">
+															{subject.credit} cr
+														</span>
+													)}
 												</div>
 											</div>
 											<div className="flex gap-1.5 shrink-0">
