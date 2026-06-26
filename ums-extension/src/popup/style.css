@@ -27,11 +27,10 @@ body,
 	gap: 8px;
 	margin-bottom: 18px;
 }
-.brand-dot {
-	width: 10px;
-	height: 10px;
-	border-radius: 50%;
-	background: #f97316;
+.brand-logo {
+	width: 22px;
+	height: 22px;
+	border-radius: 4px;
 	flex-shrink: 0;
 }
 .brand-name {
@@ -373,6 +372,27 @@ body,
 	display: flex;
 	flex-direction: column;
 	gap: 8px;
+}
+
+/* ── Open App ── */
+.btn-open-app {
+	width: 100%;
+	margin-top: 14px;
+	padding: 9px;
+	background: transparent;
+	color: #f97316;
+	border: 1.5px solid #fed7aa;
+	border-radius: 8px;
+	font-size: 13px;
+	font-weight: 600;
+	cursor: pointer;
+	transition:
+		background 0.15s,
+		border-color 0.15s;
+}
+.btn-open-app:hover {
+	background: #fff7ed;
+	border-color: #f97316;
 }
 
 /* ── Misc ── */

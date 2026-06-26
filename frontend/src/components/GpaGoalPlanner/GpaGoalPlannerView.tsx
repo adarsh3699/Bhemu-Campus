@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { RotateCw, Flag, Flame, AlertTriangle, CheckCircle, Target, BarChart3, Settings } from "lucide-react";
 
 interface InputGroupProps {
@@ -52,7 +53,10 @@ export default function GpaGoalPlannerView() {
 			setResult(null);
 			return;
 		}
-		if (completed >= total) { setResult(null); return; }
+		if (completed >= total) {
+			setResult(null);
+			return;
+		}
 
 		const remaining = total - completed;
 		const requiredSgpa = (target * total - current * completed) / remaining;
@@ -78,20 +82,50 @@ export default function GpaGoalPlannerView() {
 	const getResultBanner = () => {
 		if (!result) return null;
 		if (!result.possible) {
-			return { type: "destructive", title: "Not Achievable", desc: `Reaching ${targetCgpa} is not possible within the remaining semesters.` };
+			return {
+				type: "destructive",
+				title: "Not Achievable",
+				desc: `Reaching ${targetCgpa} is not possible within the remaining semesters.`,
+			};
 		}
 		if (result.required > 9) {
-			return { type: "warning", title: "Challenging", desc: `Reaching ${targetCgpa} will require significant effort in the remaining ${result.remaining} semesters.` };
+			return {
+				type: "warning",
+				title: "Challenging",
+				desc: `Reaching ${targetCgpa} will require significant effort in the remaining ${result.remaining} semesters.`,
+			};
 		}
-		return { type: "success", title: "Achievable!", desc: `You're on a good track to reach ${targetCgpa} with consistent effort.` };
+		return {
+			type: "success",
+			title: "Achievable!",
+			desc: `You're on a good track to reach ${targetCgpa} with consistent effort.`,
+		};
 	};
 
 	const banner = getResultBanner();
 
 	const bannerStyles = {
-		warning: { border: "border-warning/30", bg: "from-warning/10 to-transparent", bar: "bg-warning", title: "text-warning", icon: <Flame className="w-5 h-5 inline-block mr-1 text-warning shrink-0" /> },
-		destructive: { border: "border-destructive/30", bg: "from-destructive/10 to-transparent", bar: "bg-destructive", title: "text-destructive", icon: <AlertTriangle className="w-5 h-5 inline-block mr-1 text-destructive shrink-0" /> },
-		success: { border: "border-success/30", bg: "from-success/10 to-transparent", bar: "bg-success", title: "text-success", icon: <CheckCircle className="w-5 h-5 inline-block mr-1 text-success shrink-0" /> },
+		warning: {
+			border: "border-warning/30",
+			bg: "from-warning/10 to-transparent",
+			bar: "bg-warning",
+			title: "text-warning",
+			icon: <Flame className="w-5 h-5 inline-block mr-1 text-warning shrink-0" />,
+		},
+		destructive: {
+			border: "border-destructive/30",
+			bg: "from-destructive/10 to-transparent",
+			bar: "bg-destructive",
+			title: "text-destructive",
+			icon: <AlertTriangle className="w-5 h-5 inline-block mr-1 text-destructive shrink-0" />,
+		},
+		success: {
+			border: "border-success/30",
+			bg: "from-success/10 to-transparent",
+			bar: "bg-success",
+			title: "text-success",
+			icon: <CheckCircle className="w-5 h-5 inline-block mr-1 text-success shrink-0" />,
+		},
 	};
 
 	// Build semester forecast
@@ -108,7 +142,9 @@ export default function GpaGoalPlannerView() {
 				</div>
 				<div>
 					<h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">GPA Goal Planner</h1>
-					<p className="text-sm text-muted-foreground mt-1">Strategize your academic trajectory and plan your target CGPA</p>
+					<p className="text-sm text-muted-foreground mt-1">
+						Strategize your academic trajectory and plan your target CGPA
+					</p>
 				</div>
 			</div>
 
@@ -126,13 +162,28 @@ export default function GpaGoalPlannerView() {
 							Current Status
 						</h2>
 						<div className="space-y-4 relative z-10">
-							<InputGroup label="Current CGPA" value={currentCgpa} onChange={setCurrentCgpa} placeholder="e.g. 7.54" max="10" />
-							<InputGroup label="Completed Semesters" value={completedSemesters} onChange={setCompletedSemesters} placeholder="e.g. 3" max={(total - 1).toString()} step="1" />
+							<InputGroup
+								label="Current CGPA"
+								value={currentCgpa}
+								onChange={setCurrentCgpa}
+								placeholder="e.g. 7.54"
+								max="10"
+							/>
+							<InputGroup
+								label="Completed Semesters"
+								value={completedSemesters}
+								onChange={setCompletedSemesters}
+								placeholder="e.g. 3"
+								max={(total - 1).toString()}
+								step="1"
+							/>
 
 							{/* Duration Selector */}
 							<div className="flex flex-col gap-2">
 								<div className="flex items-center justify-between">
-									<span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Semesters</span>
+									<span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+										Total Semesters
+									</span>
 									<span className="text-xs font-semibold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-md">
 										{totalSemesters} Sem
 									</span>
@@ -167,8 +218,12 @@ export default function GpaGoalPlannerView() {
 						</h2>
 						<div className="flex flex-col gap-2">
 							<div className="flex justify-between items-center">
-								<label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Target CGPA</label>
-								<span className="text-lg font-bold text-yellow-400 font-mono">{parseFloat(targetCgpa || "0").toFixed(2)}</span>
+								<label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+									Target CGPA
+								</label>
+								<span className="text-lg font-bold text-yellow-400 font-mono">
+									{parseFloat(targetCgpa || "0").toFixed(2)}
+								</span>
 							</div>
 							<input
 								type="range"
@@ -178,9 +233,11 @@ export default function GpaGoalPlannerView() {
 								value={targetCgpa}
 								onChange={(e) => setTargetCgpa(e.target.value)}
 								className="w-full cursor-pointer"
-								style={{
-									"--range-fill": `${(parseFloat(targetCgpa || "0") / 10) * 100}%`,
-								} as React.CSSProperties}
+								style={
+									{
+										"--range-fill": `${(parseFloat(targetCgpa || "0") / 10) * 100}%`,
+									} as React.CSSProperties
+								}
 							/>
 							<div className="flex justify-between text-xs text-muted-foreground">
 								<span>Current: {currentCgpa || "—"}</span>
@@ -206,9 +263,13 @@ export default function GpaGoalPlannerView() {
 						<div
 							className={`bg-gradient-to-r ${bannerStyles[banner.type as keyof typeof bannerStyles].bg} border ${bannerStyles[banner.type as keyof typeof bannerStyles].border} rounded-xl p-5 relative overflow-hidden flex items-start gap-4`}
 						>
-							<div className={`absolute top-0 left-0 w-1 h-full ${bannerStyles[banner.type as keyof typeof bannerStyles].bar}`} />
+							<div
+								className={`absolute top-0 left-0 w-1 h-full ${bannerStyles[banner.type as keyof typeof bannerStyles].bar}`}
+							/>
 							<div className="pl-2">
-								<h3 className={`text-lg font-bold ${bannerStyles[banner.type as keyof typeof bannerStyles].title} mb-1`}>
+								<h3
+									className={`text-lg font-bold ${bannerStyles[banner.type as keyof typeof bannerStyles].title} mb-1`}
+								>
 									{bannerStyles[banner.type as keyof typeof bannerStyles].icon} {banner.title}
 								</h3>
 								<p className="text-sm text-muted-foreground">{banner.desc}</p>
@@ -240,7 +301,9 @@ export default function GpaGoalPlannerView() {
 						{result ? (
 							<div className="flex items-end gap-4 mb-8 pb-6 border-b border-white/5">
 								<div>
-									<p className="text-muted-foreground text-xs font-medium mb-1 uppercase tracking-wide">Required Avg. SGPA</p>
+									<p className="text-muted-foreground text-xs font-medium mb-1 uppercase tracking-wide">
+										Required Avg. SGPA
+									</p>
 									<div
 										className="text-5xl font-bold text-primary font-mono"
 										style={{ textShadow: "0 0 20px rgba(3, 152, 172, 0.4)" }}
@@ -254,7 +317,9 @@ export default function GpaGoalPlannerView() {
 							</div>
 						) : (
 							<div className="flex items-center justify-center h-24 mb-6 border-b border-white/5">
-								<p className="text-muted-foreground text-sm">Fill in your details to see the forecast</p>
+								<p className="text-muted-foreground text-sm">
+									Fill in your details to see the forecast
+								</p>
 							</div>
 						)}
 
@@ -264,7 +329,9 @@ export default function GpaGoalPlannerView() {
 							{pastSemesters > 0 && (
 								<div className="bg-surface-elevated rounded-lg p-3 border border-border opacity-60 col-span-1">
 									<div className="text-xs text-muted-foreground mb-1">Sem 1–{pastSemesters}</div>
-									<div className="text-base font-bold text-white font-mono">{parseFloat(currentCgpa || "0").toFixed(2)}</div>
+									<div className="text-base font-bold text-white font-mono">
+										{parseFloat(currentCgpa || "0").toFixed(2)}
+									</div>
 									<div className="text-xs text-muted-foreground">avg</div>
 								</div>
 							)}
@@ -272,7 +339,7 @@ export default function GpaGoalPlannerView() {
 							{Array.from({ length: Math.min(futureSemesters, 7) }, (_, i) => (
 								<div
 									key={i}
-									className="bg-primary/5 rounded-lg p-3 border border-primary/20 relative group hover:bg-primary/10 transition-all"
+									className="bg-primary/5 rounded-lg max-h-40 p-3 border border-primary/20 relative group hover:bg-primary/10 transition-all"
 								>
 									<div className="text-xs text-primary/70 mb-1">Sem {pastSemesters + i + 1}</div>
 									<div className="text-base font-bold text-primary font-mono">
@@ -289,9 +356,25 @@ export default function GpaGoalPlannerView() {
 			<footer className="mt-12 pt-6 border-t border-white/5 flex justify-between items-center text-sm text-muted-foreground">
 				<span>© {new Date().getFullYear()} Bhemu Calculator</span>
 				<div className="flex gap-4">
-					<a href="https://www.bhemu.in/about" target="_blank" rel="noreferrer" className="hover:text-primary transition-colors">Portfolio</a>
-					<a href="https://www.linkedin.com/in/adarsh3699/" target="_blank" rel="noreferrer" className="hover:text-primary transition-colors">LinkedIn</a>
-					<a href="https://github.com/adarsh3699" target="_blank" rel="noreferrer" className="hover:text-primary transition-colors">GitHub</a>
+					<Link href="/about" className="hover:text-primary transition-colors">
+						About
+					</Link>
+					<a
+						href="https://www.linkedin.com/in/adarsh3699/"
+						target="_blank"
+						rel="noreferrer"
+						className="hover:text-primary transition-colors"
+					>
+						LinkedIn
+					</a>
+					<a
+						href="https://github.com/adarsh3699"
+						target="_blank"
+						rel="noreferrer"
+						className="hover:text-primary transition-colors"
+					>
+						GitHub
+					</a>
 				</div>
 			</footer>
 		</div>

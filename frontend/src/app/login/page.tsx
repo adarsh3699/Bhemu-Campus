@@ -223,15 +223,12 @@ export default function LoginPage() {
 
 					{/* Accessibility / Legal */}
 					<div className="mt-12 flex justify-center gap-6 text-xs text-gray-500">
-						<a href="#" className="hover:text-gray-300 transition-colors">
+						<a href="https://calc.bhemu.in/privacy-policy.html" target="_blank" rel="noreferrer" className="hover:text-gray-300 transition-colors">
 							Privacy Policy
 						</a>
-						<a href="#" className="hover:text-gray-300 transition-colors">
-							Terms of Service
-						</a>
-						<a href="#" className="hover:text-gray-300 transition-colors">
-							Help Center
-						</a>
+						<Link href="/about" className="hover:text-gray-300 transition-colors">
+							About
+						</Link>
 					</div>
 				</div>
 			</div>

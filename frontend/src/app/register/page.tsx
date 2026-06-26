@@ -269,14 +269,9 @@ export default function RegisterPage() {
 						<p className="text-xs text-center text-slate-400 mt-2">
 							By creating an account, you agree to our{" "}
 							<a
-								href="#"
-								className="text-secondary hover:text-secondary-dark transition-colors underline decoration-transparent hover:decoration-current"
-							>
-								Terms of Service
-							</a>{" "}
-							and{" "}
-							<a
-								href="#"
+								href="https://calc.bhemu.in/privacy-policy.html"
+								target="_blank"
+								rel="noreferrer"
 								className="text-secondary hover:text-secondary-dark transition-colors underline decoration-transparent hover:decoration-current"
 							>
 								Privacy Policy

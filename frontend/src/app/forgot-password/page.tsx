@@ -156,17 +156,13 @@ export default function ForgotPasswordPage() {
 
 					{/* Footer Links */}
 					<div className="mt-8 text-center space-x-6 text-xs text-gray-500 font-medium">
-						<a href="#" className="hover:text-secondary-dark transition-colors">
+						<a href="https://calc.bhemu.in/privacy-policy.html" target="_blank" rel="noreferrer" className="hover:text-secondary-dark transition-colors">
 							Privacy Policy
 						</a>
 						<span>•</span>
-						<a href="#" className="hover:text-secondary-dark transition-colors">
-							Terms of Service
-						</a>
-						<span>•</span>
-						<a href="#" className="hover:text-secondary-dark transition-colors">
-							Support
-						</a>
+						<Link href="/about" className="hover:text-secondary-dark transition-colors">
+							About
+						</Link>
 					</div>
 				</div>
 			</main>

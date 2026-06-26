@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { GraduationCap, Star } from "lucide-react";
 
 interface AuthShowcaseProps {
@@ -84,8 +85,8 @@ export function AuthShowcase({ title, subtitle, testimonial = false }: AuthShowc
 			<div className="text-xs text-gray-500 z-10 flex justify-between items-center w-full">
 				<span>© 2026 Bhemu Calculator. All rights reserved.</span>
 				<div className="flex gap-4">
-					<a href="#" className="hover:text-gray-300 transition-colors">Privacy</a>
-					<a href="#" className="hover:text-gray-300 transition-colors">Terms</a>
+					<a href="https://calc.bhemu.in/privacy-policy.html" target="_blank" rel="noreferrer" className="hover:text-gray-300 transition-colors">Privacy</a>
+					<Link href="/about" className="hover:text-gray-300 transition-colors">About</Link>
 				</div>
 			</div>
 		</div>

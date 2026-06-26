@@ -34,7 +34,7 @@ export default function UMSExtensionModal({ isOpen, onClose }: UMSExtensionModal
 					{[
 						{
 							icon: <Zap className="w-4 h-4 text-amber-400" />,
-							text: "Auto-fetch marks & grades from UMS portal in one click",
+							text: "Auto-fetch marks, grades & attendance from UMS portal in one click",
 						},
 						{
 							icon: <BarChart2 className="w-4 h-4 text-teal-400" />,
@@ -57,13 +57,13 @@ export default function UMSExtensionModal({ isOpen, onClose }: UMSExtensionModal
 
 				{/* CTA */}
 				<a
-					href="https://github.com/adarsh3699/Bhemu-Calculator/releases/tag/ums-extension-v1.0.0"
+					href="https://chromewebstore.google.com/detail/bfmmcngnpcmnopnjacnebpnfcohhigkp?utm_source=item-share-cb"
 					target="_blank"
 					rel="noopener noreferrer"
-					className="flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-teal-400 to-blue-500 hover:from-teal-500 hover:to-blue-600 text-white rounded-xl text-sm font-bold uppercase tracking-wider transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+					className="flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-teal-500 to-blue-600 hover:from-teal-600 hover:to-blue-700 text-white rounded-xl text-sm font-bold uppercase tracking-wider transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
 				>
 					<Download className="w-4 h-4" />
-					Download Extension
+					Install Chrome Extension — Free
 				</a>
 				<p className="text-center text-xs text-neutral-500">Works on Chrome & Chromium-based browsers</p>
 			</div>

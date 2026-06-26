@@ -2,7 +2,26 @@
 
 import React from "react";
 import Image from "next/image";
-import { Mail, Globe, ArrowRight, Zap, Atom, Code, Flame, Database, Shield, Info } from "lucide-react";
+import {
+	Mail,
+	Globe,
+	ArrowRight,
+	Zap,
+	Atom,
+	Code,
+	Flame,
+	Database,
+	Shield,
+	Info,
+	Calculator,
+	BarChart3,
+	Users,
+	Download,
+	RefreshCw,
+	ClipboardList,
+	Target,
+	Puzzle,
+} from "lucide-react";
 
 // Social Icons
 const LinkedInIcon = () => (
@@ -13,7 +32,11 @@ const LinkedInIcon = () => (
 
 const GitHubIcon = () => (
 	<svg className="h-5 w-5 fill-current" viewBox="0 0 24 24">
-		<path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.579.688.481C19.137 20.162 22 16.418 22 12c0-5.523-4.477-10-10-10z" />
+		<path
+			fillRule="evenodd"
+			clipRule="evenodd"
+			d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.579.688.481C19.137 20.162 22 16.418 22 12c0-5.523-4.477-10-10-10z"
+		/>
 	</svg>
 );
 
@@ -24,7 +47,12 @@ const YouTubeIcon = () => (
 );
 
 const InstagramIcon = () => (
-	<svg className="h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+	<svg
+		className="h-5 w-5 fill-none stroke-current stroke-2"
+		viewBox="0 0 24 24"
+		strokeLinecap="round"
+		strokeLinejoin="round"
+	>
 		<rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
 		<path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
 		<line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
@@ -33,7 +61,7 @@ const InstagramIcon = () => (
 
 const TelegramIcon = () => (
 	<svg className="h-5 w-5 fill-current" viewBox="0 0 24 24">
-		<path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+		<path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
 	</svg>
 );
 
@@ -61,10 +89,177 @@ export default function AboutView() {
 					<Info className="w-6 h-6" />
 				</div>
 				<div>
-					<h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">About Developer</h1>
-					<p className="text-sm text-muted-foreground mt-1">The architect behind Bhemu Calculator</p>
+					<h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">About</h1>
+					<p className="text-sm text-muted-foreground mt-1">
+						Bhemu Calculator — your complete academic companion
+					</p>
 				</div>
 			</div>
+
+			{/* ═══════ About the App ═══════ */}
+			<section className="mb-12">
+				<div className="flex items-center gap-4 mb-6">
+					<h3 className="text-lg font-bold text-white whitespace-nowrap">Bhemu Calculator</h3>
+					<div className="h-px flex-1 bg-white/5" />
+				</div>
+
+				<p className="text-muted-foreground text-sm leading-relaxed mb-6 max-w-3xl">
+					An all-in-one academic toolkit for LPU students — track GPA, analyze marks, monitor attendance, and
+					plan reappear strategies. Cloud-synced, shareable, and always up to date.
+				</p>
+
+				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+					{[
+						{
+							icon: Calculator,
+							text: "GPA & CGPA Calculator",
+							desc: "Semester-wise grade tracking with auto-computed cumulative GPA",
+							color: "text-teal-400",
+						},
+						{
+							icon: BarChart3,
+							text: "Marks Analysis",
+							desc: "Detailed CA, Mid, End & attendance breakdowns with grade predictions",
+							color: "text-indigo-400",
+						},
+						{
+							icon: ClipboardList,
+							text: "Attendance Tracker",
+							desc: "Know exactly how many classes you can miss or need to attend",
+							color: "text-amber-400",
+						},
+						{
+							icon: Target,
+							text: "Goal Planner",
+							desc: "Set a target CGPA and see what grades you need each semester",
+							color: "text-purple-400",
+						},
+						{
+							icon: RefreshCw,
+							text: "Reappear Calculator",
+							desc: "Simulate reappear outcomes and plan your improvement strategy",
+							color: "text-pink-400",
+						},
+						{
+							icon: Users,
+							text: "Profile Sharing",
+							desc: "Share your academic profile with classmates for collaboration",
+							color: "text-emerald-400",
+						},
+					].map(({ icon: Icon, text, desc, color }) => (
+						<div
+							key={text}
+							className="bg-surface-dark border border-border rounded-xl p-4 group hover:border-primary/30 hover:-translate-y-0.5 transition-all duration-300"
+							style={{ boxShadow: "inset 0 1px 0 0 rgba(255,255,255,0.04), 0 4px 20px rgba(0,0,0,0.4)" }}
+						>
+							<div className="flex items-center gap-3 mb-2">
+								<div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+									<Icon className={`w-4 h-4 ${color}`} />
+								</div>
+								<span className="text-sm font-semibold text-white">{text}</span>
+							</div>
+							<p className="text-xs text-muted-foreground leading-relaxed pl-11">{desc}</p>
+						</div>
+					))}
+				</div>
+			</section>
+
+			{/* ═══════ Extension Section ═══════ */}
+			<section id="extension" className="mb-12 scroll-mt-24">
+				<div className="flex items-center gap-4 mb-6">
+					<h3 className="text-lg font-bold text-white whitespace-nowrap">UMS Sync Extension</h3>
+					<div className="h-px flex-1 bg-white/5" />
+				</div>
+
+				<p className="text-muted-foreground text-sm leading-relaxed mb-6 max-w-3xl">
+					Auto-import your grades, marks & attendance directly from the LPU UMS portal — no manual entry
+					needed. One click and your data is synced.
+				</p>
+
+				<div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+					{[
+						{
+							icon: Download,
+							text: "One-Click Sync",
+							desc: "Fetches all your grades & marks from UMS instantly",
+							color: "text-blue-400",
+						},
+						{
+							icon: RefreshCw,
+							text: "Always Fresh",
+							desc: "Sync anytime to get latest marks as results are declared",
+							color: "text-cyan-400",
+						},
+						{
+							icon: Puzzle,
+							text: "Lightweight",
+							desc: "Minimal permissions, runs only when you click — no background drain",
+							color: "text-indigo-400",
+						},
+					].map(({ icon: Icon, text, desc, color }) => (
+						<div
+							key={text}
+							className="bg-surface-dark border border-border rounded-xl p-4 group hover:border-indigo-500/30 hover:-translate-y-0.5 transition-all duration-300"
+							style={{ boxShadow: "inset 0 1px 0 0 rgba(255,255,255,0.04), 0 4px 20px rgba(0,0,0,0.4)" }}
+						>
+							<div className="flex items-center gap-3 mb-2">
+								<div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+									<Icon className={`w-4 h-4 ${color}`} />
+								</div>
+								<span className="text-sm font-semibold text-white">{text}</span>
+							</div>
+							<p className="text-xs text-muted-foreground leading-relaxed pl-11">{desc}</p>
+						</div>
+					))}
+				</div>
+
+				{/* How it works */}
+				<div
+					className="bg-surface-dark border border-border rounded-xl p-5 mb-5"
+					style={{ boxShadow: "inset 0 1px 0 0 rgba(255,255,255,0.04), 0 4px 20px rgba(0,0,0,0.4)" }}
+				>
+					<h5 className="text-xs font-bold text-white uppercase tracking-wider mb-4">How it works</h5>
+					<div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-0">
+						{[
+							{ step: "1", text: "Install from Chrome Web Store" },
+							{ step: "2", text: "Sign in with your Bhemu account" },
+							{ step: "3", text: "Click 'Sync Everything' — done!" },
+						].map(({ step, text }, i) => (
+							<React.Fragment key={step}>
+								<div className="flex items-center gap-3">
+									<span className="w-7 h-7 rounded-full bg-indigo-500/15 border border-indigo-500/25 text-indigo-400 text-xs font-bold flex items-center justify-center shrink-0">
+										{step}
+									</span>
+									<span className="text-sm text-muted-foreground">{text}</span>
+								</div>
+								{i < 2 && (
+									<ArrowRight className="hidden sm:block w-4 h-4 text-white/15 mx-4 shrink-0" />
+								)}
+							</React.Fragment>
+						))}
+					</div>
+				</div>
+
+				{/* Install Button */}
+				<a
+					href="https://chromewebstore.google.com/detail/bfmmcngnpcmnopnjacnebpnfcohhigkp"
+					target="_blank"
+					rel="noreferrer"
+					className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 rounded-xl text-indigo-400 text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5 group"
+				>
+					<Globe className="w-4 h-4" />
+					Install from Chrome Web Store
+					<ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+				</a>
+			</section>
+
+			{/* ═══════ About Developer ═══════ */}
+			<section className="mb-10">
+				<div className="flex items-center gap-4 mb-6">
+					<h3 className="text-lg font-bold text-white whitespace-nowrap">About Developer</h3>
+					<div className="h-px flex-1 bg-white/5" />
+				</div>
+			</section>
 
 			{/* Hero Section */}
 			<section className="mb-10">
@@ -73,26 +268,23 @@ export default function AboutView() {
 					<div className="relative group shrink-0">
 						<div className="absolute -inset-1 bg-gradient-to-tr from-primary to-secondary rounded-full blur opacity-25 group-hover:opacity-50 transition duration-700" />
 						<div className="relative w-36 h-36 md:w-44 md:h-44 rounded-full overflow-hidden border-2 border-white/10 bg-surface-elevated">
-							<Image
-								src="/myPhoto.png"
-								alt="Adarsh Suman"
-								fill
-								className="object-cover"
-								unoptimized
-							/>
+							<Image src="/myPhoto.png" alt="Adarsh Suman" fill className="object-cover" unoptimized />
 						</div>
 					</div>
 
 					{/* Info */}
 					<div className="flex-1 space-y-4 text-center md:text-left">
 						<div>
-							<span className="text-primary font-medium tracking-widest text-xs uppercase">The Architect</span>
+							<span className="text-primary font-medium tracking-widest text-xs uppercase">
+								The Architect
+							</span>
 							<h2 className="text-3xl md:text-4xl font-bold text-white mt-1">Adarsh Suman</h2>
 						</div>
 						<p className="text-muted-foreground text-base leading-relaxed max-w-2xl">
-							Full-Stack Developer currently pursuing B.Tech in Computer Science at Lovely Professional University.
-							Passionate about creating innovative solutions and building amazing user experiences.
-							I specialize in modern web technologies including React, Next.js, Node.js, and Firebase.
+							Full-Stack Developer currently pursuing B.Tech in Computer Science at Lovely Professional
+							University. Passionate about creating innovative solutions and building amazing user
+							experiences. I specialize in modern web technologies including React, Next.js, Node.js, and
+							Firebase.
 						</p>
 						<div className="flex flex-wrap justify-center md:justify-start gap-2 pt-1">
 							{["Full-Stack Developer", "B.Tech CSE @ LPU", "Open Source"].map((tag) => (
@@ -116,7 +308,9 @@ export default function AboutView() {
 						className="bg-surface-dark border border-border rounded-xl p-6 flex flex-col items-center text-center hover:border-primary/30 hover:-translate-y-0.5 transition-all duration-300"
 						style={{ boxShadow: "inset 0 1px 0 0 rgba(255,255,255,0.05), 0 8px 32px rgba(0,0,0,0.4)" }}
 					>
-						<span className={`text-4xl font-bold mb-1 ${highlight ? "text-primary" : "text-white"}`}>{value}</span>
+						<span className={`text-4xl font-bold mb-1 ${highlight ? "text-primary" : "text-white"}`}>
+							{value}
+						</span>
 						<span className="text-sm text-muted-foreground">{label}</span>
 					</div>
 				))}
@@ -185,15 +379,19 @@ export default function AboutView() {
 									background: "rgba(18, 18, 18, 0.8)",
 									border: "1px solid rgba(38, 38, 38, 0.5)",
 								}}
-								onMouseEnter={e => (e.currentTarget.style.borderColor = "rgba(3, 152, 172, 0.4)")}
-								onMouseLeave={e => (e.currentTarget.style.borderColor = "rgba(38, 38, 38, 0.5)")}
+								onMouseEnter={(e) => (e.currentTarget.style.borderColor = "rgba(3, 152, 172, 0.4)")}
+								onMouseLeave={(e) => (e.currentTarget.style.borderColor = "rgba(38, 38, 38, 0.5)")}
 							>
 								<div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
 									{icon}
 								</div>
 								<div className="flex-1 min-w-0">
-									<span className="text-xs text-muted-foreground uppercase tracking-wider font-bold block">{label}</span>
-									<span className="text-sm text-white/80 group-hover:text-primary transition-colors truncate block">{value}</span>
+									<span className="text-xs text-muted-foreground uppercase tracking-wider font-bold block">
+										{label}
+									</span>
+									<span className="text-sm text-white/80 group-hover:text-primary transition-colors truncate block">
+										{value}
+									</span>
 								</div>
 								<ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
 							</a>
@@ -209,10 +407,34 @@ export default function AboutView() {
 					</div>
 					<div className="grid grid-cols-2 gap-3">
 						{[
-							{ href: "https://www.linkedin.com/in/adarsh3699/", icon: <LinkedInIcon />, label: "LinkedIn", iconBg: "bg-[#0077b5]/10", iconColor: "text-[#0077b5]" },
-							{ href: "https://github.com/adarsh3699", icon: <GitHubIcon />, label: "GitHub", iconBg: "bg-white/10", iconColor: "text-white" },
-							{ href: "https://www.youtube.com/@CodingWithBhemu", icon: <YouTubeIcon />, label: "YouTube", iconBg: "bg-[#FF0000]/10", iconColor: "text-[#FF0000]" },
-							{ href: "https://www.instagram.com/_adarsh.s/", icon: <InstagramIcon />, label: "Instagram", iconBg: "bg-gradient-to-br from-purple-500/20 to-pink-500/20", iconColor: "text-pink-400" },
+							{
+								href: "https://www.linkedin.com/in/adarsh3699/",
+								icon: <LinkedInIcon />,
+								label: "LinkedIn",
+								iconBg: "bg-[#0077b5]/10",
+								iconColor: "text-[#0077b5]",
+							},
+							{
+								href: "https://github.com/adarsh3699",
+								icon: <GitHubIcon />,
+								label: "GitHub",
+								iconBg: "bg-white/10",
+								iconColor: "text-white",
+							},
+							{
+								href: "https://www.youtube.com/@CodingWithBhemu",
+								icon: <YouTubeIcon />,
+								label: "YouTube",
+								iconBg: "bg-[#FF0000]/10",
+								iconColor: "text-[#FF0000]",
+							},
+							{
+								href: "https://www.instagram.com/_adarsh.s/",
+								icon: <InstagramIcon />,
+								label: "Instagram",
+								iconBg: "bg-gradient-to-br from-purple-500/20 to-pink-500/20",
+								iconColor: "text-pink-400",
+							},
 						].map(({ href, icon, label, iconBg, iconColor }) => (
 							<a
 								key={href}
@@ -224,13 +446,17 @@ export default function AboutView() {
 									background: "rgba(18, 18, 18, 0.8)",
 									border: "1px solid rgba(38, 38, 38, 0.5)",
 								}}
-								onMouseEnter={e => (e.currentTarget.style.borderColor = "rgba(3, 152, 172, 0.3)")}
-								onMouseLeave={e => (e.currentTarget.style.borderColor = "rgba(38, 38, 38, 0.5)")}
+								onMouseEnter={(e) => (e.currentTarget.style.borderColor = "rgba(3, 152, 172, 0.3)")}
+								onMouseLeave={(e) => (e.currentTarget.style.borderColor = "rgba(38, 38, 38, 0.5)")}
 							>
-								<div className={`w-8 h-8 rounded-lg ${iconBg} flex items-center justify-center ${iconColor} shrink-0`}>
+								<div
+									className={`w-8 h-8 rounded-lg ${iconBg} flex items-center justify-center ${iconColor} shrink-0`}
+								>
 									{icon}
 								</div>
-								<span className="text-sm text-muted-foreground group-hover:text-white transition-colors font-medium">{label}</span>
+								<span className="text-sm text-muted-foreground group-hover:text-white transition-colors font-medium">
+									{label}
+								</span>
 							</a>
 						))}
 					</div>
@@ -241,9 +467,38 @@ export default function AboutView() {
 			<footer className="mt-16 pt-6 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center text-sm text-muted-foreground gap-3">
 				<p>© {new Date().getFullYear()} Bhemu Calculator. Designed with precision.</p>
 				<div className="flex gap-6">
-					<a href="https://www.adarshsuman.in" target="_blank" rel="noreferrer" className="hover:text-primary transition-colors">Portfolio</a>
-					<a href="https://www.linkedin.com/in/adarsh3699/" target="_blank" rel="noreferrer" className="hover:text-primary transition-colors">LinkedIn</a>
-					<a href="https://github.com/adarsh3699" target="_blank" rel="noreferrer" className="hover:text-primary transition-colors">GitHub</a>
+					<a
+						href="https://calc.bhemu.in/privacy-policy.html"
+						target="_blank"
+						rel="noreferrer"
+						className="hover:text-primary transition-colors"
+					>
+						Privacy Policy
+					</a>
+					<a
+						href="https://www.adarshsuman.in"
+						target="_blank"
+						rel="noreferrer"
+						className="hover:text-primary transition-colors"
+					>
+						Portfolio
+					</a>
+					<a
+						href="https://www.linkedin.com/in/adarsh3699/"
+						target="_blank"
+						rel="noreferrer"
+						className="hover:text-primary transition-colors"
+					>
+						LinkedIn
+					</a>
+					<a
+						href="https://github.com/adarsh3699"
+						target="_blank"
+						rel="noreferrer"
+						className="hover:text-primary transition-colors"
+					>
+						GitHub
+					</a>
 				</div>
 			</footer>
 		</div>

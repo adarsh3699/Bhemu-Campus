@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import { signInWithEmail, signInWithCalcSession, firebaseSignOut, getCurrentUser } from "~lib/firebase";
 import { loadUserProfiles } from "~lib/firebaseSync";
 import type { SyncStatus } from "~lib/types";
+import iconUrl from "data-base64:~/../assets/icon.png";
 import "./style.css";
 
 const LAST_PROFILE_KEY = "ums_last_profile_id";
@@ -152,7 +153,7 @@ function Popup() {
 		return (
 			<div className="popup">
 				<div className="brand">
-					<span className="brand-dot" />
+					<img src={iconUrl} alt="" className="brand-logo" />
 					<span className="brand-name">Bhemu UMS Sync</span>
 				</div>
 
@@ -232,7 +233,7 @@ function Popup() {
 	return (
 		<div className="popup">
 			<div className="brand">
-				<span className="brand-dot" />
+				<img src={iconUrl} alt="" className="brand-logo" />
 				<span className="brand-name">Bhemu UMS Sync</span>
 				<button onClick={handleLogout} className="btn-signout" title="Sign Out">
 					↩
@@ -318,6 +319,13 @@ function Popup() {
 					</>
 				)}
 			</div>
+
+			<button
+				onClick={() => chrome.tabs.create({ url: "https://calc.bhemu.in/dashboard" })}
+				className="btn-open-app"
+			>
+				Open Bhemu Calculator
+			</button>
 		</div>
 	);
 }

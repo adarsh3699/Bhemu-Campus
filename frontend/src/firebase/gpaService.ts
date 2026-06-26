@@ -254,6 +254,11 @@ export class GPAService {
 			const semSnapshot = await getDocs(this.gpaAndMarksRef(profileId));
 			semSnapshot.docs.forEach((d) => batch.delete(d.ref));
 
+			// Delete all attendanceData subcollection docs
+			const attRef = collection(db, "users", this.userId, "profiles", idStr, "attendanceData");
+			const attSnapshot = await getDocs(attRef);
+			attSnapshot.docs.forEach((d) => batch.delete(d.ref));
+
 			// Clean up outgoing share records
 			await this._cleanupOutgoingShares(batch, idVariants);
 

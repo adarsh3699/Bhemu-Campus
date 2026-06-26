@@ -13,17 +13,17 @@ const modalData_1 = {
 		</>
 	),
 	tableData: [
-		{ grade: "O", gradePoint: 10, performance: "Outstanding" },
-		{ grade: "A+", gradePoint: 9, performance: "Excellent" },
-		{ grade: "A", gradePoint: 8, performance: "Very Good" },
-		{ grade: "B+", gradePoint: 7, performance: "Good" },
-		{ grade: "B", gradePoint: 6, performance: "Above Average" },
-		{ grade: "C", gradePoint: 5, performance: "Average" },
-		{ grade: "P", gradePoint: 4, performance: "Pass" },
-		{ grade: "F", gradePoint: 0, performance: "Fail" },
-		{ grade: "G", gradePoint: 0, performance: "Backlog" },
-		{ grade: "E", gradePoint: 0, performance: "Reappear" },
-		{ grade: "I", gradePoint: 0, performance: "Incomplete" },
+		{ grade: "O", gradePoint: 10, marksRange: "90 – 100", performance: "Outstanding" },
+		{ grade: "A+", gradePoint: 9, marksRange: "80 – 89", performance: "Excellent" },
+		{ grade: "A", gradePoint: 8, marksRange: "70 – 79", performance: "Very Good" },
+		{ grade: "B+", gradePoint: 7, marksRange: "60 – 69", performance: "Good" },
+		{ grade: "B", gradePoint: 6, marksRange: "50 – 59", performance: "Above Average" },
+		{ grade: "C", gradePoint: 5, marksRange: "45 – 49", performance: "Average" },
+		{ grade: "P", gradePoint: 4, marksRange: "40 – 44", performance: "Pass" },
+		{ grade: "F", gradePoint: 0, marksRange: "Below 40", performance: "Fail" },
+		{ grade: "G", gradePoint: 0, marksRange: "—", performance: "Backlog" },
+		{ grade: "E", gradePoint: 0, marksRange: "—", performance: "Reappear" },
+		{ grade: "I", gradePoint: 0, marksRange: "—", performance: "Incomplete" },
 	],
 };
 
@@ -81,21 +81,30 @@ const RenderModal: React.FC<RenderModalProps> = ({ isModalOpen, onClose, modalTy
 			maxWidth="800px"
 			className="bg-neutral-950 border border-white/10"
 		>
-			<div className="p-6 overflow-auto max-h-[calc(85vh-120px)] text-sm text-neutral-300">
+			<div className="p-4 md:p-6 overflow-auto max-h-[calc(85vh-120px)] text-sm text-neutral-300">
 				<p className="leading-relaxed mb-5 text-neutral-200 font-normal">{modalData?.info}</p>
 
 				{"tableData" in modalData && modalData.tableData && (
 					<div className="my-6 rounded-2xl border border-white/10 overflow-hidden shadow-lg bg-white/5">
-						<table className="w-full border-collapse">
+						<table className="w-full border-collapse table-fixed">
+							<colgroup>
+								<col className="w-[28%]" />
+								<col className="w-[16%]" />
+								<col className="w-[20%]" />
+								<col className="w-[36%]" />
+							</colgroup>
 							<thead>
 								<tr className="bg-gradient-to-r from-indigo-500/20 to-purple-500/20 border-b border-white/10">
-									<th className="px-5 py-3 text-left font-semibold text-white text-xs tracking-wider uppercase">
+									<th className="px-3 py-3 text-left font-semibold text-white text-xs tracking-wider uppercase">
+										Marks Range
+									</th>
+									<th className="px-3 py-3 text-left font-semibold text-white text-xs tracking-wider uppercase">
 										Grade
 									</th>
-									<th className="px-5 py-3 text-left font-semibold text-white text-xs tracking-wider uppercase">
-										Grade Point
+									<th className="px-3 py-3 text-left font-semibold text-white text-xs tracking-wider uppercase">
+										Points
 									</th>
-									<th className="px-5 py-3 text-left font-semibold text-white text-xs tracking-wider uppercase">
+									<th className="px-3 py-3 text-left font-semibold text-white text-xs tracking-wider uppercase">
 										Performance
 									</th>
 								</tr>
@@ -106,11 +115,14 @@ const RenderModal: React.FC<RenderModalProps> = ({ isModalOpen, onClose, modalTy
 										key={index}
 										className="transition-all duration-300 hover:bg-white/5 border-b border-white/5 last:border-b-0"
 									>
-										<td className="px-5 py-3 text-teal-400 font-bold text-sm">{data.grade}</td>
-										<td className="px-5 py-3 text-indigo-400 font-semibold text-sm">
+										<td className="px-3 py-2.5 text-neutral-300 text-sm">
+											{"marksRange" in data ? data.marksRange : "—"}
+										</td>
+										<td className="px-3 py-2.5 text-teal-400 font-bold text-sm">{data.grade}</td>
+										<td className="px-3 py-2.5 text-indigo-400 font-semibold text-sm">
 											{data.gradePoint}
 										</td>
-										<td className="px-5 py-3 text-neutral-300 text-sm">{data.performance}</td>
+										<td className="px-3 py-2.5 text-neutral-300 text-sm">{data.performance}</td>
 									</tr>
 								))}
 							</tbody>
