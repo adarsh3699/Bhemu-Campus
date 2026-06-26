@@ -10,7 +10,7 @@ import type { GPASubject } from "@/types";
 interface MarksSubjectCardProps {
 	subject: GPASubject;
 	isEditing: boolean;
-	formState: { ca: string; midTerm: string; endTerm: string; attendanceMarks: string };
+	formState: { ca: string; midTerm: string; endTerm: string; attendanceMarks: string; credit: string };
 	onFormChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 	onEdit: (id: string | number) => void;
 	onSave: (id: string | number) => void;
@@ -153,16 +153,23 @@ export default function MarksSubjectCard({
 			{/* Inline edit form */}
 			{isEditing ? (
 				<div className="mt-3 flex flex-col gap-2">
-					<div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+					<div className="flex flex-col sm:hidden gap-2">
+						<div className="grid grid-cols-3 gap-2">
+							<MarkInput name="credit" label="Credits" value={formState.credit} onChange={onFormChange} />
+							<MarkInput name="ca" label="CA" value={formState.ca} onChange={onFormChange} />
+							<MarkInput name="midTerm" label="Mid" value={formState.midTerm} onChange={onFormChange} />
+						</div>
+						<div className="grid grid-cols-2 gap-2">
+							<MarkInput name="endTerm" label="End" value={formState.endTerm} onChange={onFormChange} />
+							<MarkInput name="attendanceMarks" label="Att." value={formState.attendanceMarks} onChange={onFormChange} />
+						</div>
+					</div>
+					<div className="hidden sm:grid grid-cols-5 gap-2">
+						<MarkInput name="credit" label="Credits" value={formState.credit} onChange={onFormChange} />
 						<MarkInput name="ca" label="CA" value={formState.ca} onChange={onFormChange} />
 						<MarkInput name="midTerm" label="Mid" value={formState.midTerm} onChange={onFormChange} />
 						<MarkInput name="endTerm" label="End" value={formState.endTerm} onChange={onFormChange} />
-						<MarkInput
-							name="attendanceMarks"
-							label="Att."
-							value={formState.attendanceMarks}
-							onChange={onFormChange}
-						/>
+						<MarkInput name="attendanceMarks" label="Att." value={formState.attendanceMarks} onChange={onFormChange} />
 					</div>
 					{editingTotalOver ? (
 						<p className="text-[11px] text-red-400 font-medium">Total ({editingTotal}) exceeds 100</p>

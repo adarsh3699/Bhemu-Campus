@@ -8,6 +8,7 @@ export interface MarksFormState {
 	midTerm: string;
 	endTerm: string;
 	attendanceMarks: string;
+	credit: string;
 }
 
 export interface SubjectFormState {
@@ -19,7 +20,7 @@ export interface SubjectFormState {
 	attendanceMarks: string;
 }
 
-const EMPTY_MARKS_FORM: MarksFormState = { ca: "", midTerm: "", endTerm: "", attendanceMarks: "" };
+const EMPTY_MARKS_FORM: MarksFormState = { ca: "", midTerm: "", endTerm: "", attendanceMarks: "", credit: "" };
 const EMPTY_SUBJECT_FORM: SubjectFormState = { subjectName: "", credit: "", ca: "", midTerm: "", endTerm: "", attendanceMarks: "" };
 
 function toNum(val: string): number | null {
@@ -61,6 +62,7 @@ export function useMarksAnalysis() {
 				midTerm: m?.midTerm != null ? String(m.midTerm) : "",
 				endTerm: m?.endTerm != null ? String(m.endTerm) : "",
 				attendanceMarks: m?.attendanceMarks != null ? String(m.attendanceMarks) : "",
+				credit: subject?.credit != null ? String(subject.credit) : "",
 			});
 		},
 		[marksCtx.subjects]
@@ -73,12 +75,17 @@ export function useMarksAnalysis() {
 
 	const handleSubmit = useCallback(
 		async (subjectId: string | number) => {
-			await marksCtx.saveMarks(subjectId, {
-				ca: toNum(form.ca),
-				midTerm: toNum(form.midTerm),
-				endTerm: toNum(form.endTerm),
-				attendanceMarks: toNum(form.attendanceMarks),
-			});
+			const creditNum = form.credit !== "" ? parseFloat(form.credit) : undefined;
+			await marksCtx.saveMarks(
+				subjectId,
+				{
+					ca: toNum(form.ca),
+					midTerm: toNum(form.midTerm),
+					endTerm: toNum(form.endTerm),
+					attendanceMarks: toNum(form.attendanceMarks),
+				},
+				!isNaN(creditNum ?? NaN) ? creditNum : undefined
+			);
 			setEditingSubjectId(null);
 			setForm(EMPTY_MARKS_FORM);
 		},

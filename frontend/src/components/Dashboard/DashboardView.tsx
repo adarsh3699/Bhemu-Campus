@@ -13,24 +13,23 @@ import Link from "next/link";
 import { Calculator, GraduationCap, Flag, BookOpen, ArrowRight, ClipboardList } from "lucide-react";
 import { useAuth } from "@/firebase/AuthContext";
 import { useGpaData } from "@/hooks/GpaDataContext";
+import { useAttendanceData } from "@/hooks/AttendanceDataContext";
 import { calculateCGPA } from "@/lib/gpaUtils";
 import LoginRecommendation from "@/components/common/LoginRecommendation";
 import DashboardStats from "@/components/Dashboard/DashboardStats";
 import SemesterBarChart from "@/components/Dashboard/SemesterBarChart";
 import SemesterRoadmap from "@/components/Dashboard/SemesterRoadmap";
-import AttendanceSummaryCard from "@/components/Dashboard/AttendanceSummaryCard";
-import MarksOverviewCard from "@/components/Dashboard/MarksOverviewCard";
 import { pointToGrade } from "@/lib/grades";
 
 // ─── Grade display helper (local — colours only, labels come from grades lib) ─
 const GRADE_COLOR: Record<number, string> = {
 	10: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20",
-	9:  "text-primary bg-primary/10 border-primary/20",
-	8:  "text-primary bg-primary/10 border-primary/20",
-	7:  "text-yellow-400 bg-yellow-400/10 border-yellow-400/20",
-	6:  "text-yellow-400 bg-yellow-400/10 border-yellow-400/20",
-	5:  "text-orange-400 bg-orange-400/10 border-orange-400/20",
-	0:  "text-red-400 bg-red-400/10 border-red-400/20",
+	9: "text-primary bg-primary/10 border-primary/20",
+	8: "text-primary bg-primary/10 border-primary/20",
+	7: "text-yellow-400 bg-yellow-400/10 border-yellow-400/20",
+	6: "text-yellow-400 bg-yellow-400/10 border-yellow-400/20",
+	5: "text-orange-400 bg-orange-400/10 border-orange-400/20",
+	0: "text-red-400 bg-red-400/10 border-red-400/20",
 };
 const getGradeInfo = (grade: number) => ({
 	label: pointToGrade(grade),
@@ -78,6 +77,7 @@ const QUICK_ACTIONS = [
 export default function DashboardView() {
 	const { currentUser } = useAuth();
 	const { semesters, currentProfile, loading } = useGpaData();
+	const { attendanceData } = useAttendanceData();
 
 	if (!currentUser) return <LoginRecommendation feature="Dashboard" />;
 
@@ -92,11 +92,20 @@ export default function DashboardView() {
 
 	// ── Derived data (pure, no side-effects) ──────────────────────────────────
 	const cgpa = parseFloat(calculateCGPA(semesters));
-	const totalSubjects = semesters.reduce((acc, s) => acc + (s.subjects?.length || 0), 0);
-	const totalCredits = semesters.reduce(
-		(acc, s) => acc + s.subjects.reduce((sa, sub) => sa + (sub.credit || 0), 0),
-		0
-	);
+	const allSubjectsWithMarks = semesters.flatMap((s) => s.subjects ?? []).filter((sub) => sub.marks?.total != null);
+	const avgMarks = allSubjectsWithMarks.length > 0
+		? Math.round((allSubjectsWithMarks.reduce((acc, sub) => acc + (sub.marks!.total ?? 0), 0) / allSubjectsWithMarks.length) * 10) / 10
+		: null;
+
+	const attendanceSubjects = attendanceData ? Object.values(attendanceData.subjects) : [];
+	const overallAttendance =
+		attendanceSubjects.length > 0 && attendanceSubjects.reduce((a, s) => a + s.totalClasses, 0) > 0
+			? Math.ceil(
+					(attendanceSubjects.reduce((a, s) => a + s.attended, 0) /
+						attendanceSubjects.reduce((a, s) => a + s.totalClasses, 0)) *
+						100
+				)
+			: null;
 	const chartSemesters = semesters.slice(-6);
 	const recentSubjects = [...semesters]
 		.reverse()
@@ -104,7 +113,7 @@ export default function DashboardView() {
 		.slice(0, 5);
 
 	return (
-		<div className="px-4 py-8 md:px-8 md:py-10 max-w-6xl mx-auto space-y-8">
+		<div className="px-4 py-8 md:px-8 md:py-10 max-w-6xl mx-auto space-y-6">
 			{/* Welcome header */}
 			<div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
 				<div>
@@ -134,15 +143,9 @@ export default function DashboardView() {
 			<DashboardStats
 				cgpa={cgpa}
 				semesterCount={semesters.length}
-				totalSubjects={totalSubjects}
-				totalCredits={totalCredits}
+				overallAttendance={overallAttendance}
+				avgMarks={avgMarks}
 			/>
-
-			{/* Attendance + Marks summary row */}
-			<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-				<AttendanceSummaryCard />
-				<MarksOverviewCard />
-			</div>
 
 			{/* Chart + Roadmap */}
 			<div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

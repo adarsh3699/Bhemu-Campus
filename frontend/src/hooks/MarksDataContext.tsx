@@ -12,7 +12,7 @@ interface MarksDataContextValue {
 	setActiveTermId: (termId: string) => void;
 	saving: boolean;
 	subjects: GPASubject[]; // all subjects for active semester, marks embedded
-	saveMarks: (subjectId: string | number, marks: Partial<SubjectMarks>) => Promise<void>;
+	saveMarks: (subjectId: string | number, marks: Partial<SubjectMarks>, credit?: number) => Promise<void>;
 	clearMarks: (subjectId: string | number) => Promise<void>;
 }
 
@@ -47,7 +47,7 @@ export function MarksDataProvider({ children }: { children: React.ReactNode }) {
 	const subjects = useMemo(() => activeSemester?.subjects ?? [], [activeSemester]);
 
 	const saveMarks = useCallback(
-		async (subjectId: string | number, incoming: Partial<SubjectMarks>) => {
+		async (subjectId: string | number, incoming: Partial<SubjectMarks>, credit?: number) => {
 			if (!activeSemester) return;
 			setSaving(true);
 			try {
@@ -85,6 +85,7 @@ export function MarksDataProvider({ children }: { children: React.ReactNode }) {
 							return {
 								...s,
 								marks,
+								...(credit !== undefined ? { credit } : {}),
 								// Update grade in GPA if we have a computed value
 								...(computedGradePoint !== null ? { grade: computedGradePoint } : {}),
 							};

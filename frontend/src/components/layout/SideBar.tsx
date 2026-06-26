@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/firebase/AuthContext";
 import { useMessage } from "@/components/common/MessageProvider";
+import UMSExtensionModal from "@/components/modal/UMSExtensionModal";
 import {
 	Calculator,
 	GraduationCap,
@@ -17,6 +18,7 @@ import {
 	X,
 	LayoutDashboard,
 	ClipboardList,
+	Puzzle,
 } from "lucide-react";
 
 const MAIN_NAV = [
@@ -71,6 +73,8 @@ export default function SideBar({ isOpen, onClose }: SideBarProps) {
 		};
 	}, [isOpen]);
 
+	const [umsModalOpen, setUmsModalOpen] = useState(false);
+
 	const getUserInitial = useCallback(() => {
 		if (!currentUser) return "U";
 		const name = currentUser.displayName || currentUser.email;
@@ -95,6 +99,8 @@ export default function SideBar({ isOpen, onClose }: SideBarProps) {
 
 	return (
 		<>
+			<UMSExtensionModal isOpen={umsModalOpen} onClose={() => setUmsModalOpen(false)} />
+
 			{/* Mobile backdrop */}
 			{isOpen && (
 				<div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[90] md:hidden" aria-hidden="true" />
@@ -185,6 +191,14 @@ export default function SideBar({ isOpen, onClose }: SideBarProps) {
 							</Link>
 						);
 					})}
+
+					<button
+						onClick={() => { onClose(); setUmsModalOpen(true); }}
+						className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group text-violet-400 hover:text-violet-300 hover:bg-violet-500/10 border-l-4 border-transparent rounded-l-none pl-2 w-full text-left"
+					>
+						<Puzzle className="w-4 h-4 shrink-0" />
+						UMS Extension
+					</button>
 				</nav>
 
 				{/* User profile section */}
