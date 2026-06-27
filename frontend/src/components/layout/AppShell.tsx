@@ -23,7 +23,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 	const {
 		allProfiles, activeProfile, mySharedProfiles, saving,
 		updateActiveProfile, createProfile, deleteProfile,
-		copySharedProfile, verifyUMS, shareProfileWithUser,
+		copySharedProfile, shareProfileWithUser,
 	} = useGpaData();
 
 	const showLayout = !NO_LAYOUT_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
@@ -83,7 +83,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 					onDeleteProfile={deleteProfile}
 					onShareProfile={handleShareProfile}
 					onCopySharedProfile={copySharedProfile}
-					onVerifyUMS={verifyUMS}
 					mySharedProfiles={mySharedProfiles}
 					isLoading={saving}
 					currentUser={currentUser}

@@ -1,6 +1,6 @@
 # Firestore Schema — Bhemu Calculator
 
-Last audited & cleaned: 2026-06-23. 124 profiles verified clean.
+Last audited & cleaned: 2026-06-28. 124 profiles verified clean.
 
 ---
 
@@ -11,9 +11,9 @@ Last audited & cleaned: 2026-06-23. 124 profiles verified clean.
 | email             | string         |                               |
 | displayName       | string         |                               |
 | photoURL          | string \| null |                               |
-| createdAt         | Timestamp      |                               |
-| lastLoginAt       | Timestamp      |                               |
-| updatedAt         | Timestamp      |                               |
+| createdAt         | Timestamp      | written once at signup — never overwritten |
+| lastLoginAt       | Timestamp      | updated on every app open / login |
+| updatedAt         | Timestamp      | updated when profile fields change (displayName, password) |
 | hasPassword       | boolean        | true if email/password linked |
 | passwordUpdatedAt | Timestamp?     | set when password changed     |
 
@@ -29,10 +29,9 @@ Last audited & cleaned: 2026-06-23. 124 profiles verified clean.
 | createdAt   | Timestamp  |                                                  |
 | updatedAt   | Timestamp  |                                                  |
 | lastOpened  | Timestamp? | only written for own profiles — never for shared |
-| studentInfo | object?    | from UMS fetch                                   |
-| allTermIds  | array?     | from UMS fetch                                   |
-| umsVerified | boolean?   | from UMS fetch                                   |
-| lastUMSSync | Timestamp? | from UMS fetch                                   |
+| studentInfo | object?    | from UMS extension sync                          |
+| umsVerified | boolean?   | from UMS extension sync                          |
+| lastUMSSync | string?    | ISO string — from UMS extension sync             |
 | copiedFrom  | object?    | `{ shareId, originalUserId, copiedAt }`          |
 
 **Never stored (runtime-only — stripped before every write):**

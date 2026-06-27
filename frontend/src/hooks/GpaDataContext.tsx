@@ -29,10 +29,6 @@ interface GpaDataContextValue {
 		action?: string
 	) => Promise<void>;
 	copySharedProfile: (shareId: string, profileName: string) => Promise<void>;
-	verifyUMS: (
-		profileId: string | number,
-		umsData: { semesters: GPASemester[]; studentInfo: unknown; allTermIds: unknown; fetchedAt?: string }
-	) => Promise<void>;
 }
 
 const GpaDataContext = createContext<GpaDataContextValue | undefined>(undefined);
@@ -318,46 +314,6 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 			}
 		},
 		[gpaService, showMessage, updateActiveProfile]
-	);
-
-	const verifyUMS = useCallback(
-		async (
-			profileId: string | number,
-			umsData: { semesters: GPASemester[]; studentInfo: unknown; allTermIds: unknown; fetchedAt?: string }
-		) => {
-			if (!gpaService || !umsData || !currentUser) return;
-
-			try {
-				setSaving(true);
-
-				const currentProfileData = profiles.find((profile) => profile.id === profileId);
-				if (!currentProfileData) {
-					showMessage("Profile not found", "error");
-					return;
-				}
-
-				// Save metadata (no semesters) to profile doc
-				const updatedProfile: GPAProfile = {
-					...currentProfileData,
-					studentInfo: umsData.studentInfo,
-					allTermIds: umsData.allTermIds,
-					umsVerified: true,
-					lastUMSSync: umsData.fetchedAt || new Date().toISOString(),
-				};
-				await saveProfile(updatedProfile);
-
-				// Save semesters to subcollection
-				await gpaService.saveSemesters(profileId, umsData.semesters);
-
-				showMessage("Profile successfully updated with UMS data!", "success");
-			} catch (error) {
-				console.error("Error updating profile with UMS data:", error);
-				showMessage("Error updating profile with UMS data. Please try again.", "error");
-			} finally {
-				setSaving(false);
-			}
-		},
-		[gpaService, profiles, saveProfile, showMessage, currentUser]
 	);
 
 	// ===== DATA UPDATE ACTIONS =====
@@ -661,7 +617,6 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 			updateSemesters,
 			shareProfileWithUser,
 			copySharedProfile,
-			verifyUMS,
 		}),
 		[
 			profiles,
@@ -680,7 +635,6 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 			updateSemesters,
 			shareProfileWithUser,
 			copySharedProfile,
-			verifyUMS,
 		]
 	);
 

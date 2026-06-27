@@ -8,6 +8,7 @@ import {
 	signOut,
 	onAuthStateChanged,
 	signInWithPopup,
+	getAdditionalUserInfo,
 	updateProfile,
 	EmailAuthProvider,
 	linkWithCredential,
@@ -46,8 +47,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	const [currentUser, setCurrentUser] = useState<User | null>(null);
 	const [loading, setLoading] = useState(true);
 
-	// Save user data to Firestore for email lookup
-	async function saveUserData(user: User) {
+	// isNewUser=true only on signup — writes createdAt once. All other calls only update lastLoginAt.
+	async function saveUserData(user: User, isNewUser = false) {
 		try {
 			const userRef = doc(db, "users", user.uid);
 			await setDoc(
@@ -56,8 +57,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 					email: user.email,
 					displayName: user.displayName || user.email?.split("@")[0] || "User",
 					photoURL: user.photoURL || null,
-					createdAt: serverTimestamp(),
 					lastLoginAt: serverTimestamp(),
+					...(isNewUser ? { createdAt: serverTimestamp() } : {}),
 				},
 				{ merge: true }
 			);
@@ -73,9 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 				await updateProfile(result.user, { displayName });
 			}
 
-			// Save user data for email lookup
-			await saveUserData(result.user);
-
+			await saveUserData(result.user, true);
 			return result;
 		});
 	}
@@ -83,7 +82,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	// Sign in with email and password
 	function login(email: string, password: string): Promise<UserCredential> {
 		return signInWithEmailAndPassword(auth, email, password).then(async (result) => {
-			// Update last login time
 			await saveUserData(result.user);
 			return result;
 		});
@@ -92,8 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	// Sign in with Google
 	function signInWithGoogle(): Promise<UserCredential> {
 		return signInWithPopup(auth, googleProvider).then(async (result) => {
-			// Save user data for email lookup
-			await saveUserData(result.user);
+			await saveUserData(result.user, getAdditionalUserInfo(result)?.isNewUser ?? false);
 			return result;
 		});
 	}
