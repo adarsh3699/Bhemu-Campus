@@ -159,18 +159,6 @@ else:
 
 ## 5. UMS Integration
 
-### Manual Fetch (UMSFetchModal)
-Two-step flow:
-1. **Input step** — user pastes UMS session cookie
-   - Collapsible instructions: "How to get your UMS session cookie?"
-   - Warning shown if profile already has data (replace vs merge)
-   - Validation errors displayed inline
-2. **Preview step** — shows parsed data before applying
-   - Student info: VID, Name, Program, CGPA
-   - Semesters with subjects (first 3 shown, count of remaining)
-   - Term availability: Regular / Reappear / Backlog counts (colored badges)
-   - Actions: "Replace Current Data" / "Apply This Data" / "Back" / "Cancel"
-
 ### Chrome Extension (UMSExtensionModal)
 - Promotional modal with demo video embed
 - Feature cards: auto-fetch, instant populate, sync anytime

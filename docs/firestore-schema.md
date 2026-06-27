@@ -1,43 +1,42 @@
 # Firestore Schema — Bhemu Calculator
 
-Last audited & cleaned: 2026-06-23. 124 profiles verified clean.
+Last audited & cleaned: 2026-06-28. 124 profiles verified clean.
 
 ---
 
 ## `users/{userId}`
 
-| Field | Type | Notes |
-|---|---|---|
-| email | string | |
-| displayName | string | |
-| photoURL | string \| null | |
-| createdAt | Timestamp | |
-| lastLoginAt | Timestamp | |
-| updatedAt | Timestamp | |
-| hasPassword | boolean | true if email/password linked |
-| passwordUpdatedAt | Timestamp? | set when password changed |
+| Field             | Type           | Notes                         |
+| ----------------- | -------------- | ----------------------------- |
+| email             | string         |                               |
+| displayName       | string         |                               |
+| photoURL          | string \| null |                               |
+| createdAt         | Timestamp      | written once at signup — never overwritten |
+| lastLoginAt       | Timestamp      | updated on every app open / login |
+| updatedAt         | Timestamp      | updated when profile fields change (displayName, password) |
+| hasPassword       | boolean        | true if email/password linked |
+| passwordUpdatedAt | Timestamp?     | set when password changed     |
 
 ---
 
 ## `users/{userId}/profiles/{profileId}`
 
-| Field | Type | Notes |
-|---|---|---|
-| id | string | same as doc ID |
-| name | string | |
-| isDefault | boolean | |
-| createdAt | Timestamp | |
-| updatedAt | Timestamp | |
-| lastOpened | Timestamp? | only written for own profiles — never for shared |
-| studentInfo | object? | from UMS fetch |
-| allTermIds | array? | from UMS fetch |
-| umsVerified | boolean? | from UMS fetch |
-| lastUMSSync | Timestamp? | from UMS fetch |
-| isShared | boolean? | true on shared profile copies in memory |
-| ownerUserId | string? | UID of the original profile owner |
-| copiedFrom | object? | `{ shareId, originalUserId, copiedAt }` |
+| Field       | Type       | Notes                                            |
+| ----------- | ---------- | ------------------------------------------------ |
+| id          | string     | same as doc ID                                   |
+| name        | string     |                                                  |
+| isDefault   | boolean    |                                                  |
+| createdAt   | Timestamp  |                                                  |
+| updatedAt   | Timestamp  |                                                  |
+| lastOpened  | Timestamp? | only written for own profiles — never for shared |
+| studentInfo | object?    | from UMS extension sync                          |
+| umsVerified | boolean?   | from UMS extension sync                          |
+| lastUMSSync | string?    | ISO string — from UMS extension sync             |
+| copiedFrom  | object?    | `{ shareId, originalUserId, copiedAt }`          |
 
 **Never stored (runtime-only — stripped before every write):**
+
+- `isShared`, `ownerUserId` — attached in memory when merging shared profiles into the list
 - `permission` — sourced from `userShares/incoming` at runtime
 - `shareId`, `sharedAt` — already in `userShares/incoming`
 - `userId`, `lastModified`, `collaborators`, `permissions` — removed
@@ -46,39 +45,45 @@ Last audited & cleaned: 2026-06-23. 124 profiles verified clean.
 
 ## `users/{userId}/profiles/{profileId}/gpaAndMarks/{semesterId}`
 
-| Field | Type | Notes |
-|---|---|---|
-| id | string \| number | same as doc ID |
-| name | string | e.g. "Semester 1" |
-| subjects | Subject[] | see below |
+| Field    | Type             | Notes             |
+| -------- | ---------------- | ----------------- |
+| id       | string \| number | same as doc ID    |
+| name     | string           | e.g. "Semester 1" |
+| subjects | Subject[]        | see below         |
 
 **Subject:**
+
 ```json
 {
-  "id": 1234567890,
-  "subjectName": "Mathematics",
-  "subjectCode": "MA101",
-  "credit": 4,
-  "grade": 9,
-  "marks": {
-    "ca": 23, "midTerm": 18, "endTerm": 40, "attendanceMarks": 5,
-    "total": 86,
-    "source": "ums | manual | partial",
-    "umsGradePoint": 9,
-    "customCutoff": { "gradePoint": 9, "cutoffMarks": 80 }
-  }
+	"id": 1234567890,
+	"subjectName": "Mathematics",
+	"subjectCode": "MA101",
+	"credit": 4,
+	"grade": 9,
+	"marks": {
+		"ca": 23,
+		"midTerm": 18,
+		"endTerm": 40,
+		"attendanceMarks": 5,
+		"total": 86,
+		"source": "ums | manual | partial",
+		"umsGradePoint": 9,
+		"customCutoff": { "gradePoint": 9, "cutoffMarks": 80 }
+	}
 }
 ```
 
 **Why `grade` and `umsGradePoint` both exist:**
+
 - `grade` — **single source of truth** for GPA/CGPA calculation and display. Shown everywhere.
 - `marks.umsGradePoint` — what **UMS originally reported**. Used only for comparison: when `grade !== computeGradeFromMarks(marks.total)`, the "Grade ✎" badge shows. Never used for display.
 - Display priority: `grade` → computed from `marks.total` (fallback if grade=0)
 - During UMS fetch: both `grade` and `umsGradePoint` are written with the same value initially
 
 **`customCutoff` — Relative Grading (WRITE-ONCE, UMS-ONLY):**
+
 - Set ONLY during UMS sync when the standard grade table disagrees with UMS grade.
-  - Example: marks total = 66, UMS says A(8), standard table says B+(7) → `customCutoff: { gradePoint: 8, cutoffMarks: 66 }`
+    - Example: marks total = 66, UMS says A(8), standard table says B+(7) → `customCutoff: { gradePoint: 8, cutoffMarks: 66 }`
 - The frontend NEVER creates, modifies, or recalculates `customCutoff`. It is read-only after sync.
 - `computeGradeFromMarks(total, customCutoff)` uses the cutoff: if `total >= cutoffMarks`, return `gradePoint`.
 - If no relative grading: `customCutoff` is `null`.
@@ -90,13 +95,14 @@ Last audited & cleaned: 2026-06-23. 124 profiles verified clean.
 
 Single flat doc per profile — no semester grouping.
 
-| Field | Type | Notes |
-|---|---|---|
-| defaultThreshold | number | e.g. 75 |
-| updatedAt | Timestamp | |
-| subjects | Record\<id, Subject\> | keyed by subject ID |
+| Field            | Type                  | Notes               |
+| ---------------- | --------------------- | ------------------- |
+| defaultThreshold | number                | e.g. 75             |
+| updatedAt        | Timestamp             |                     |
+| subjects         | Record\<id, Subject\> | keyed by subject ID |
 
 **AttendanceSubject:**
+
 ```json
 { "id": "s1", "name": "Physics", "totalClasses": 40, "attended": 32, "threshold": 75 }
 ```
@@ -104,22 +110,23 @@ Single flat doc per profile — no semester grouping.
 ---
 
 ## `userShares/{userId}/outgoing/{shareId}`
+
 ## `userShares/{userId}/incoming/{shareId}`
 
 Both are identical mirrored copies. Outgoing = owner's record. Incoming = recipient's record.
 
-| Field | Type | Notes |
-|---|---|---|
-| shareId | string | |
-| profileId | string \| number | |
-| profileName | string | snapshot at share time (can go stale) |
-| ownerUserId | string | |
-| targetUserId | string | |
-| targetUserEmail | string | |
-| permission | "read" \| "edit" | |
-| sharedAt | Timestamp | |
-| isActive | boolean | always true (hard-delete, no soft-delete) |
-| updatedAt | Timestamp? | set on permission change |
+| Field           | Type             | Notes                                     |
+| --------------- | ---------------- | ----------------------------------------- |
+| shareId         | string           |                                           |
+| profileId       | string \| number |                                           |
+| profileName     | string           | snapshot at share time (can go stale)     |
+| ownerUserId     | string           |                                           |
+| targetUserId    | string           |                                           |
+| targetUserEmail | string           |                                           |
+| permission      | "read" \| "edit" |                                           |
+| sharedAt        | Timestamp        |                                           |
+| isActive        | boolean          | always true (hard-delete, no soft-delete) |
+| updatedAt       | Timestamp?       | set on permission change                  |
 
 ---
 
@@ -134,10 +141,10 @@ Both are identical mirrored copies. Outgoing = owner's record. Incoming = recipi
 
 ## Deleted / legacy (do NOT recreate)
 
-| Collection | Reason |
-|---|---|
+| Collection                       | Reason                                |
+| -------------------------------- | ------------------------------------- |
 | `users/{userId}/sharedProfiles/` | Legacy public link-share — UI removed |
-| `sharedProfiles/` (top-level) | Same |
+| `sharedProfiles/` (top-level)    | Same                                  |
 | `userShares/{userId}` parent doc | Was `{ exists: true }` — never needed |
 
 ---

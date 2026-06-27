@@ -6,19 +6,16 @@ import {
 	Copy,
 	Pencil,
 	Eye,
-	Download,
 	X,
 	Plus,
 } from "lucide-react";
 import ConfirmModal from "@/components/modal/ConfirmModal";
 import InputModal from "@/components/modal/InputModal";
-import UMSFetchModal from "@/components/modal/UMSFetchModal";
-import { GPASemester } from "@/types";
 
 interface ProfileInfo {
 	id: string | number;
 	name: string;
-	semesters?: unknown[];
+	updatedAt?: unknown;
 	isShared?: boolean;
 	ownerUserId?: string;
 	ownerEmail?: string;
@@ -46,10 +43,6 @@ interface ProfileDrawerProps {
 	onDeleteProfile: (profileId: string | number) => void;
 	onShareProfile?: (profileId: string | number) => void;
 	onCopySharedProfile?: (shareId: string, profileName: string) => Promise<void>;
-	onVerifyUMS?: (
-		profileId: string | number,
-		umsData: { semesters: GPASemester[]; studentInfo: unknown; allTermIds: unknown; fetchedAt?: string }
-	) => void;
 	mySharedProfiles?: unknown[];
 	isLoading?: boolean;
 	currentUser?: { uid: string } | null;
@@ -65,7 +58,6 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 	onDeleteProfile,
 	onShareProfile,
 	onCopySharedProfile,
-	onVerifyUMS,
 	mySharedProfiles = [],
 	isLoading = false,
 	currentUser,
@@ -75,9 +67,6 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 	const [showInputModal, setShowInputModal] = useState(false);
 	const [showConfirmModal, setShowConfirmModal] = useState(false);
 	const [profileToDelete, setProfileToDelete] = useState<{ id: string | number; name: string } | null>(null);
-	const [showUMSModal, setShowUMSModal] = useState(false);
-	const [profileToVerify, setProfileToVerify] = useState<ProfileInfo | null>(null);
-
 	// Prevent background scrolling when drawer is open
 	useEffect(() => {
 		if (isOpen) {
@@ -133,25 +122,16 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 		}
 	};
 
-	const handleVerifyUMS = (profileId: string | number, event: React.MouseEvent<HTMLButtonElement>) => {
-		event.stopPropagation();
-		const profile = profiles.find((p) => p.id === profileId);
-		if (profile) {
-			setProfileToVerify(profile);
-			setShowUMSModal(true);
-		}
-	};
-
-	const handleUMSConfirm = (umsData: { semesters: GPASemester[]; studentInfo: unknown; allTermIds: unknown; fetchedAt?: string }) => {
-		if (onVerifyUMS && profileToVerify) {
-			onVerifyUMS(profileToVerify.id, umsData);
-			setProfileToVerify(null);
-		}
-		setShowUMSModal(false);
-	};
-
 	const getProfileUserShares = (profileId: string | number) => {
 		return typedMySharedProfiles?.filter((share) => share.profileId === profileId && share.isActive) || [];
+	};
+
+	const formatUpdatedAt = (updatedAt: unknown) => {
+		if (!updatedAt) return "Never updated";
+		const ts = updatedAt as { toMillis?: () => number };
+		const ms = ts.toMillis ? ts.toMillis() : Number(updatedAt);
+		if (!ms || isNaN(ms)) return "Never updated";
+		return "Updated " + new Date(ms).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 	};
 
 	const ownProfiles = profiles.filter((p) => {
@@ -226,9 +206,8 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 												<h5 className="font-bold text-white text-sm truncate">
 													{profile.name}
 												</h5>
-												<p className="text-xs text-neutral-400 mt-1 font-semibold">
-													{profile.semesters?.length || 0} semester
-													{(profile.semesters?.length || 0) !== 1 ? "s" : ""}
+												<p className="text-xs text-neutral-400 mt-1">
+													{formatUpdatedAt(profile.updatedAt)}
 												</p>
 												{profile.isDefault && (
 													<span className="inline-flex mt-2.5 mr-2 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 tracking-wider">
@@ -244,14 +223,6 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 
 											{/* Quick Actions */}
 											<div className="absolute top-4 right-4 flex gap-1">
-												<button
-													className="w-8 h-8 rounded-lg flex items-center justify-center bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20 transition-all duration-200"
-													onClick={(e) => handleVerifyUMS(profile.id, e)}
-													title="Import data from UMS"
-													disabled={isLoading}
-												>
-													<Download className="w-4 h-4" />
-												</button>
 												<button
 													className="w-8 h-8 rounded-lg flex items-center justify-center bg-teal-500/10 border border-teal-500/20 text-teal-400 hover:bg-teal-500/20 transition-all duration-200"
 													onClick={(e) => handleShareProfile(profile.id, e)}
@@ -315,9 +286,8 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 													<h5 className="font-bold text-white text-sm truncate">
 														{profile.name}
 													</h5>
-													<p className="text-xs text-neutral-400 mt-1 font-semibold">
-														{profile.semesters?.length || 0} semester
-														{(profile.semesters?.length || 0) !== 1 ? "s" : ""}
+													<p className="text-xs text-neutral-400 mt-1">
+														{formatUpdatedAt(profile.updatedAt)}
 													</p>
 													<div className="flex flex-col gap-1.5 mt-3">
 														<span className={`inline-flex px-2 py-0.5 rounded-md text-[9px] font-extrabold uppercase border tracking-wider self-start ${
@@ -392,16 +362,6 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 				type="danger"
 			/>
 
-			<UMSFetchModal
-				isOpen={showUMSModal}
-				onClose={() => {
-					setShowUMSModal(false);
-					setProfileToVerify(null);
-				}}
-				onConfirm={handleUMSConfirm}
-				existingData={profileToVerify?.semesters && profileToVerify.semesters.length > 0 ? profileToVerify : null}
-				profileName={profileToVerify?.name || ""}
-			/>
 		</>
 	);
 };
