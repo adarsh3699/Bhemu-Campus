@@ -16,7 +16,7 @@ export default function UMSExtensionModal({ isOpen, onClose }: UMSExtensionModal
 				{/* Demo video thumbnail */}
 				<div className="relative rounded-2xl overflow-hidden bg-black/40 border border-white/8 aspect-video flex items-center justify-center group">
 					<iframe
-						src="https://www.youtube.com/embed/YvIqRSH9NDM"
+						src="https://www.youtube.com/embed/ohXOqajvmyY?start=163&autoplay=1&modestbranding=1&rel=0&showinfo=0&controls=0"
 						title="UMS Extension Demo"
 						className="w-full h-full"
 						allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

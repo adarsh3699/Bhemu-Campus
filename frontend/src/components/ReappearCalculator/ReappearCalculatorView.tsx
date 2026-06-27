@@ -187,12 +187,22 @@ const TheorySection = ({
 			});
 		} else {
 			const msgs = [];
-			if (!cond1) msgs.push("Minimum 30% in ETE or combined theory required");
+			if (!cond1) msgs.push("Minimum 30% in ETE or combined (MTE + ETE) required");
 			if (!cond2) msgs.push(`Overall ${overallP.toFixed(1)}% is below the 40% passing threshold`);
+
+			// Calculate minimum ETE needed to pass all conditions
+			const eteForCond1 = Math.min(
+				Math.ceil(marks.ete.max * 0.3),
+				Math.ceil((marks.mte.max + marks.ete.max) * 0.3 - mteObt)
+			);
+			const eteForCond2 = Math.ceil(totalMax * 0.4 - caObt - mteObt);
+			const eteNeeded = Math.max(eteForCond1, eteForCond2);
+			const moreNeeded = Math.max(0, eteNeeded - eteObt);
+
 			setResult({
 				status: "FAIL",
 				message: msgs.join(". "),
-				required: `Need ${Math.ceil(totalMax * 0.4 - totalObt)} more marks`,
+				required: `Need ${moreNeeded} more marks in ETE`,
 			});
 		}
 	};
