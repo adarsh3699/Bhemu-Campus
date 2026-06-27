@@ -11,7 +11,7 @@ import {
 	serverTimestamp,
 	writeBatch,
 	onSnapshot,
-	deleteField,
+
 	CollectionReference,
 	DocumentData,
 	Unsubscribe,
@@ -78,9 +78,8 @@ export class GPAService {
 				}
 			}
 
-			// Remove legacy embedded semesters field from profile doc
 			const profileRef = doc(this.userProfilesRef, profileId.toString());
-			batch.set(profileRef, { semesters: deleteField(), updatedAt: serverTimestamp() }, { merge: true });
+			batch.set(profileRef, { updatedAt: serverTimestamp() }, { merge: true });
 
 			await batch.commit();
 			return { success: true };
@@ -435,13 +434,9 @@ export class GPAService {
 		const profileData = await this._getProfileDataByPermission(shareData);
 		if (!profileData) return null;
 
-		// Fetch semesters from subcollection if not embedded
-		let semesters = profileData.semesters;
-		if (!semesters || semesters.length === 0) {
-			const colRef = this.gpaAndMarksRefForUser(ownerUserId, profileId);
-			const semSnap = await getDocs(colRef);
-			semesters = semSnap.docs.map((d) => ({ id: d.id, ...d.data() } as unknown as GPASemester));
-		}
+		const colRef = this.gpaAndMarksRefForUser(ownerUserId, profileId);
+		const semSnap = await getDocs(colRef);
+		const semesters = semSnap.docs.map((d) => ({ id: d.id, ...d.data() } as unknown as GPASemester));
 
 		return {
 			...profileData,
@@ -654,8 +649,6 @@ export class GPAService {
 
 			if (semesters.length > 0) {
 				await this.saveSemesters(newProfile.id, semesters);
-			} else if (profileData.semesters && profileData.semesters.length > 0) {
-				await this.saveSemesters(newProfile.id, profileData.semesters);
 			}
 
 			return { success: true, profile: { ...newProfile, semesters } };

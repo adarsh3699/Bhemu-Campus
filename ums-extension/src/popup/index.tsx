@@ -250,9 +250,21 @@ function Popup() {
 						{status.status === "error" && "Sync error"}
 						{status.status === "needs_login" && "UMS login required"}
 					</p>
-					{status.message && (
+					{status.message && (status.status === "error" || status.status === "syncing") && (
 						<p className={status.status === "error" ? "status-message error-detail" : "status-message"}>
 							{status.message}
+						</p>
+					)}
+					{(status.status === "success" || (status.status === "idle" && status.lastSyncedAt)) && (
+						<p className="status-open-hint">
+							Open{" "}
+							<button
+								className="btn-inline-link"
+								onClick={() => chrome.tabs.create({ url: "https://calc.bhemu.in/dashboard" })}
+							>
+								Bhemu Calculator
+							</button>{" "}
+							to view your data
 						</p>
 					)}
 					{status.lastSyncedAt && (

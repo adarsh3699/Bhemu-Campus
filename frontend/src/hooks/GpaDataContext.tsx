@@ -115,21 +115,15 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 		if (!gpaService || !activeProfile) return;
 
 		const profile = allProfiles.find((p) => p.id === activeProfile);
-		const isSharedEdit = profile?.isShared && profile?.permission === "edit" && profile?.ownerUserId;
+		const isSharedProfile = profile?.isShared && profile?.ownerUserId;
 
-		const unsubscribe = isSharedEdit
+		const unsubscribe = isSharedProfile
 			? gpaService.onSemestersChangeForUser(profile.ownerUserId!, activeProfile, (result) => {
 				setSemesters(result.success ? sortSemesters(result.semesters) : []);
 			})
 			: gpaService.onSemestersChange(activeProfile, (result) => {
 				if (!result.success) { setSemesters([]); return; }
-				// Backward compat: if subcollection is empty, fall back to embedded semesters
-				if (result.semesters.length === 0 && profile?.semesters && profile.semesters.length > 0) {
-					setSemesters(sortSemesters(profile.semesters));
-					gpaService.saveSemesters(activeProfile, profile.semesters);
-				} else {
-					setSemesters(sortSemesters(result.semesters));
-				}
+				setSemesters(sortSemesters(result.semesters));
 			});
 
 		return () => unsubscribe();

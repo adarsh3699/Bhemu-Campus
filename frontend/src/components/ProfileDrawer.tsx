@@ -19,6 +19,7 @@ interface ProfileInfo {
 	id: string | number;
 	name: string;
 	semesters?: unknown[];
+	updatedAt?: unknown;
 	isShared?: boolean;
 	ownerUserId?: string;
 	ownerEmail?: string;
@@ -154,6 +155,14 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 		return typedMySharedProfiles?.filter((share) => share.profileId === profileId && share.isActive) || [];
 	};
 
+	const formatUpdatedAt = (updatedAt: unknown) => {
+		if (!updatedAt) return "Never updated";
+		const ts = updatedAt as { toMillis?: () => number };
+		const ms = ts.toMillis ? ts.toMillis() : Number(updatedAt);
+		if (!ms || isNaN(ms)) return "Never updated";
+		return "Updated " + new Date(ms).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+	};
+
 	const ownProfiles = profiles.filter((p) => {
 		return !p.isShared || (currentUser && p.ownerUserId === currentUser.uid);
 	}).sort((a, b) => {
@@ -226,9 +235,8 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 												<h5 className="font-bold text-white text-sm truncate">
 													{profile.name}
 												</h5>
-												<p className="text-xs text-neutral-400 mt-1 font-semibold">
-													{profile.semesters?.length || 0} semester
-													{(profile.semesters?.length || 0) !== 1 ? "s" : ""}
+												<p className="text-xs text-neutral-400 mt-1">
+													{formatUpdatedAt(profile.updatedAt)}
 												</p>
 												{profile.isDefault && (
 													<span className="inline-flex mt-2.5 mr-2 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 tracking-wider">
@@ -315,9 +323,8 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 													<h5 className="font-bold text-white text-sm truncate">
 														{profile.name}
 													</h5>
-													<p className="text-xs text-neutral-400 mt-1 font-semibold">
-														{profile.semesters?.length || 0} semester
-														{(profile.semesters?.length || 0) !== 1 ? "s" : ""}
+													<p className="text-xs text-neutral-400 mt-1">
+														{formatUpdatedAt(profile.updatedAt)}
 													</p>
 													<div className="flex flex-col gap-1.5 mt-3">
 														<span className={`inline-flex px-2 py-0.5 rounded-md text-[9px] font-extrabold uppercase border tracking-wider self-start ${
