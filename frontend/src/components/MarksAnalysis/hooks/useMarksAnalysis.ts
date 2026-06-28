@@ -155,7 +155,7 @@ export function useMarksAnalysis() {
 
 		const updated = semesters.map((sem) => {
 			if (String(sem.id) !== marksCtx.activeTermId) return sem;
-			return { ...sem, subjects: [...sem.subjects, newSubject] };
+			return { ...sem, subjects: [newSubject, ...sem.subjects] };
 		});
 
 		await updateSemesters(updated);

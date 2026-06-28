@@ -106,6 +106,8 @@ function Popup() {
 	const handleLogout = async () => {
 		await firebaseSignOut();
 		chrome.storage.local.remove(LAST_PROFILE_KEY);
+		chrome.runtime.sendMessage({ type: "CLEAR_STATUS" });
+		setStatus({ lastSyncedAt: null, status: "idle" });
 		setIsLoggedIn(false);
 		setProfiles([]);
 		setSelectedProfileId("");

@@ -213,7 +213,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
 						<button
 							type="submit"
 							disabled={isSharing}
-							className="px-5 py-2.5 bg-gradient-to-r from-teal-400 to-blue-500 hover:from-teal-500 hover:to-blue-600 text-white rounded-xl font-semibold text-sm transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+							className="px-5 py-2.5 bg-gradient-to-r from-teal-500 to-blue-600 hover:from-teal-600 hover:to-blue-700 text-white rounded-xl font-semibold text-sm transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
 						>
 							{isSharing ? "Sharing..." : "Share Profile"}
 						</button>

@@ -523,8 +523,8 @@ export class GPAService {
 
 	async saveProfileWithCollaboration(profile: GPAProfile): Promise<{ success: boolean; profile?: GPAProfile; error?: string }> {
 		try {
-			// Strip runtime-only fields before writing (permission is set from userShares, not stored on profile doc)
-			const { semesters, permission: _permission2, ...profileMetadata } = profile;
+			// Strip runtime-only fields before writing
+			const { semesters, permission: _permission2, isShared: _isShared, ownerUserId: _ownerUserId, ...profileMetadata } = profile;
 			const profileData = {
 				...profileMetadata,
 				updatedAt: serverTimestamp(),

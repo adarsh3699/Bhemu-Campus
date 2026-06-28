@@ -179,7 +179,10 @@ export default function MarksSubjectCard({
 
 			{/* Inline edit form */}
 			{isEditing ? (
-				<div className="mt-3 flex flex-col gap-2">
+				<form
+					className="mt-3 flex flex-col gap-2"
+					onSubmit={(e) => { e.preventDefault(); if (!editingTotalOver) onSave(subject.id); }}
+				>
 					<div className="flex flex-col sm:hidden gap-2">
 						<div className="grid grid-cols-3 gap-2">
 							<MarkInput name="credit" label="Credits" value={formState.credit} onChange={onFormChange} autoFocus={focusCredit} />
@@ -206,13 +209,13 @@ export default function MarksSubjectCard({
 						</p>
 					) : null}
 					<button
-						onClick={() => !editingTotalOver && onSave(subject.id)}
+						type="submit"
 						disabled={editingTotalOver}
 						className="w-full py-1.5 text-xs font-bold rounded-lg bg-teal-500/20 border border-teal-500/30 text-teal-400 hover:bg-teal-500/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
 					>
 						Save
 					</button>
-				</div>
+				</form>
 			) : hasMarks ? (
 				<>
 					<div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">

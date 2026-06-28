@@ -139,7 +139,7 @@ export function useGpaCalculator() {
 						grade: parseFloat(grade),
 						credit: parseFloat(credit),
 					};
-					return { ...semester, subjects: [...semester.subjects, subjectData] };
+					return { ...semester, subjects: [subjectData, ...semester.subjects] };
 				}
 				return {
 					...semester,
