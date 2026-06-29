@@ -2,15 +2,10 @@ import React, { useState, useCallback } from "react";
 import { useMarksData } from "@/hooks/MarksDataContext";
 import { useGpaData } from "@/hooks/GpaDataContext";
 import { computeTotal, computeGradeFromMarks } from "@/lib/marksUtils";
+import type { SubjectEditFormState } from "@/components/GpaCalculator/SubjectCard";
 
-export interface MarksFormState {
-	ca: string;
-	midTerm: string;
-	endTerm: string;
-	attendanceMarks: string;
-	credit: string;
-}
-
+// Keep these exports for any remaining consumers
+export type MarksFormState = SubjectEditFormState;
 export interface SubjectFormState {
 	subjectName: string;
 	credit: string;
@@ -20,7 +15,7 @@ export interface SubjectFormState {
 	attendanceMarks: string;
 }
 
-const EMPTY_MARKS_FORM: MarksFormState = { ca: "", midTerm: "", endTerm: "", attendanceMarks: "", credit: "" };
+const EMPTY_MARKS_FORM: SubjectEditFormState = { subjectName: "", grade: "", credit: "", ca: "", midTerm: "", endTerm: "", attendanceMarks: "" };
 const EMPTY_SUBJECT_FORM: SubjectFormState = { subjectName: "", credit: "", ca: "", midTerm: "", endTerm: "", attendanceMarks: "" };
 
 function toNum(val: string): number | null {
@@ -38,7 +33,6 @@ export function useMarksAnalysis() {
 	const [form, setForm] = useState<MarksFormState>(EMPTY_MARKS_FORM);
 
 	// Subject add form state
-	const [showSubjectForm, setShowSubjectForm] = useState(false);
 	const [subjectForm, setSubjectForm] = useState<SubjectFormState>(EMPTY_SUBJECT_FORM);
 
 	const handleFormChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -58,11 +52,13 @@ export function useMarksAnalysis() {
 			const m = subject?.marks;
 			setEditingSubjectId(id);
 			setForm({
+				subjectName: subject?.subjectName ?? "",
+				grade: subject?.grade != null ? String(subject.grade) : "",
+				credit: subject?.credit != null ? String(subject.credit) : "",
 				ca: m?.ca != null ? String(m.ca) : "",
 				midTerm: m?.midTerm != null ? String(m.midTerm) : "",
 				endTerm: m?.endTerm != null ? String(m.endTerm) : "",
 				attendanceMarks: m?.attendanceMarks != null ? String(m.attendanceMarks) : "",
-				credit: subject?.credit != null ? String(subject.credit) : "",
 			});
 		},
 		[marksCtx.subjects]
@@ -95,16 +91,6 @@ export function useMarksAnalysis() {
 	// ===== SEMESTER MANAGEMENT =====
 
 	const [semesterToDelete, setSemesterToDelete] = useState<{ id: string; name: string } | null>(null);
-
-	const addSemester = useCallback(async () => {
-		const newSemester = {
-			id: Date.now().toString(),
-			name: `Semester ${semesters.length + 1}`,
-			subjects: [],
-		};
-		await updateSemesters([...semesters, newSemester]);
-		marksCtx.setActiveTermId(newSemester.id);
-	}, [semesters, updateSemesters, marksCtx]);
 
 	const confirmDeleteSemester = useCallback(async () => {
 		if (!semesterToDelete) return;
@@ -160,7 +146,6 @@ export function useMarksAnalysis() {
 
 		await updateSemesters(updated);
 		setSubjectForm(EMPTY_SUBJECT_FORM);
-		setShowSubjectForm(false);
 	}, [semesters, marksCtx.activeTermId, subjectForm, updateSemesters, isReadOnlyProfile]);
 
 	const deleteSubject = useCallback(
@@ -188,14 +173,11 @@ export function useMarksAnalysis() {
 		startEdit,
 		cancelEdit,
 		// Subject management
-		showSubjectForm,
-		setShowSubjectForm,
 		subjectForm,
 		handleSubjectFormChange,
 		addSubject,
 		deleteSubject,
 		// Semester management
-		addSemester,
 		semesterToDelete,
 		setSemesterToDelete,
 		confirmDeleteSemester,

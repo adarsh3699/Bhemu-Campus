@@ -1,13 +1,18 @@
-import React, { useState, useCallback, useMemo, useEffect } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { useGpaData } from "@/hooks/GpaDataContext";
-import { Subject } from "@/lib/gpaUtils";
-import { useMarksAnalysis } from "@/components/MarksAnalysis/hooks/useMarksAnalysis";
+import { useMarksAnalysis } from "@/components/GpaCalculator/hooks/useMarksAnalysis";
+import type { SubjectEditFormState } from "@/components/GpaCalculator/SubjectCard";
 
-export function useGpaCalculator() {
-	const gpaData = useGpaData();
-	const { profiles, semesters, updateSemesters, updateActiveProfile } = gpaData;
-	const marksAnalysis = useMarksAnalysis();
+type MarksAnalysis = ReturnType<typeof useMarksAnalysis>;
+
+const EMPTY_GRADES_FORM: SubjectEditFormState = { subjectName: "", grade: "", credit: "", ca: "", midTerm: "", endTerm: "", attendanceMarks: "" };
+
+export function useGpaCalculator(marksAnalysis: MarksAnalysis) {
+	const { semesters, updateSemesters } = useGpaData();
+
+	// Extract stable refs to avoid re-creating callbacks when the marksAnalysis object reference changes
+	const { setActiveTermId: marksSetActiveTermId, addSubject: marksAddSubject } = marksAnalysis;
 
 	// ===== UI STATE =====
 	const [viewMode, setViewMode] = useState<"gpa" | "marks">(() => {
@@ -21,18 +26,15 @@ export function useGpaCalculator() {
 		localStorage.setItem("gpa_view_mode", mode);
 	}, []);
 
-	// Subject form state
-	const [newSubject, setNewSubject] = useState({ subjectName: "", grade: "", credit: "" });
-	const [editIndex, setEditIndex] = useState<number | string>(-1);
+	// Grades-tab subject edit state (add new + edit existing)
+	const [gradesForm, setGradesForm] = useState<SubjectEditFormState>(EMPTY_GRADES_FORM);
+	const [gradesEditingSubjectId, setGradesEditingSubjectId] = useState<string | null>(null);
 	// User-explicit semester selection; null = "use default"
-	const [selectedSemesterId, setActiveSemester] = useState<string | number | null>(null);
+	const [selectedSemesterId, setSelectedSemesterId] = useState<string | number | null>(null);
 
-	// Info modal state (grade / credit-hour info panels)
+	// Info modal state
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [modalType, setModalType] = useState<"grade" | "ch" | "">("");
-
-	// Edit-subject modal state
-	const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
 
 	// Semester delete confirmation state
 	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -41,14 +43,16 @@ export function useGpaCalculator() {
 	// Subject delete confirmation state
 	const [showSubjectDeleteConfirm, setShowSubjectDeleteConfirm] = useState(false);
 	const [subjectToDelete, setSubjectToDelete] = useState<{ semesterId: string | number; subjectId: string | number; subjectName: string } | null>(null);
-	// Stores the actual delete fn to call on confirm (handles both GPA and Marks tabs)
 	const pendingSubjectDeleteRef = React.useRef<(() => void) | null>(null);
 
-	// ===== ACTIVE SEMESTER SYNC =====
+	// Loading state per action
+	const [addSemesterLoading, setAddSemesterLoading] = useState(false);
+	const [addSubjectLoading, setAddSubjectLoading] = useState(false);
+
+	// ===== ACTIVE SEMESTER =====
 	const searchParams = useSearchParams();
 	const semFromUrl = searchParams.get("sem");
 
-	// Derived: URL param > user selection > last semester
 	const activeSemester = useMemo(() => {
 		if (semesters.length === 0) return null;
 		if (semFromUrl) {
@@ -59,8 +63,12 @@ export function useGpaCalculator() {
 		return semesters[semesters.length - 1].id;
 	}, [semFromUrl, selectedSemesterId, semesters]);
 
-	// ===== INFO MODAL HANDLERS =====
+	const setActiveSemester = useCallback((id: string | number) => {
+		setSelectedSemesterId(id);
+		marksSetActiveTermId(String(id));
+	}, [marksSetActiveTermId]);
 
+	// ===== INFO MODAL =====
 	const handleModalToggle = useCallback((type: "grade" | "ch", event: React.MouseEvent<HTMLButtonElement>) => {
 		event.stopPropagation();
 		event.preventDefault();
@@ -68,28 +76,30 @@ export function useGpaCalculator() {
 		setIsModalOpen(true);
 	}, []);
 
-	const handleModalClose = useCallback(() => {
-		setIsModalOpen(false);
-	}, []);
+	const handleModalClose = useCallback(() => setIsModalOpen(false), []);
 
 	// ===== SEMESTER HANDLERS =====
-
 	const addSemester = useCallback(async () => {
-		const newSemester = {
-			id: Date.now().toString(),
-			name: `Semester ${semesters.length + 1}`,
-			subjects: [],
-		};
-		await updateSemesters([...semesters, newSemester]);
-		setActiveSemester(newSemester.id);
-	}, [semesters, updateSemesters]);
+		setAddSemesterLoading(true);
+		try {
+			const newSemester = {
+				id: Date.now().toString(),
+				name: `Semester ${semesters.length + 1}`,
+				subjects: [],
+			};
+			await updateSemesters([...semesters, newSemester]);
+			setActiveSemester(newSemester.id);
+		} finally {
+			setAddSemesterLoading(false);
+		}
+	}, [semesters, updateSemesters, setActiveSemester]);
 
 	const deleteSemester = useCallback(
 		(semesterId: string | number) => {
 			const updated = semesters.filter((s) => s.id !== semesterId);
 			updateSemesters(updated);
 			if (activeSemester === semesterId) {
-				setActiveSemester(updated.length > 0 ? updated[updated.length - 1].id : null);
+				setSelectedSemesterId(updated.length > 0 ? updated[updated.length - 1].id : null);
 			}
 		},
 		[semesters, activeSemester, updateSemesters]
@@ -114,60 +124,63 @@ export function useGpaCalculator() {
 	}, []);
 
 	// ===== SUBJECT HANDLERS =====
-
-	const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+	const handleGradesFormChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
 		const { name, value } = e.target;
-		setNewSubject((prev) => ({ ...prev, [name]: value }));
+		setGradesForm((prev) => ({ ...prev, [name]: value }));
 	}, []);
 
-	const addOrUpdateSubject = useCallback(
-		(e: React.FormEvent<HTMLFormElement>) => {
-			e.preventDefault();
+	const saveGradesSubject = useCallback(
+		async (subjectId?: string | number) => {
 			if (!activeSemester) return;
-
-			const { subjectName, grade, credit } = newSubject;
+			const { subjectName, grade, credit } = gradesForm;
 			if (!subjectName || !grade || !credit) return;
 
-			const isNew = editIndex === -1;
-
+			const isNew = gradesEditingSubjectId === null;
 			const updatedSemesters = semesters.map((semester) => {
 				if (semester.id !== activeSemester) return semester;
 				if (isNew) {
-					const subjectData = {
-						id: Date.now(),
-						subjectName,
-						grade: parseFloat(grade),
-						credit: parseFloat(credit),
-					};
-					return { ...semester, subjects: [subjectData, ...semester.subjects] };
+					return { ...semester, subjects: [{ id: Date.now(), subjectName, grade: parseFloat(grade), credit: parseFloat(credit) }, ...semester.subjects] };
 				}
+				const editId = subjectId != null ? String(subjectId) : gradesEditingSubjectId;
 				return {
 					...semester,
 					subjects: semester.subjects.map((s) => {
-						if (s.id !== editIndex) return s;
-						// Preserve existing marks — only update grade/name/credit
+						if (String(s.id) !== editId) return s;
 						return { ...s, subjectName, grade: parseFloat(grade), credit: parseFloat(credit) };
 					}),
 				};
 			});
 
-			updateSemesters(updatedSemesters);
-			setNewSubject({ subjectName: "", grade: "", credit: "" });
-			setEditIndex(-1);
-			setIsUpdateModalOpen(false);
+			if (isNew) setAddSubjectLoading(true);
+			try { await updateSemesters(updatedSemesters); }
+			finally { if (isNew) setAddSubjectLoading(false); }
+			setGradesForm(EMPTY_GRADES_FORM);
+			setGradesEditingSubjectId(null);
 		},
-		[newSubject, semesters, activeSemester, editIndex, updateSemesters]
+		[gradesForm, semesters, activeSemester, gradesEditingSubjectId, updateSemesters]
 	);
 
-	const editSubject = useCallback((semesterId: string | number, subject: Subject) => {
-		setEditIndex(subject.id);
-		setActiveSemester(semesterId);
-		setNewSubject({
+	// Called by AddSubjectForm onSubmit — always adds new subject
+	const addOrUpdateSubject = useCallback(async () => {
+		await saveGradesSubject();
+	}, [saveGradesSubject]);
+
+	const editSubject = useCallback((subjectId: string | number) => {
+		const activeSem = semesters.find((s) => s.id === activeSemester);
+		const subject = activeSem?.subjects.find((s) => String(s.id) === String(subjectId));
+		if (!subject) return;
+		setGradesEditingSubjectId(String(subjectId));
+		setGradesForm({
 			subjectName: subject.subjectName,
 			grade: subject.grade.toString(),
 			credit: subject.credit.toString(),
+			ca: "", midTerm: "", endTerm: "", attendanceMarks: "",
 		});
-		setIsUpdateModalOpen(true);
+	}, [semesters, activeSemester]);
+
+	const cancelGradesEdit = useCallback(() => {
+		setGradesEditingSubjectId(null);
+		setGradesForm(EMPTY_GRADES_FORM);
 	}, []);
 
 	const deleteSubject = useCallback(
@@ -180,6 +193,16 @@ export function useGpaCalculator() {
 		},
 		[semesters, updateSemesters]
 	);
+
+
+	const handleMarksAddSubject = useCallback(async () => {
+		setAddSubjectLoading(true);
+		try {
+			await marksAddSubject();
+		} finally {
+			setAddSubjectLoading(false);
+		}
+	}, [marksAddSubject]);
 
 	const confirmSubjectDelete = useCallback((subjectName: string, deleteFn: () => void) => {
 		pendingSubjectDeleteRef.current = deleteFn;
@@ -200,80 +223,50 @@ export function useGpaCalculator() {
 		setShowSubjectDeleteConfirm(false);
 	}, []);
 
-	// Keep marks context in sync with the active semester
-	useEffect(() => {
-		if (activeSemester != null) {
-			marksAnalysis.setActiveTermId(String(activeSemester));
-		}
-	}, [activeSemester]); // eslint-disable-line react-hooks/exhaustive-deps
-
-	const handleSetActiveSemester = useCallback((id: string | number) => {
-		setActiveSemester(id);
-	}, []);
-
 	return {
-		// Pass-through from useGpaData (view needs these directly)
-		...gpaData,
-
-		// View mode toggle
+		// View mode
 		viewMode,
 		setViewMode: setViewModeAndPersist,
 
-		// Marks analysis
-		marksSubjects: marksAnalysis.subjects,
-		marksEditingSubjectId: marksAnalysis.editingSubjectId,
-		marksForm: marksAnalysis.form,
-		handleMarksFormChange: marksAnalysis.handleFormChange,
-		handleMarksSave: marksAnalysis.handleSubmit,
-		handleMarksEdit: marksAnalysis.startEdit,
-		handleMarksCancel: marksAnalysis.cancelEdit,
-		handleDeleteSubjectFromMarks: marksAnalysis.deleteSubject,
-		marksShowSubjectForm: marksAnalysis.showSubjectForm,
-		marksSetShowSubjectForm: marksAnalysis.setShowSubjectForm,
-		marksSubjectForm: marksAnalysis.subjectForm,
-		handleMarksSubjectFormChange: marksAnalysis.handleSubjectFormChange,
-		handleMarksAddSubject: marksAnalysis.addSubject,
+		// Active semester
+		activeSemester,
+		setActiveSemester,
+
+		// Loading
+		addSemesterLoading,
+		addSubjectLoading,
+
+		// Semester actions
+		addSemester,
+		handleDeleteSemesterClick,
+		handleConfirmDeleteSemester,
+		handleCancelDeleteSemester,
+		showDeleteConfirm,
+		semesterToDelete,
+
+		// Grades-tab subject form (add new)
+		gradesForm,
+		handleGradesFormChange,
+		addOrUpdateSubject,
+		// Grades-tab inline edit
+		gradesEditingSubjectId,
+		editSubject,
+		saveGradesSubject,
+		cancelGradesEdit,
+		deleteSubject,
+		handleMarksAddSubject,
+
+		// Subject delete confirm
+		confirmSubjectDelete,
+		handleConfirmDeleteSubject,
+		handleCancelDeleteSubject,
+		showSubjectDeleteConfirm,
+		subjectToDelete,
 
 		// Info modal
 		isModalOpen,
 		modalType,
 		handleModalToggle,
 		handleModalClose,
-
-		// Edit-subject modal
-		isUpdateModalOpen,
-		setIsUpdateModalOpen,
-
-		// Semester delete confirm
-		showDeleteConfirm,
-		semesterToDelete,
-		handleDeleteSemesterClick,
-		handleConfirmDeleteSemester,
-		handleCancelDeleteSemester,
-
-		// Subject delete confirm
-		showSubjectDeleteConfirm,
-		subjectToDelete,
-		confirmSubjectDelete,
-		handleConfirmDeleteSubject,
-		handleCancelDeleteSubject,
-
-		// Subject form
-		newSubject,
-		setNewSubject,
-		editIndex,
-		activeSemester,
-		setActiveSemester: handleSetActiveSemester,
-		handleInputChange,
-		addOrUpdateSubject,
-		editSubject,
-		deleteSubject,
-
-		// Semester actions
-		addSemester,
-
-		// Unused but kept for potential future use via ...gpaData spread
-		profiles,
-		updateActiveProfile,
 	};
 }
