@@ -11,7 +11,7 @@ import {
 	Code,
 	Flame,
 	Database,
-	Shield,
+	Coffee,
 	Info,
 	Calculator,
 	BarChart3,
@@ -77,7 +77,7 @@ const TECH_SKILLS = [
 	{ icon: <Code className="w-5 h-5 text-emerald-400" />, label: "Node.js" },
 	{ icon: <Flame className="w-5 h-5 text-orange-500" />, label: "Firebase" },
 	{ icon: <Database className="w-5 h-5 text-indigo-400" />, label: "MongoDB / PostgreSQL" },
-	{ icon: <Shield className="w-5 h-5 text-teal-400" />, label: "C / C++" },
+	{ icon: <Coffee className="w-5 h-5 text-orange-400" />, label: "Java" },
 ];
 
 export default function AboutView() {
