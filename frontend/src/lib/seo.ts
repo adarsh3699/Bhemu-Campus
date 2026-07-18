@@ -30,14 +30,6 @@ export const SITE_CONFIG = {
 		type: "website",
 		locale: "en_US",
 		siteName: "Bhemu Calculator",
-		images: [
-			{
-				url: "/newLogo512.webp", // resolved against metadataBase
-				width: 512,
-				height: 512,
-				alt: "Bhemu Calculator - GPA Tracker, SGPA & CGPA Planning",
-			},
-		],
 	},
 	twitter: {
 		card: "summary_large_image" as const,
@@ -75,6 +67,9 @@ export function generatePageMetadata({
 		alternates: {
 			canonical: pageUrl,
 		},
+		verification: {
+			google: process.env.GOOGLE_SITE_VERIFICATION,
+		},
 		robots: {
 			index: !noIndex,
 			follow: !noIndex,
@@ -93,12 +88,14 @@ export function generatePageMetadata({
 			description: pageDescription,
 			siteName: SITE_CONFIG.openGraph.siteName,
 			url: pageUrl,
+			images: [{ url: `${SITE_CONFIG.url}/opengraph-image`, width: 1200, height: 630, alt: pageTitle }],
 		},
 		twitter: {
 			card: SITE_CONFIG.twitter.card,
 			creator: SITE_CONFIG.twitter.creator,
 			title: pageTitle,
 			description: pageDescription,
+			images: [`${SITE_CONFIG.url}/opengraph-image`],
 		},
 	};
 }

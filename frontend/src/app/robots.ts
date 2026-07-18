@@ -8,16 +8,12 @@ export default function robots(): MetadataRoute.Robots {
 			{
 				userAgent: "*",
 				allow: "/",
-				disallow: [
-					"/api/",      // Never expose Firebase / API endpoints
-					"/_next/",    // Next.js internal routes
-					"/admin/",    // Admin pages if ever added
-				],
+				disallow: ["/api/", "/_next/", "/admin/", "*.json$"],
 			},
 			{
 				userAgent: "Googlebot",
 				allow: "/",
-				disallow: ["/api/", "/_next/", "/admin/"],
+				disallow: ["/api/", "/_next/", "/admin/", "*.json$"],
 			},
 		],
 		sitemap: `${SITE_CONFIG.url}/sitemap.xml`,

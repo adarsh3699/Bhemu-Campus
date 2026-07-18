@@ -1,6 +1,13 @@
 import Link from "next/link";
 import Image from "next/image";
 import { ShieldCheck, ArrowRight, CheckCircle2 } from "lucide-react";
+import { generatePageMetadata } from "@/lib/seo";
+
+export const metadata = generatePageMetadata({
+	title: "Verify Email",
+	path: "/verify-email",
+	noIndex: true,
+});
 
 export default function VerifyEmailPage() {
 	return (
