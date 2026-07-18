@@ -28,6 +28,8 @@ export function useLeaderboard() {
 	// Only primitive values — prevents new object references from triggering the effect
 	const uid = currentUser?.uid ?? null;
 	const profileId = currentProfile ? String(currentProfile.id) : null;
+	// For shared profiles, the leaderboard entry belongs to the owner
+	const entryUserId = currentProfile?.ownerUserId ?? uid;
 	const umsVerified = !!currentProfile?.umsVerified;
 	const program = studentInfo?.program ?? null;
 	const cgpa = studentInfo?.cgpa ?? null;
@@ -59,17 +61,18 @@ export function useLeaderboard() {
 			try {
 				const userCgpa = parseFloat(cgpa!);
 
-				const [userEntry, topEntries, userRank, totalStudents] = await Promise.all([
-					LeaderboardService.getUserEntry(uid!, profileId!),
+				const userEntry = await LeaderboardService.getUserEntry(entryUserId!, profileId!);
+				if (cancelled) return;
+
+				const [topEntries, userRank, totalStudents] = await Promise.all([
 					LeaderboardService.getTopStudents(groupKey!, 10),
 					LeaderboardService.getUserRank(groupKey!, userCgpa),
 					LeaderboardService.getTotalCount(groupKey!),
 				]);
 				if (cancelled) return;
 
-
 				let nearbyEntries: LeaderboardEntry[] = [];
-				const isInTop10 = topEntries.some((e) => e.userId === uid);
+				const isInTop10 = topEntries.some((e) => e.userId === entryUserId && e.profileId === profileId);
 				if (!isInTop10 && userRank > 10) {
 					nearbyEntries = await LeaderboardService.getNearbyAbove(groupKey!, userCgpa, 2);
 					if (cancelled) return;
@@ -77,7 +80,6 @@ export function useLeaderboard() {
 
 				setLeaderboardData({ topEntries, userEntry, userRank, nearbyEntries, totalStudents });
 			} catch (err) {
-				console.error("[Leaderboard]", err);
 				if (!cancelled) {
 					setError(err instanceof Error ? err.message : "Failed to load leaderboard");
 				}
@@ -93,10 +95,12 @@ export function useLeaderboard() {
 		return () => {
 			cancelled = true;
 			runningRef.current = false;
+			setLeaderboardData(null);
+			setLoading(false);
 		};
 		// Only primitive stable values in deps — no objects
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [uid, profileId, isEligible, groupKey, cgpa, batchYear, vid]);
+	}, [uid, profileId, entryUserId, isEligible, groupKey, cgpa, batchYear, vid]);
 
-	return { leaderboardData, loading, error, isEligible, parsedProgram, groupKey };
+	return { leaderboardData, loading, error, isEligible, parsedProgram, groupKey, entryUserId };
 }

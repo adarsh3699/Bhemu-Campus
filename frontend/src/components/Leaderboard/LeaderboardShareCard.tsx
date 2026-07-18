@@ -1,6 +1,5 @@
 "use client";
 
-import { forwardRef } from "react";
 import type { LeaderboardData, ParsedProgram } from "@/types";
 
 interface LeaderboardShareCardProps {
@@ -146,8 +145,7 @@ const s = {
 	},
 } as const;
 
-const LeaderboardShareCard = forwardRef<HTMLDivElement, LeaderboardShareCardProps>(
-	({ leaderboardData, parsedProgram }, ref) => {
+function LeaderboardShareCard({ leaderboardData, parsedProgram }: LeaderboardShareCardProps) {
 		const { userEntry, userRank, totalStudents } = leaderboardData;
 		if (!userEntry || !userRank) return null;
 
@@ -156,7 +154,7 @@ const LeaderboardShareCard = forwardRef<HTMLDivElement, LeaderboardShareCardProp
 		const batchLine = "Batch " + userEntry.batchYear;
 
 		return (
-			<div ref={ref} style={s.card}>
+			<div style={s.card}>
 				{/* Header */}
 				<div style={s.header}>
 					<div style={s.iconBox}>
@@ -194,8 +192,6 @@ const LeaderboardShareCard = forwardRef<HTMLDivElement, LeaderboardShareCardProp
 				</div>
 			</div>
 		);
-	}
-);
+}
 
-LeaderboardShareCard.displayName = "LeaderboardShareCard";
 export default LeaderboardShareCard;

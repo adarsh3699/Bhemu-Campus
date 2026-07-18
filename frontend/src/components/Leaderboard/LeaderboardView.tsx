@@ -5,13 +5,14 @@ import { Trophy, Users, Share2, Loader2 } from "lucide-react";
 import { useAuth } from "@/firebase/AuthContext";
 import LoginRecommendation from "@/components/common/LoginRecommendation";
 import { useLeaderboard } from "./hooks/useLeaderboard";
+import { formatProgramLabel } from "@/lib/programUtils";
 import LeaderboardTable from "./LeaderboardTable";
 import UMSSyncPrompt from "./UMSSyncPrompt";
 import ShareLeaderboardModal from "./ShareLeaderboardModal";
 
 export default function LeaderboardView() {
 	const { currentUser } = useAuth();
-	const { leaderboardData, loading, error, isEligible, parsedProgram } = useLeaderboard();
+	const { leaderboardData, loading, error, isEligible, parsedProgram, entryUserId } = useLeaderboard();
 	const [shareModalOpen, setShareModalOpen] = useState(false);
 
 	if (!currentUser) return <LoginRecommendation feature="Leaderboard" />;
@@ -43,7 +44,7 @@ export default function LeaderboardView() {
 
 	const { userRank, totalStudents } = leaderboardData;
 	const groupLabel = parsedProgram
-		? `${parsedProgram.programName}${parsedProgram.branch ? ` ${parsedProgram.branch}` : ""}`
+		? formatProgramLabel(parsedProgram.programName, parsedProgram.branch)
 		: "Your Program";
 
 	return (
@@ -63,13 +64,15 @@ export default function LeaderboardView() {
 						</p>
 					</div>
 
-					<button
-						onClick={() => setShareModalOpen(true)}
-						className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-primary/30 rounded-lg text-xs font-medium text-foreground/80 transition-all duration-200"
-					>
-						<Share2 className="w-3.5 h-3.5" />
-						Share
-					</button>
+					{leaderboardData.userEntry && (
+						<button
+							onClick={() => setShareModalOpen(true)}
+							className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-primary/30 rounded-lg text-xs font-medium text-foreground/80 transition-all duration-200"
+						>
+							<Share2 className="w-3.5 h-3.5" />
+							Share
+						</button>
+					)}
 				</div>
 
 				{userRank && totalStudents > 0 && (
@@ -87,7 +90,11 @@ export default function LeaderboardView() {
 			</div>
 
 			{/* Leaderboard Table */}
-			<LeaderboardTable data={leaderboardData} currentUserId={currentUser.uid} />
+			<LeaderboardTable
+					data={leaderboardData}
+					currentUserId={entryUserId ?? currentUser.uid}
+					currentProfileId={leaderboardData.userEntry?.profileId ?? ""}
+				/>
 
 			{/* Share Modal */}
 			<ShareLeaderboardModal

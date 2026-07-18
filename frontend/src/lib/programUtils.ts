@@ -44,6 +44,11 @@ export function buildGroupKey(batchYear: string, programCode: string): string {
 	return `${batchYear}_${programCode}`;
 }
 
+export function formatProgramLabel(programName: string | null | undefined, branch: string | null | undefined, fallback = "Program"): string {
+	if (!programName) return fallback;
+	return branch ? `${programName} ${branch}` : programName;
+}
+
 /** Derives batch year from VID when studentInfo.batchYear is null.
  *  "12401984" → characters at index 1-2 = "24" → "2024"
  */

@@ -1,6 +1,7 @@
 import {
 	collection,
 	doc,
+	getDoc,
 	query,
 	where,
 	orderBy,
@@ -86,10 +87,9 @@ export class LeaderboardService {
 
 	static async getUserEntry(userId: string, profileId: string): Promise<LeaderboardEntry | null> {
 		const docId = `${userId}_${profileId}`;
-		const q = query(leaderboardRef(), where("userId", "==", userId));
-		const snap = await getDocs(q);
-		const match = snap.docs.find((d) => d.id === docId);
-		return match ? docFromSnapshot(match) : null;
+		const ref = doc(db, LEADERBOARD_COL, docId);
+		const snap = await getDoc(ref);
+		return snap.exists() ? docFromSnapshot(snap) : null;
 	}
 
 	static async upsertEntry(entry: Omit<LeaderboardEntry, "updatedAt">): Promise<void> {

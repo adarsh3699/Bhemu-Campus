@@ -1,6 +1,7 @@
 # Firestore Schema — Bhemu Calculator
 
 Last audited & cleaned: 2026-06-28. 124 profiles verified clean.
+Last updated: 2026-07-18 (added `leaderboard` collection).
 
 ---
 
@@ -136,6 +137,48 @@ Both are identical mirrored copies. Outgoing = owner's record. Incoming = recipi
 2. `onCollaborativeProfileChange()` listens on `users/{ownerUserId}/profiles/{id}`
 3. `onSemestersChangeForUser()` listens on `users/{ownerUserId}/profiles/{id}/gpaAndMarks/`
 4. Both users see changes live
+
+---
+
+## `leaderboard/{userId}_{profileId}`
+
+Denormalized top-level collection written by the UMS extension on every sync. Used by the leaderboard feature to rank students without querying subcollections across multiple users.
+
+Document ID: `{userId}_{profileId}` — deterministic, enables idempotent upserts.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| userId | string | Firebase Auth UID of the profile owner |
+| profileId | string | Profile doc ID |
+| name | string | Student's full name (from `studentInfo.name`) |
+| vid | string | Registration number (e.g. `"12401984"`) |
+| programCode | string | Parsed from program string (e.g. `"P132"`, `"P164-NN1"`) |
+| programName | string | e.g. `"B.Tech."`, `"MCA"` |
+| branch | string \| null | e.g. `"Computer Science and Engineering"`, `null` for no-branch programs |
+| batchYear | string | e.g. `"2024"` (derived from `vid` if `studentInfo.batchYear` is null) |
+| cgpa | number | Parsed float — used for ordering |
+| groupKey | string | `"{batchYear}_{programCode}"` — single field for query filtering + ordering |
+| optOut | boolean | `false` by default. `true` = excluded from all leaderboard queries. Written only on first sync; never overwritten by re-sync. Changed only via Settings toggle. |
+| updatedAt | Timestamp | `serverTimestamp()` on each sync |
+
+**Write rules:**
+- First sync: writes all fields including `optOut: false`
+- Re-sync: omits `optOut` (preserves any user-set opt-out)
+- Settings opt-out toggle: writes only `{ optOut, updatedAt }` via `setDoc merge`
+
+**Required Firestore indexes:**
+| Fields | Order | Used by |
+|--------|-------|---------|
+| `groupKey` ASC, `optOut` ASC, `cgpa` DESC | Collection | `getTopStudents` |
+| `groupKey` ASC, `optOut` ASC, `cgpa` ASC | Collection | `getNearbyAbove` |
+
+**Security rules:**
+```
+match /leaderboard/{docId} {
+  allow read: if true;  // public — required for server-side OG image + rank page
+  allow write: if request.auth != null && request.resource.data.userId == request.auth.uid;
+}
+```
 
 ---
 

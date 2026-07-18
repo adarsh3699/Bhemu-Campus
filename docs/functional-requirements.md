@@ -425,7 +425,14 @@ grade = umsGradePoint                          if UMS has declared a grade
 | Account | View email, creation date |
 | Security | Create password (Google-only accounts) |
 | Security | Change password (email/password accounts) |
+| Leaderboard | Toggle leaderboard visibility (opt-out) |
 | Danger Zone | Delete account with re-auth |
+
+### Leaderboard Visibility Toggle
+- Only shown when the active profile is UMS-verified (`umsVerified === true`)
+- Toggle sets `optOut` field on `leaderboard/{userId}_{profileId}` doc
+- Default: visible (`optOut: false`)
+- When opted out: user is excluded from all leaderboard queries and rank counts; public rank page (`/rank/{id}`) returns 404
 
 ---
 
@@ -467,3 +474,66 @@ Manual close button available.
 | `gpa_view_mode` | "marks" \| "gpa" | Last selected tab in GPA Calculator |
 | `bhemu_activeProfileId` | profileId string | Last active profile (same-device only) |
 | `bhemu_account_deleting` | "1" | Prevents auto-profile creation during account deletion |
+
+---
+
+## 18. Leaderboard
+
+### Access
+- Requires authenticated user + UMS-verified active profile (`umsVerified === true`)
+- If not logged in: shows `LoginRecommendation`
+- If not UMS-synced: shows `UMSSyncPrompt` with link to Chrome Web Store extension
+
+### Display
+- Header: program name + branch (e.g. "B.Tech. Computer Science and Engineering"), batch year
+- **Your Rank** badge + **N students** count
+- Top 10 students by CGPA, ordered descending
+  - Rank #1–3 show gold/silver/bronze medal icons
+  - All students shown with shortened name (`First L.`) except the active profile row (full name + "(You)")
+- If active profile rank > 10: separator (`⋮`) + 2 students above + active profile row highlighted
+- Share button (only shown when user has a leaderboard entry)
+
+### Ranking Criteria
+- Same `batchYear` (derived from `vid` digits 1–2 if `studentInfo.batchYear` is null: `"12401984"` → `"2024"`)
+- Same `programCode` (extracted from `studentInfo.program`, e.g. `"P132"` from `"B.Tech. (Computer Science and Engineering) (P132 )"`)
+- Ranked by `cgpa` descending
+- Opted-out users (`optOut: true`) excluded from all queries and counts
+
+### Shared Profile Support
+- When viewing a shared profile, the `(You)` highlight uses the **owner's** `userId` + `profileId` (not the viewer's)
+- Rank and entry are fetched using the owner's IDs
+
+### Share & Export
+- **Copy Link**: copies `https://calc.bhemu.in/rank/{userId}_{profileId}` to clipboard
+- **Download Image (PNG)**: renders rank card via Canvas 2D API (`drawLeaderboardCard`)
+- **Download PDF**: same canvas → jsPDF
+- **Share (mobile)**: Web Share API with image file; falls back to `wa.me` text link on HTTP/desktop
+- **Desktop buttons**: WhatsApp (text), LinkedIn (`shareArticle` with text), X (Twitter)
+
+### Shareable Rank Page (`/rank/[id]`)
+- Public server-rendered page; no auth required
+- `id` = `{userId}_{profileId}` (Firestore leaderboard doc ID)
+- Shows rank card + CTA ("Check Your Rank" → `/leaderboard`)
+- Returns "Rank not found" if doc missing or `optOut: true`
+- `generateMetadata` injects dynamic OG image via `/api/og/rank?id={id}` for rich link previews on WhatsApp/LinkedIn/X
+
+### Dynamic OG Image (`/api/og/rank`)
+- Edge route returning 1200×630 PNG via `ImageResponse`
+- Fetches leaderboard doc via Firestore REST API (unauthenticated — requires `allow read: if true` on `leaderboard` collection)
+- Shows: rank number, student name, CGPA, program, batch, branding
+
+### Program Parsing
+```
+"B.Tech. (Computer Science and Engineering) (P132 )"
+  → programName: "B.Tech.", branch: "Computer Science and Engineering", programCode: "P132"
+
+"MCA (P164-NN1 )"
+  → programName: "MCA", branch: null, programCode: "P164-NN1"
+```
+Utility: `parseProgram()` in `src/lib/programUtils.ts` (duplicated in `ums-extension/src/utils/programUtils.ts`).
+`formatProgramLabel(programName, branch)` used for all display rendering.
+
+### Data Flow
+1. UMS extension sync writes to `leaderboard/{uid}_{profileId}` (first sync sets `optOut: false`; re-syncs never touch `optOut`)
+2. Frontend `useLeaderboard` hook reads from Firestore client SDK using `LeaderboardService`
+3. Rank page and OG image route fetch via Firestore REST API (server-side, no auth token)

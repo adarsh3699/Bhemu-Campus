@@ -1,5 +1,6 @@
 import {
   doc,
+  getDoc,
   serverTimestamp,
   writeBatch,
   collection,
@@ -79,25 +80,26 @@ export async function syncGradesAndMarks(data: SyncResult, profileId: string): P
     const parsed = parseProgram(si.program);
     if (parsed) {
       const groupKey = buildGroupKey(siBatchYear, parsed.programCode);
-      const leaderboardRef = doc(db, 'leaderboard', `${uid}_${profileId}`);
-      batch.set(
-        leaderboardRef,
-        {
-          userId: uid,
-          profileId,
-          name: si.name ?? 'Anonymous',
-          vid: si.vid ?? '',
-          programCode: parsed.programCode,
-          programName: parsed.programName,
-          branch: parsed.branch,
-          batchYear: siBatchYear,
-          cgpa: parseFloat(si.cgpa),
-          groupKey,
-          optOut: false,
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
+      const leaderboardDocRef = doc(db, 'leaderboard', `${uid}_${profileId}`);
+      // Check if doc exists so we only set optOut:false on creation, never overwriting a user's opt-out choice
+      const existing = await getDoc(leaderboardDocRef);
+      const entry: Record<string, unknown> = {
+        userId: uid,
+        profileId,
+        name: si.name ?? 'Anonymous',
+        vid: si.vid ?? '',
+        programCode: parsed.programCode,
+        programName: parsed.programName,
+        branch: parsed.branch,
+        batchYear: siBatchYear,
+        cgpa: parseFloat(si.cgpa),
+        groupKey,
+        updatedAt: serverTimestamp(),
+      };
+      if (!existing.exists()) {
+        entry.optOut = false;
+      }
+      batch.set(leaderboardDocRef, entry, { merge: true });
     }
   }
 

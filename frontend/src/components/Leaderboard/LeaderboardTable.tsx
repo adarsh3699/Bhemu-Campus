@@ -7,11 +7,14 @@ import LeaderboardSeparator from "./LeaderboardSeparator";
 interface LeaderboardTableProps {
 	data: LeaderboardData;
 	currentUserId: string;
+	currentProfileId: string;
 }
 
-export default function LeaderboardTable({ data, currentUserId }: LeaderboardTableProps) {
+export default function LeaderboardTable({ data, currentUserId, currentProfileId }: LeaderboardTableProps) {
 	const { topEntries, userEntry, userRank, nearbyEntries } = data;
-	const isUserInTop10 = topEntries.some((e) => e.userId === currentUserId);
+	const isCurrentEntry = (e: { userId: string; profileId: string }) =>
+		e.userId === currentUserId && e.profileId === currentProfileId;
+	const isUserInTop10 = topEntries.some(isCurrentEntry);
 
 	return (
 		<div className="flex flex-col gap-2">
@@ -21,7 +24,7 @@ export default function LeaderboardTable({ data, currentUserId }: LeaderboardTab
 					key={`${entry.userId}_${entry.profileId}`}
 					entry={entry}
 					rank={index + 1}
-					isCurrentUser={entry.userId === currentUserId}
+					isCurrentUser={isCurrentEntry(entry)}
 				/>
 			))}
 
@@ -35,7 +38,7 @@ export default function LeaderboardTable({ data, currentUserId }: LeaderboardTab
 							key={`nearby_${entry.userId}_${entry.profileId}`}
 							entry={entry}
 							rank={userRank - (nearbyEntries.length - index)}
-							isCurrentUser={entry.userId === currentUserId}
+							isCurrentUser={isCurrentEntry(entry)}
 						/>
 					))}
 

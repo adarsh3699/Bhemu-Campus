@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Download, FileText, MessageCircle } from "lucide-react";
+import { Download, FileText, MessageCircle, Link2, Check } from "lucide-react";
 import BaseModal from "@/components/modal/BaseModal";
 import LeaderboardShareCard from "./LeaderboardShareCard";
 import { drawLeaderboardCard } from "@/lib/drawLeaderboardCard";
+import { formatProgramLabel } from "@/lib/programUtils";
 import type { LeaderboardData, ParsedProgram } from "@/types";
 
 interface ShareLeaderboardModalProps {
@@ -17,11 +18,10 @@ interface ShareLeaderboardModalProps {
 function buildShareMessage(data: LeaderboardData, parsedProgram: ParsedProgram | null, withEmoji: boolean): string {
 	const { userEntry, userRank, totalStudents } = data;
 	if (!userEntry || !userRank) return "";
-	const programLabel = parsedProgram
-		? `${parsedProgram.programName}${parsedProgram.branch ? ` ${parsedProgram.branch}` : ""}`
-		: "my program";
+	const programLabel = formatProgramLabel(parsedProgram?.programName, parsedProgram?.branch, "my program");
 	const trophy = withEmoji ? " 🏆" : "";
-	return `I'm ranked #${userRank} among ${totalStudents} ${programLabel} students (Batch ${userEntry.batchYear}) with a CGPA of ${userEntry.cgpa.toFixed(2)}!${trophy}\n\nTrack your CGPA, plan your goals, and see where you stand — sync your LPU UMS data with Bhemu Calculator.\nhttps://calc.bhemu.in/`;
+	const rankUrl = `https://calc.bhemu.in/rank/${userEntry.userId}_${userEntry.profileId}`;
+	return `I'm ranked #${userRank} among ${totalStudents} ${programLabel} students (Batch ${userEntry.batchYear}) with a CGPA of ${userEntry.cgpa.toFixed(2)}!${trophy}\n\nTrack your CGPA, plan your goals, and see where you stand — sync your LPU UMS data with Bhemu Calculator.\n${rankUrl}`;
 }
 
 export default function ShareLeaderboardModal({
@@ -31,7 +31,20 @@ export default function ShareLeaderboardModal({
 	parsedProgram,
 }: ShareLeaderboardModalProps) {
 	const [exporting, setExporting] = useState(false);
+	const [copied, setCopied] = useState(false);
 	const isMobile = typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+	const { userEntry } = leaderboardData;
+	const shareUrl = userEntry
+		? `https://calc.bhemu.in/rank/${userEntry.userId}_${userEntry.profileId}`
+		: null;
+
+	const handleCopyLink = async () => {
+		if (!shareUrl) return;
+		await navigator.clipboard.writeText(shareUrl);
+		setCopied(true);
+		setTimeout(() => setCopied(false), 2000);
+	};
 	const shareMessage = buildShareMessage(leaderboardData, parsedProgram, isMobile);
 
 	const buildCanvas = useCallback((): HTMLCanvasElement | null => {
@@ -42,9 +55,7 @@ export default function ShareLeaderboardModal({
 			totalStudents,
 			cgpa: userEntry.cgpa.toFixed(2),
 			name: userEntry.name,
-			programLine: parsedProgram
-				? `${parsedProgram.programName}${parsedProgram.branch ? ` ${parsedProgram.branch}` : ""}`
-				: "Program",
+			programLine: formatProgramLabel(parsedProgram?.programName, parsedProgram?.branch),
 			batchYear: userEntry.batchYear,
 		});
 	}, [leaderboardData, parsedProgram]);
@@ -83,7 +94,7 @@ export default function ShareLeaderboardModal({
 			const url = URL.createObjectURL(blob);
 			const img = new Image();
 			img.src = url;
-			await new Promise((resolve) => (img.onload = resolve));
+			await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; });
 			const pdf = new jsPDF({ orientation: "portrait", unit: "px", format: [W, H] });
 			pdf.addImage(img, "PNG", 0, 0, W, H);
 			pdf.save("leaderboard-rank.pdf");
@@ -152,9 +163,8 @@ export default function ShareLeaderboardModal({
 							</button>
 							<button
 								onClick={() => {
-									const url = "https://calc.bhemu.in/";
 									window.open(
-										`https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(url)}&text=${encodeURIComponent(shareMessage)}`,
+										`https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(shareUrl ?? "https://calc.bhemu.in/")}&text=${encodeURIComponent(shareMessage)}`,
 										"_blank"
 									);
 								}}
@@ -182,6 +192,27 @@ export default function ShareLeaderboardModal({
 						</div>
 					)}
 				</div>
+
+				{/* Copy Link */}
+				{shareUrl && (
+					<div className="space-y-2">
+						<p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Shareable Link</p>
+						<div className="flex items-center gap-2 p-3 bg-white/5 border border-white/10 rounded-xl">
+							<Link2 className="w-4 h-4 text-muted-foreground shrink-0" />
+							<span className="text-xs text-muted-foreground truncate flex-1">{shareUrl}</span>
+							<button
+								onClick={handleCopyLink}
+								className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/15 hover:bg-primary/25 border border-primary/30 rounded-lg text-xs font-semibold text-primary transition-all duration-200 shrink-0"
+							>
+								{copied ? (
+									<><Check className="w-3.5 h-3.5" />Copied!</>
+								) : (
+									<><Link2 className="w-3.5 h-3.5" />Copy</>
+								)}
+							</button>
+						</div>
+					</div>
+				)}
 
 				{/* Download */}
 				<div className="space-y-2">
