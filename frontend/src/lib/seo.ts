@@ -93,14 +93,12 @@ export function generatePageMetadata({
 			description: pageDescription,
 			siteName: SITE_CONFIG.openGraph.siteName,
 			url: pageUrl,
-			images: SITE_CONFIG.openGraph.images,
 		},
 		twitter: {
 			card: SITE_CONFIG.twitter.card,
 			creator: SITE_CONFIG.twitter.creator,
 			title: pageTitle,
 			description: pageDescription,
-			images: SITE_CONFIG.openGraph.images.map((i) => i.url),
 		},
 	};
 }
