@@ -47,8 +47,10 @@ type AggFilter =
 async function runAggregationCount(filters: AggFilter[]): Promise<number> {
 	const body = {
 		structuredAggregationQuery: {
-			from: [{ collectionId: "leaderboard" }],
-			where: { compositeFilter: { op: "AND", filters } },
+			structuredQuery: {
+				from: [{ collectionId: "leaderboard" }],
+				where: { compositeFilter: { op: "AND", filters } },
+			},
 			aggregations: [{ alias: "count", count: {} }],
 		},
 	};
@@ -81,17 +83,17 @@ export async function fetchLeaderboardEntry(docId: string): Promise<LeaderboardE
 		const cgpa = extractField(f, "cgpa") as number;
 		const groupKey = extractField(f, "groupKey") as string;
 
-		const baseFilters: AggFilter[] = [
+		const groupFilter: AggFilter[] = [
 			{ fieldFilter: { field: { fieldPath: "groupKey" }, op: "EQUAL", value: { stringValue: groupKey } } },
 			{ fieldFilter: { field: { fieldPath: "optOut" }, op: "EQUAL", value: { booleanValue: false } } },
 		];
 
 		const [aboveCount, totalStudents] = await Promise.all([
 			runAggregationCount([
-				...baseFilters,
+				...groupFilter,
 				{ fieldFilter: { field: { fieldPath: "cgpa" }, op: "GREATER_THAN", value: { doubleValue: cgpa } } },
 			]),
-			runAggregationCount(baseFilters),
+			runAggregationCount(groupFilter),
 		]);
 
 		return {
