@@ -5,3 +5,4 @@ export type { SubjectMarks, CustomCutoff, GradeTableEntry } from "./marks";
 
 export type { FirebaseError, AuthContextType } from "./auth";
 export type { ShareItem } from "./share";
+export type { ParsedProgram, LeaderboardEntry, LeaderboardData } from "./leaderboard";

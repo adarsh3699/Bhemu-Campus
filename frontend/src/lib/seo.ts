@@ -9,7 +9,7 @@ export const SITE_CONFIG = {
 	fullName: "Bhemu Calculator - GPA Tracker, SGPA & CGPA Planning",
 	description:
 		"Track your academic progress, calculate SGPA & CGPA, plan future GPA goals, and collaborate in real-time with Bhemu Calculator.",
-	url: "https://bhemu-calculator.vercel.app", // canonical origin — no trailing slash
+	url: "https://calc.bhemu.in", // canonical origin — no trailing slash
 	creator: "Adarsh Suman",
 	keywords: [
 		"Bhemu Calculator",

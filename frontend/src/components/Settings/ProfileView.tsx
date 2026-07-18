@@ -8,6 +8,7 @@ import { useProfileData } from "@/hooks/useProfileData";
 import ProfileHeader from "@/components/Settings/ProfileHeader";
 import AccountInfo from "@/components/Settings/AccountInfo";
 import SecuritySection from "@/components/Settings/SecuritySection";
+import LeaderboardSettings from "@/components/Settings/LeaderboardSettings";
 import DangerZone from "@/components/Settings/DangerZone";
 import LoginRecommendation from "@/components/common/LoginRecommendation";
 
@@ -113,6 +114,7 @@ export default function ProfileView() {
 						handleChangePassword={handleChangePassword}
 						handleCancelPasswordChange={resetPasswordForms}
 					/>
+					<LeaderboardSettings />
 					<DangerZone onShowDeleteModal={() => setShowDeleteModal(true)} isDeletingData={isDeletingData} />
 				</div>
 			</div>

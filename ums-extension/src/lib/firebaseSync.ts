@@ -1,5 +1,6 @@
 import {
   doc,
+  getDoc,
   serverTimestamp,
   writeBatch,
   collection,
@@ -7,6 +8,7 @@ import {
 } from 'firebase/firestore';
 import { getFirebaseDb, getCurrentUser } from '~lib/firebase';
 import { mapExamType } from '~utils/examTypes';
+import { parseProgram, buildGroupKey, deriveBatchYear } from '~utils/programUtils';
 import type { SyncResult, Course } from '~lib/types';
 
 const GRADE_POINT_MAP: Record<string, number> = {
@@ -70,6 +72,36 @@ export async function syncGradesAndMarks(data: SyncResult, profileId: string): P
     },
     { merge: true }
   );
+
+  // ----- 1b. Write denormalized leaderboard entry -----
+  const si = data.studentInfo;
+  const siBatchYear = deriveBatchYear(si?.vid, si?.batchYear);
+  if (si?.cgpa && si?.program && siBatchYear) {
+    const parsed = parseProgram(si.program);
+    if (parsed) {
+      const groupKey = buildGroupKey(siBatchYear, parsed.programCode);
+      const leaderboardDocRef = doc(db, 'leaderboard', `${uid}_${profileId}`);
+      // Check if doc exists so we only set optOut:false on creation, never overwriting a user's opt-out choice
+      const existing = await getDoc(leaderboardDocRef);
+      const entry: Record<string, unknown> = {
+        userId: uid,
+        profileId,
+        name: si.name ?? 'Anonymous',
+        vid: si.vid ?? '',
+        programCode: parsed.programCode,
+        programName: parsed.programName,
+        branch: parsed.branch,
+        batchYear: siBatchYear,
+        cgpa: parseFloat(si.cgpa),
+        groupKey,
+        updatedAt: serverTimestamp(),
+      };
+      if (!existing.exists()) {
+        entry.optOut = false;
+      }
+      batch.set(leaderboardDocRef, entry, { merge: true });
+    }
+  }
 
   // Partition terms by category
   const regularTermIds = new Set(data.terms.filter(t => t.category === 'Regular').map(t => t.id));
