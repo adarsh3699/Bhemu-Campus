@@ -7,6 +7,7 @@ import {
 } from 'firebase/firestore';
 import { getFirebaseDb, getCurrentUser } from '~lib/firebase';
 import { mapExamType } from '~utils/examTypes';
+import { parseProgram, buildGroupKey, deriveBatchYear } from '~utils/programUtils';
 import type { SyncResult, Course } from '~lib/types';
 
 const GRADE_POINT_MAP: Record<string, number> = {
@@ -70,6 +71,35 @@ export async function syncGradesAndMarks(data: SyncResult, profileId: string): P
     },
     { merge: true }
   );
+
+  // ----- 1b. Write denormalized leaderboard entry -----
+  const si = data.studentInfo;
+  const siBatchYear = deriveBatchYear(si?.vid, si?.batchYear);
+  if (si?.cgpa && si?.program && siBatchYear) {
+    const parsed = parseProgram(si.program);
+    if (parsed) {
+      const groupKey = buildGroupKey(siBatchYear, parsed.programCode);
+      const leaderboardRef = doc(db, 'leaderboard', `${uid}_${profileId}`);
+      batch.set(
+        leaderboardRef,
+        {
+          userId: uid,
+          profileId,
+          name: si.name ?? 'Anonymous',
+          vid: si.vid ?? '',
+          programCode: parsed.programCode,
+          programName: parsed.programName,
+          branch: parsed.branch,
+          batchYear: siBatchYear,
+          cgpa: parseFloat(si.cgpa),
+          groupKey,
+          optOut: false,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    }
+  }
 
   // Partition terms by category
   const regularTermIds = new Set(data.terms.filter(t => t.category === 'Regular').map(t => t.id));

@@ -19,6 +19,7 @@ import {
 	LayoutDashboard,
 	ClipboardList,
 	Puzzle,
+	Trophy,
 } from "lucide-react";
 
 const MAIN_NAV = [
@@ -27,6 +28,7 @@ const MAIN_NAV = [
 	{ name: "Attendance", path: "attendance-calculator", icon: ClipboardList },
 	{ name: "Reappear Calculator", path: "reappear-calculator", icon: GraduationCap },
 	{ name: "Goal Planner", path: "gpa-goal-planner", icon: TrendingUp },
+	{ name: "Leaderboard", path: "leaderboard", icon: Trophy },
 ];
 
 const SYSTEM_NAV = [
