@@ -144,7 +144,7 @@ export async function GET(req: NextRequest) {
 				<div
 					style={{
 						display: "flex",
-						fontSize: "47px",
+						fontSize: "45px",
 						fontWeight: 700,
 						color: "#000000",
 						textAlign: "center",

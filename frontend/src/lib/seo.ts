@@ -55,6 +55,8 @@ export function generatePageMetadata({
 	const pageTitle = title ? `${title} | ${SITE_CONFIG.name}` : SITE_CONFIG.fullName;
 	const pageDescription = description ?? SITE_CONFIG.description;
 	const pageUrl = `${SITE_CONFIG.url}${path}`;
+	// Use short title (no site name suffix) for the OG image card
+	const ogImageTitle = title ?? SITE_CONFIG.name;
 	const allKeywords = [...SITE_CONFIG.keywords, ...keywords];
 
 	return {
@@ -88,14 +90,14 @@ export function generatePageMetadata({
 			description: pageDescription,
 			siteName: SITE_CONFIG.openGraph.siteName,
 			url: pageUrl,
-			images: [{ url: `${SITE_CONFIG.url}/api/og?title=${encodeURIComponent(pageTitle)}&description=${encodeURIComponent(pageDescription)}`, width: 1200, height: 630, alt: pageTitle }],
+			images: [{ url: `${SITE_CONFIG.url}/api/og?title=${encodeURIComponent(ogImageTitle)}&description=${encodeURIComponent(pageDescription)}`, width: 1200, height: 630, alt: pageTitle }],
 		},
 		twitter: {
 			card: SITE_CONFIG.twitter.card,
 			creator: SITE_CONFIG.twitter.creator,
 			title: pageTitle,
 			description: pageDescription,
-			images: [`${SITE_CONFIG.url}/api/og?title=${encodeURIComponent(pageTitle)}&description=${encodeURIComponent(pageDescription)}`],
+			images: [`${SITE_CONFIG.url}/api/og?title=${encodeURIComponent(ogImageTitle)}&description=${encodeURIComponent(pageDescription)}`],
 		},
 	};
 }
