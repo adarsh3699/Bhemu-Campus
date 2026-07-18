@@ -88,14 +88,14 @@ export function generatePageMetadata({
 			description: pageDescription,
 			siteName: SITE_CONFIG.openGraph.siteName,
 			url: pageUrl,
-			images: [{ url: `${SITE_CONFIG.url}/opengraph-image`, width: 1200, height: 630, alt: pageTitle }],
+			images: [{ url: `${SITE_CONFIG.url}/api/og?title=${encodeURIComponent(pageTitle)}&description=${encodeURIComponent(pageDescription)}`, width: 1200, height: 630, alt: pageTitle }],
 		},
 		twitter: {
 			card: SITE_CONFIG.twitter.card,
 			creator: SITE_CONFIG.twitter.creator,
 			title: pageTitle,
 			description: pageDescription,
-			images: [`${SITE_CONFIG.url}/opengraph-image`],
+			images: [`${SITE_CONFIG.url}/api/og?title=${encodeURIComponent(pageTitle)}&description=${encodeURIComponent(pageDescription)}`],
 		},
 	};
 }

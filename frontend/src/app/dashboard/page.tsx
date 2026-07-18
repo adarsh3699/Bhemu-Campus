@@ -2,7 +2,7 @@ import DashboardView from "@/components/Dashboard/DashboardView";
 import { generatePageMetadata } from "@/lib/seo";
 
 export const metadata = generatePageMetadata({
-	title: "Dashboard",
+	title: "Dashboard — Your Academic Overview",
 	description:
 		"Your academic overview — CGPA stats, semester performance chart, roadmap, and recent subjects at a glance.",
 	path: "/dashboard",

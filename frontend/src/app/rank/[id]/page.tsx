@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 	const programLabel = formatProgramLabel(entry.programName, entry.branch);
 	const title = `${entry.name} — Rank #${entry.rank} | Bhemu Calculator`;
 	const description = `${entry.name} is ranked #${entry.rank} among ${entry.totalStudents} ${programLabel} students (Batch ${entry.batchYear}) with a CGPA of ${entry.cgpa.toFixed(2)}.`;
-	const ogImageUrl = `https://calc.bhemu.in/api/og/rank?id=${encodeURIComponent(id)}`;
+	const ogImageUrl = `https://calc.bhemu.in/api/og?title=${encodeURIComponent(title)}&description=${encodeURIComponent(description)}`;
 
 	return {
 		title,
