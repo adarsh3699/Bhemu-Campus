@@ -11,41 +11,39 @@ interface DangerZoneProps {
 export default function DangerZone({ onShowDeleteModal, isDeletingData }: DangerZoneProps) {
 	return (
 		<div
-			className="bg-surface-dark/50 border border-destructive/30 rounded-xl p-6"
-			style={{ boxShadow: "inset 0 0 0 1px rgba(239, 68, 68, 0.1), 0 4px 20px rgba(239, 68, 68, 0.05)" }}
+			className="bg-[#161616] border border-destructive/20 rounded-xl p-5"
+			style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05), 0 8px 32px rgba(0,0,0,0.4)" }}
 		>
 			{/* Header */}
-			<div className="flex items-center gap-2 mb-2">
-				<AlertTriangle className="w-5 h-5 text-destructive shrink-0" />
-				<h3 className="text-white font-bold text-base">Danger Zone</h3>
+			<div className="flex items-center gap-3 mb-4">
+				<div className="w-8 h-8 rounded-lg bg-destructive/10 border border-destructive/20 flex items-center justify-center shrink-0">
+					<AlertTriangle className="w-4 h-4 text-destructive" />
+				</div>
+				<div>
+					<h3 className="text-sm font-semibold text-white">Danger Zone</h3>
+					<p className="text-xs text-muted-foreground mt-0.5">
+						Irreversible actions that affect your entire account
+					</p>
+				</div>
 			</div>
-			<p className="text-muted-foreground text-sm mb-5">
-				Permanently delete your account and all associated data. This action cannot be undone.
-			</p>
 
-			{/* Delete Row */}
-			<div className="flex items-center justify-between p-4 bg-surface-elevated border border-border rounded-xl gap-4">
+			{/* Delete Account Row */}
+			<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-2.5">
 				<div className="min-w-0">
-					<h4 className="text-white font-semibold text-sm">Delete Account</h4>
-					<p className="text-muted-foreground text-xs mt-0.5 truncate">
+					<p className="text-sm text-white font-medium">Delete Account</p>
+					<p className="text-xs text-muted-foreground mt-0.5">
 						All calculators, history, and settings will be permanently wiped.
 					</p>
 				</div>
 				<button
 					onClick={onShowDeleteModal}
 					disabled={isDeletingData}
-					className="shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg border border-destructive text-destructive hover:bg-destructive/10 transition-all text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+					className="w-full sm:w-auto shrink-0 px-4 py-2 border border-destructive/40 hover:bg-destructive/10 text-destructive text-sm font-medium rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
 				>
 					{isDeletingData ? (
-						<>
-							<RotateCw className="w-4 h-4 animate-spin" />
-							Deleting...
-						</>
+						<><RotateCw className="w-4 h-4 animate-spin" /> Deleting...</>
 					) : (
-						<>
-							<Trash2 className="w-4 h-4" />
-							Delete Account
-						</>
+						<><Trash2 className="w-4 h-4" /> Delete Account</>
 					)}
 				</button>
 			</div>

@@ -74,27 +74,34 @@ export default function LeaderboardSettings() {
 	};
 
 	return (
-		<div className="bg-surface-dark/50 border border-white/10 rounded-xl p-6">
-			<div className="flex items-center gap-2 mb-2">
-				<Trophy className="w-5 h-5 text-yellow-400 shrink-0" />
-				<h3 className="text-white font-bold text-base">Leaderboard</h3>
+		<div
+			className="bg-[#161616] border border-white/8 rounded-xl p-5 flex flex-col gap-4"
+			style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05), 0 8px 32px rgba(0,0,0,0.4)" }}
+		>
+			{/* Header */}
+			<div className="flex items-center gap-3">
+				<div className="w-8 h-8 rounded-lg bg-yellow-400/10 border border-yellow-400/20 flex items-center justify-center shrink-0">
+					<Trophy className="w-4 h-4 text-yellow-400" />
+				</div>
+				<div>
+					<h3 className="text-sm font-semibold text-white">Leaderboard</h3>
+					<p className="text-xs text-muted-foreground mt-0.5">Control your CGPA leaderboard visibility</p>
+				</div>
 			</div>
-			<p className="text-muted-foreground text-sm mb-5">
-				Control your visibility on the CGPA leaderboard among your batchmates.
-			</p>
 
-			<div className="flex items-center justify-between p-4 bg-surface-elevated border border-border rounded-xl gap-4">
-				<div className="flex items-center gap-3 min-w-0">
+			{/* Toggle row */}
+			<div className="flex items-center justify-between py-2.5 border-b border-white/6 last:border-0">
+				<div className="flex items-center gap-2.5 min-w-0">
 					{optOut ? (
 						<EyeOff className="w-4 h-4 text-muted-foreground shrink-0" />
 					) : (
 						<Eye className="w-4 h-4 text-primary shrink-0" />
 					)}
 					<div className="min-w-0">
-						<h4 className="text-white font-semibold text-sm">
+						<p className="text-sm text-white font-medium">
 							{optOut ? "Hidden from leaderboard" : "Visible on leaderboard"}
-						</h4>
-						<p className="text-muted-foreground text-xs mt-0.5">
+						</p>
+						<p className="text-xs text-muted-foreground mt-0.5">
 							{optOut ? "Your rank is not shown to other students" : "Other students can see your rank"}
 						</p>
 					</div>
@@ -115,10 +122,11 @@ export default function LeaderboardSettings() {
 				</button>
 			</div>
 
+			{/* Cooldown notice */}
 			{isCooldownActive && (
-				<div className="flex items-center gap-2 mt-3 px-4 py-2 bg-yellow-500/5 border border-yellow-500/15 rounded-lg">
+				<div className="flex items-center gap-2">
 					<Clock className="w-3.5 h-3.5 text-yellow-400 shrink-0" />
-					<p className="text-xs text-yellow-200/70">
+					<p className="text-xs text-muted-foreground">
 						You can opt out again in {cooldownDays} day{cooldownDays === 1 ? "" : "s"}
 					</p>
 				</div>

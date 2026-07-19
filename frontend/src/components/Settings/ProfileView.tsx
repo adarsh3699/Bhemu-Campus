@@ -139,12 +139,16 @@ export default function ProfileView() {
 				maxWidth="450px"
 				className="bg-neutral-950 border border-white/10"
 			>
-				<div className="bg-gradient-to-r from-red-600 to-pink-600 p-6 text-center border-b border-white/5">
-					<div className="w-16 h-16 bg-white/25 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-white/20 animate-pulse">
-						<AlertTriangle className="w-8 h-8 text-white" />
+				<div className="px-5 pt-5 pb-4 border-b border-white/[0.07]">
+					<div className="flex items-center gap-3">
+						<div className="w-8 h-8 rounded-lg bg-destructive/10 border border-destructive/20 flex items-center justify-center shrink-0">
+							<AlertTriangle className="w-4 h-4 text-destructive" />
+						</div>
+						<div>
+							<h3 className="text-sm font-semibold text-white">Confirm Deletion</h3>
+							<p className="text-xs text-muted-foreground mt-0.5">This action cannot be undone</p>
+						</div>
 					</div>
-					<h3 className="text-2xl font-bold text-white">Confirm Deletion</h3>
-					<p className="text-red-100 mt-2 text-sm">This action cannot be undone</p>
 				</div>
 				<form onSubmit={handlePasswordConfirmDelete} className="p-6 space-y-5">
 					<div>
@@ -191,14 +195,14 @@ export default function ProfileView() {
 						<button
 							type="button"
 							onClick={resetDeleteForms}
-							className="flex-1 bg-neutral-800 hover:bg-neutral-700 text-white font-bold py-3 px-4 rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-1.5 text-xs border border-white/5"
+							className="flex-1 bg-neutral-800 hover:bg-neutral-700 text-white font-bold py-3 px-4 rounded-xl transition-colors duration-150 flex items-center justify-center gap-1.5 text-xs border border-white/5"
 						>
 							<XCircle className="w-4 h-4" />
 							Cancel
 						</button>
 						<button
 							type="submit"
-							className="flex-1 bg-gradient-to-r from-red-500 to-red-700 hover:from-red-600 hover:to-red-800 text-white font-bold py-3 px-4 rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 text-xs"
+							className="flex-1 bg-linear-to-r from-red-500 to-red-700 hover:from-red-600 hover:to-red-800 text-white font-bold py-3 px-4 rounded-xl transition-colors duration-150 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 text-xs"
 							disabled={!deleteConfirmPassword.trim() || isDeletingData}
 						>
 							{isDeletingData ? (

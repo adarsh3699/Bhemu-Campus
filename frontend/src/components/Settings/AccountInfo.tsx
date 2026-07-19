@@ -47,25 +47,22 @@ export default function AccountInfo({
 
 	return (
 		<div
-			className="bg-surface-dark border border-border rounded-xl p-6 relative overflow-hidden group flex flex-col gap-6 h-full"
-			style={{ boxShadow: "inset 0 1px 0 0 rgba(255,255,255,0.05), 0 8px 32px rgba(0,0,0,0.4)" }}
+			className="bg-[#161616] border border-white/8 rounded-xl p-5 flex flex-col gap-5"
+			style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05), 0 8px 32px rgba(0,0,0,0.4)" }}
 		>
-			{/* Decorative blob */}
-			<div className="absolute -top-12 -right-12 w-32 h-32 bg-primary/10 rounded-full blur-2xl group-hover:bg-primary/20 transition-all duration-500 pointer-events-none" />
-
 			{/* Avatar + Name/Email */}
-			<div className="flex items-center gap-4 relative z-10">
-				<div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white text-2xl font-bold border-2 border-white/10 shrink-0">
+			<div className="flex items-center gap-4">
+				<div className="w-12 h-12 rounded-full bg-linear-to-br from-primary to-accent flex items-center justify-center text-white text-xl font-bold shrink-0">
 					{getUserInitial()}
 				</div>
-				<div className="min-w-0">
+				<div className="min-w-0 flex-1">
 					{isEditingName ? (
 						<div className="flex items-center gap-2">
 							<input
 								type="text"
 								value={newDisplayName}
 								onChange={(e) => setNewDisplayName(e.target.value)}
-								className="bg-surface-elevated border border-border rounded-lg px-3 py-1.5 text-white text-sm font-semibold w-full outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+								className="w-full px-3 py-2 bg-background border border-white/10 rounded-lg text-sm text-white outline-none focus:border-primary/50 transition-colors"
 								placeholder="Display name"
 								disabled={isUpdatingName}
 								autoFocus
@@ -74,15 +71,19 @@ export default function AccountInfo({
 								<button
 									onClick={handleUpdateDisplayName}
 									disabled={isUpdatingName}
-									className="p-1.5 bg-success hover:bg-emerald-600 text-white rounded-lg transition-all disabled:opacity-60"
+									className="p-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 rounded-lg transition-colors disabled:opacity-60"
 									title="Save"
 								>
-									{isUpdatingName ? <RotateCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+									{isUpdatingName ? (
+										<RotateCw className="w-3.5 h-3.5 animate-spin" />
+									) : (
+										<CheckCircle2 className="w-3.5 h-3.5" />
+									)}
 								</button>
 								<button
 									onClick={handleCancelEdit}
 									disabled={isUpdatingName}
-									className="p-1.5 bg-surface-elevated border border-border text-muted-foreground hover:text-white rounded-lg transition-all"
+									className="p-1.5 bg-white/5 hover:bg-white/9 border border-white/8 text-muted-foreground hover:text-white rounded-lg transition-colors"
 									title="Cancel"
 								>
 									<XCircle className="w-3.5 h-3.5" />
@@ -90,66 +91,72 @@ export default function AccountInfo({
 							</div>
 						</div>
 					) : (
-						<div className="flex items-center gap-2">
+						<div className="flex items-center gap-1.5">
 							<h3 className="text-white font-bold text-base truncate">
 								{currentUser?.displayName || "No name set"}
 							</h3>
 							<button
 								onClick={() => setIsEditingName(true)}
-								className="p-1 text-muted-foreground hover:text-primary transition-colors shrink-0"
+								className="p-1 text-muted-foreground hover:text-white transition-colors shrink-0"
 								title="Edit name"
 							>
 								<Pencil className="w-3.5 h-3.5" />
 							</button>
 						</div>
 					)}
-					<p className="text-muted-foreground text-xs truncate mt-0.5">{currentUser?.email}</p>
+					<p className="text-xs text-muted-foreground truncate mt-0.5">{currentUser?.email}</p>
 				</div>
 			</div>
 
+			{/* Divider */}
+			<div className="border-t border-white/6" />
+
 			{/* Info Rows */}
-			<div className="space-y-3 relative z-10 flex-1">
+			<div>
 				{/* Account Type */}
-				<div className="flex items-center justify-between py-2 border-b border-border">
-					<span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Account Type</span>
+				<div className="flex items-center justify-between py-2.5 border-b border-white/6">
+					<span className="text-xs text-muted-foreground">Account Type</span>
 					{isGoogleUser ? (
-						<span className="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center gap-1">
-							<ShieldCheck className="w-3 h-3" /> Google
+						<span className="flex items-center gap-1 text-xs font-medium text-blue-400">
+							<ShieldCheck className="w-3.5 h-3.5" /> Google
 						</span>
 					) : (
-						<span className="px-2.5 py-1 rounded-full text-xs font-bold bg-primary/10 border border-primary/20 text-primary flex items-center gap-1">
-							<ShieldCheck className="w-3 h-3" /> Email
+						<span className="flex items-center gap-1 text-xs font-medium text-primary">
+							<ShieldCheck className="w-3.5 h-3.5" /> Email
 						</span>
 					)}
 				</div>
 
 				{/* Email Status */}
-				<div className="flex items-center justify-between py-2 border-b border-border">
-					<span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Email Status</span>
+				<div className="flex items-center justify-between py-2.5 border-b border-white/6">
+					<span className="text-xs text-muted-foreground">Email Status</span>
 					{currentUser?.emailVerified ? (
-						<span className="flex items-center gap-1 text-xs text-success font-semibold">
+						<span className="flex items-center gap-1 text-xs font-medium text-emerald-400">
 							<CheckCircle2 className="w-3.5 h-3.5" /> Verified
 						</span>
 					) : (
-						<span className="flex items-center gap-1 text-xs text-warning font-semibold">
+						<span className="flex items-center gap-1 text-xs font-medium text-yellow-400">
 							<AlertTriangle className="w-3.5 h-3.5" /> Unverified
 						</span>
 					)}
 				</div>
 
 				{/* Member Since */}
-				<div className="flex items-center justify-between py-2 border-b border-border">
-					<span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Member Since</span>
-					<span className="text-white text-sm font-medium">{memberSince}</span>
+				<div className="flex items-center justify-between py-2.5">
+					<span className="text-xs text-muted-foreground">Member Since</span>
+					<span className="text-sm text-white font-medium">{memberSince}</span>
 				</div>
 			</div>
+
+			{/* Divider */}
+			<div className="border-t border-white/6" />
 
 			{/* Go to Calculator */}
 			<Link
 				href="/gpa-calculator"
-				className="relative z-10 flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border border-border text-muted-foreground hover:text-primary hover:border-primary transition-all text-sm font-medium group/btn"
+				className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-white transition-colors"
 			>
-				<Calculator className="w-4 h-4 group-hover/btn:-translate-x-0.5 transition-transform" />
+				<Calculator className="w-4 h-4" />
 				Go to Calculator
 			</Link>
 		</div>

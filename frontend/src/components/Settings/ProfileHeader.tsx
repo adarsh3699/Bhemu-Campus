@@ -11,7 +11,7 @@ export default function ProfileHeader() {
 			<div>
 				<h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Settings</h1>
 				<p className="text-sm text-muted-foreground mt-1">
-					Manage your personal information, security preferences, and account options
+					Manage your personal information, security, and account options
 				</p>
 			</div>
 		</div>

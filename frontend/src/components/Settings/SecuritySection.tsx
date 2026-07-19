@@ -45,259 +45,200 @@ export default function SecuritySection({
 	handleCancelPasswordChange,
 }: SecuritySectionProps) {
 	return (
-		<div className="xl:col-span-1 bg-neutral-900/60 backdrop-blur-xl rounded-3xl p-6 md:p-8 shadow-2xl border border-white/10 hover:shadow-primary/5 transition-all duration-500 group relative overflow-hidden flex flex-col justify-between">
-			{/* Top light glow border */}
-			<div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-red-500/30 to-transparent" />
+		<div
+			className="bg-[#161616] border border-white/8 rounded-xl p-5 flex flex-col gap-5"
+			style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05), 0 8px 32px rgba(0,0,0,0.4)" }}
+		>
+			{/* Header */}
+			<div className="flex items-center gap-3">
+				<div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+					<Lock className="w-4 h-4 text-primary" />
+				</div>
+				<div>
+					<h2 className="text-sm font-semibold text-white">Security</h2>
+					<p className="text-xs text-muted-foreground mt-0.5">Manage your login credentials</p>
+				</div>
+			</div>
 
-			<div>
-				<div className="flex items-center gap-4 mb-8">
-					<div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-red-500 to-pink-600 flex items-center justify-center text-white shadow-xl group-hover:scale-105 transition-transform duration-300">
-						<Lock className="w-7 h-7" />
-					</div>
+			{/* No password warning banner */}
+			{!hasPassword && (
+				<div className="bg-yellow-500/8 border border-yellow-500/15 rounded-lg px-4 py-3 flex items-start gap-2.5">
+					<AlertTriangle className="w-4 h-4 text-yellow-400 shrink-0 mt-0.5" />
 					<div>
-						<h2 className="text-2xl font-bold text-white tracking-tight">Security</h2>
-						<p className="text-neutral-400 text-sm">
-							Password and credentials security
+						<p className="text-xs font-semibold text-yellow-300">No Password Set</p>
+						<p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+							Set a password to enable email/password login and extra recovery methods.
 						</p>
 					</div>
 				</div>
+			)}
 
-				{/* Password Status - Only show if no password is set */}
-				{!hasPassword && (
-					<div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 p-5 rounded-2xl mb-6 backdrop-blur-sm">
-						<div className="flex items-start gap-3">
-							<div className="w-10 h-10 bg-amber-500/20 border border-amber-500/30 rounded-xl flex items-center justify-center text-amber-400 shrink-0">
-								<AlertTriangle className="w-5 h-5" />
+			{/* Create Password for Google users without password */}
+			{isGoogleUser && !hasPassword && (
+				<>
+					{!isCreatingPassword ? (
+						<div className="flex items-center justify-between py-2.5 border-b border-white/6 last:border-0">
+							<div className="flex items-center gap-2.5">
+								<Key className="w-4 h-4 text-muted-foreground shrink-0" />
+								<span className="text-sm text-white font-medium">Create Password</span>
 							</div>
-							<div>
-								<p className="font-semibold text-amber-300 text-sm">No Password Set</p>
-								<p className="text-xs text-neutral-400 leading-relaxed mt-0.5">
-									Set a password to enable email/password login and extra recovery methods.
-								</p>
-							</div>
+							<button
+								onClick={() => setIsCreatingPassword(true)}
+								className="px-4 py-2 bg-primary hover:bg-primary-dark text-white text-sm font-medium rounded-lg transition-colors cursor-pointer"
+							>
+								Create
+							</button>
 						</div>
-					</div>
-				)}
-
-				{/* Create Password for Google Users */}
-				{isGoogleUser && !hasPassword && (
-					<div className="bg-white/5 border border-white/5 rounded-2xl p-5 shadow-lg">
-						{!isCreatingPassword ? (
-							<div className="text-center space-y-5">
-								<div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center mx-auto shadow-lg">
-									<Key className="w-7 h-7 text-white" />
-								</div>
-								<div>
-									<h4 className="text-lg font-bold text-white mb-1.5">Create Password</h4>
-									<p className="text-neutral-400 text-xs leading-relaxed">
-										Set up a password for this account to enable traditional email and password login.
-									</p>
-								</div>
+					) : (
+						<form onSubmit={handleCreatePassword} className="flex flex-col gap-4">
+							<div className="flex flex-col gap-1.5">
+								<label htmlFor="set-new-password" className="text-xs text-muted-foreground">
+									New Password
+								</label>
+								<input
+									id="set-new-password"
+									type="password"
+									value={newPassword}
+									onChange={(e) => setNewPassword(e.target.value)}
+									className="w-full px-3 py-2 bg-background border border-white/10 rounded-lg text-sm text-white outline-none focus:border-primary/50 transition-colors"
+									placeholder="Enter new password"
+									required
+									minLength={6}
+									disabled={isSettingPassword}
+								/>
+							</div>
+							<div className="flex flex-col gap-1.5">
+								<label htmlFor="set-confirm-password" className="text-xs text-muted-foreground">
+									Confirm Password
+								</label>
+								<input
+									id="set-confirm-password"
+									type="password"
+									value={confirmPassword}
+									onChange={(e) => setConfirmPassword(e.target.value)}
+									className="w-full px-3 py-2 bg-background border border-white/10 rounded-lg text-sm text-white outline-none focus:border-primary/50 transition-colors"
+									placeholder="Confirm new password"
+									required
+									minLength={6}
+									disabled={isSettingPassword}
+								/>
+							</div>
+							<div className="flex gap-2">
 								<button
-									onClick={() => setIsCreatingPassword(true)}
-									className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold py-3.5 px-5 rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] hover:shadow-lg shadow-md flex items-center justify-center gap-2 group text-sm"
+									type="submit"
+									disabled={isSettingPassword}
+									className="px-4 py-2 bg-primary hover:bg-primary-dark text-white text-sm font-medium rounded-lg transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1.5"
 								>
-									<Key className="w-4 h-4 group-hover:rotate-12 transition-transform duration-300" />
-									Create Password
+									{isSettingPassword ? (
+										<><RotateCw className="w-3.5 h-3.5 animate-spin" /> Creating...</>
+									) : (
+										<><Key className="w-3.5 h-3.5" /> Save</>
+									)}
+								</button>
+								<button
+									type="button"
+									onClick={handleCancelPassword}
+									disabled={isSettingPassword}
+									className="px-4 py-2 bg-white/5 hover:bg-white/9 border border-white/8 text-sm text-muted-foreground hover:text-white rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
+								>
+									<XCircle className="w-3.5 h-3.5" /> Cancel
 								</button>
 							</div>
-						) : (
-							<form onSubmit={handleCreatePassword} className="space-y-4">
-								<div className="text-center">
-									<h4 className="text-lg font-bold text-white">Create Password</h4>
-									<p className="text-neutral-400 text-xs mt-1">
-										Password must be at least 6 characters long
-									</p>
-								</div>
+						</form>
+					)}
+				</>
+			)}
 
-								<div className="space-y-3.5">
-									<div>
-										<label htmlFor="set-new-password" className="block text-xs font-semibold text-neutral-300 mb-1.5 pl-1">
-											New Password
-										</label>
-										<input
-											id="set-new-password"
-											type="password"
-											value={newPassword}
-											onChange={(e) => setNewPassword(e.target.value)}
-											className="w-full p-3 bg-neutral-950 border border-white/10 rounded-xl text-white outline-none transition-all duration-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-sm"
-											placeholder="Enter new password"
-											required
-											minLength={6}
-											disabled={isSettingPassword}
-										/>
-									</div>
-									<div>
-										<label
-											htmlFor="set-confirm-password"
-											className="block text-xs font-semibold text-neutral-300 mb-1.5 pl-1"
-										>
-											Confirm Password
-										</label>
-										<input
-											id="set-confirm-password"
-											type="password"
-											value={confirmPassword}
-											onChange={(e) => setConfirmPassword(e.target.value)}
-											className="w-full p-3 bg-neutral-950 border border-white/10 rounded-xl text-white outline-none transition-all duration-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-sm"
-											placeholder="Confirm new password"
-											required
-											minLength={6}
-											disabled={isSettingPassword}
-										/>
-									</div>
-								</div>
-
-								<div className="flex gap-2 pt-2">
-									<button
-										type="submit"
-										disabled={isSettingPassword}
-										className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold py-3 px-4 rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 text-xs"
-									>
-										{isSettingPassword ? (
-											<>
-												<RotateCw className="w-4 h-4 animate-spin" />
-												Creating...
-											</>
-										) : (
-											<>
-												<Key className="w-4 h-4" />
-												Save
-											</>
-										)}
-									</button>
-									<button
-										type="button"
-										onClick={handleCancelPassword}
-										disabled={isSettingPassword}
-										className="flex-1 bg-neutral-800 hover:bg-neutral-700 text-white border border-white/10 font-bold py-3 px-4 rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-1.5 text-xs"
-									>
-										<XCircle className="w-4 h-4" />
-										Cancel
-									</button>
-								</div>
-							</form>
-						)}
-					</div>
-				)}
-
-				{/* Change Password for Users with Password */}
-				{hasPassword && (
-					<div className="bg-white/5 border border-white/5 rounded-2xl p-5 shadow-lg">
-						{!isChangingPassword ? (
-							<div className="text-center space-y-5">
-								<div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center mx-auto shadow-lg">
-									<ShieldCheck className="w-7 h-7 text-white" />
-								</div>
-								<div>
-									<h4 className="text-lg font-bold text-white mb-1.5">Change Password</h4>
-									<p className="text-neutral-400 text-xs leading-relaxed">
-										Update your security credentials regularly to keep your grade data safe.
-									</p>
-								</div>
+			{/* Change Password for users who already have a password */}
+			{hasPassword && (
+				<>
+					{!isChangingPassword ? (
+						<div className="flex items-center justify-between py-2.5 border-b border-white/6 last:border-0">
+							<div className="flex items-center gap-2.5">
+								<ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+								<span className="text-sm text-white font-medium">Password set</span>
+							</div>
+							<button
+								onClick={() => setIsChangingPassword(true)}
+								className="px-4 py-2 bg-white/5 hover:bg-white/9 border border-white/8 text-sm text-muted-foreground hover:text-white rounded-lg transition-colors cursor-pointer"
+							>
+								Change
+							</button>
+						</div>
+					) : (
+						<form onSubmit={handleChangePassword} className="flex flex-col gap-4">
+							<div className="flex flex-col gap-1.5">
+								<label htmlFor="current-password" className="text-xs text-muted-foreground">
+									Current Password
+								</label>
+								<input
+									id="current-password"
+									type="password"
+									value={currentPassword}
+									onChange={(e) => setCurrentPassword(e.target.value)}
+									className="w-full px-3 py-2 bg-background border border-white/10 rounded-lg text-sm text-white outline-none focus:border-primary/50 transition-colors"
+									placeholder="Current password"
+									required
+									disabled={isChangingPasswordLoading}
+								/>
+							</div>
+							<div className="flex flex-col gap-1.5">
+								<label htmlFor="change-new-password" className="text-xs text-muted-foreground">
+									New Password
+								</label>
+								<input
+									id="change-new-password"
+									type="password"
+									value={newPassword}
+									onChange={(e) => setNewPassword(e.target.value)}
+									className="w-full px-3 py-2 bg-background border border-white/10 rounded-lg text-sm text-white outline-none focus:border-primary/50 transition-colors"
+									placeholder="Minimum 6 characters"
+									required
+									minLength={6}
+									disabled={isChangingPasswordLoading}
+								/>
+							</div>
+							<div className="flex flex-col gap-1.5">
+								<label htmlFor="change-confirm-password" className="text-xs text-muted-foreground">
+									Confirm Password
+								</label>
+								<input
+									id="change-confirm-password"
+									type="password"
+									value={confirmPassword}
+									onChange={(e) => setConfirmPassword(e.target.value)}
+									className="w-full px-3 py-2 bg-background border border-white/10 rounded-lg text-sm text-white outline-none focus:border-primary/50 transition-colors"
+									placeholder="Confirm new password"
+									required
+									minLength={6}
+									disabled={isChangingPasswordLoading}
+								/>
+							</div>
+							<div className="flex gap-2">
 								<button
-									onClick={() => setIsChangingPassword(true)}
-									className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold py-3.5 px-5 rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] hover:shadow-lg shadow-md flex items-center justify-center gap-2 group text-sm"
+									type="submit"
+									disabled={isChangingPasswordLoading}
+									className="px-4 py-2 bg-primary hover:bg-primary-dark text-white text-sm font-medium rounded-lg transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1.5"
 								>
-									<ShieldCheck className="w-4 h-4 group-hover:rotate-12 transition-transform duration-300" />
-									Change Password
+									{isChangingPasswordLoading ? (
+										<><RotateCw className="w-3.5 h-3.5 animate-spin" /> Changing...</>
+									) : (
+										<><ShieldCheck className="w-3.5 h-3.5" /> Save</>
+									)}
+								</button>
+								<button
+									type="button"
+									onClick={handleCancelPasswordChange}
+									disabled={isChangingPasswordLoading}
+									className="px-4 py-2 bg-white/5 hover:bg-white/9 border border-white/8 text-sm text-muted-foreground hover:text-white rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
+								>
+									<XCircle className="w-3.5 h-3.5" /> Cancel
 								</button>
 							</div>
-						) : (
-							<form onSubmit={handleChangePassword} className="space-y-4">
-								<div className="text-center">
-									<h4 className="text-lg font-bold text-white">Change Password</h4>
-									<p className="text-neutral-400 text-xs mt-1">
-										Enter current password and choose a new one
-									</p>
-								</div>
-
-								<div className="space-y-3">
-									<div>
-										<label htmlFor="current-password" className="block text-xs font-semibold text-neutral-300 mb-1 pl-1">
-											Current Password
-										</label>
-										<input
-											id="current-password"
-											type="password"
-											value={currentPassword}
-											onChange={(e) => setCurrentPassword(e.target.value)}
-											className="w-full p-3 bg-neutral-950 border border-white/10 rounded-xl text-white outline-none transition-all duration-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-sm"
-											placeholder="Current password"
-											required
-											disabled={isChangingPasswordLoading}
-										/>
-									</div>
-									<div>
-										<label htmlFor="change-new-password" className="block text-xs font-semibold text-neutral-300 mb-1 pl-1">
-											New Password
-										</label>
-										<input
-											id="change-new-password"
-											type="password"
-											value={newPassword}
-											onChange={(e) => setNewPassword(e.target.value)}
-											className="w-full p-3 bg-neutral-950 border border-white/10 rounded-xl text-white outline-none transition-all duration-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-sm"
-											placeholder="Minimum 6 characters"
-											required
-											minLength={6}
-											disabled={isChangingPasswordLoading}
-										/>
-									</div>
-									<div>
-										<label
-											htmlFor="change-confirm-password"
-											className="block text-xs font-semibold text-neutral-300 mb-1 pl-1"
-										>
-											Confirm Password
-										</label>
-										<input
-											id="change-confirm-password"
-											type="password"
-											value={confirmPassword}
-											onChange={(e) => setConfirmPassword(e.target.value)}
-											className="w-full p-3 bg-neutral-950 border border-white/10 rounded-xl text-white outline-none transition-all duration-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-sm"
-											placeholder="Confirm new password"
-											required
-											minLength={6}
-											disabled={isChangingPasswordLoading}
-										/>
-									</div>
-								</div>
-
-								<div className="flex gap-2 pt-2">
-									<button
-										type="submit"
-										disabled={isChangingPasswordLoading}
-										className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold py-3 px-4 rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 text-xs"
-									>
-										{isChangingPasswordLoading ? (
-											<>
-												<RotateCw className="w-4 h-4 animate-spin" />
-												Changing...
-											</>
-										) : (
-											<>
-												<ShieldCheck className="w-4 h-4" />
-												Save
-											</>
-										)}
-									</button>
-									<button
-										type="button"
-										onClick={handleCancelPasswordChange}
-										disabled={isChangingPasswordLoading}
-										className="flex-1 bg-neutral-800 hover:bg-neutral-700 text-white border border-white/10 font-bold py-3 px-4 rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-1.5 text-xs"
-									>
-										<XCircle className="w-4 h-4" />
-										Cancel
-									</button>
-								</div>
-							</form>
-						)}
-					</div>
-				)}
-			</div>
+						</form>
+					)}
+				</>
+			)}
 		</div>
 	);
 }
