@@ -122,7 +122,7 @@ export default function LeaderboardView() {
 								className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-primary/30 rounded-lg text-xs font-medium text-foreground/70 hover:text-foreground transition-all duration-200 cursor-pointer shrink-0"
 							>
 								<Share2 className="w-3.5 h-3.5" />
-								<span className="hidden xs:inline">Share</span>
+								<span className="hidden sm:inline">Share</span>
 							</button>
 						)}
 					</div>
