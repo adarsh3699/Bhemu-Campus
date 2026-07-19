@@ -10,7 +10,7 @@
  */
 
 import Link from "next/link";
-import { Calculator, GraduationCap, Flag, BookOpen, ArrowRight, ClipboardList } from "lucide-react";
+import { Calculator, GraduationCap, Flag, BookOpen, ArrowRight, ClipboardList, Trophy } from "lucide-react";
 import { useAuth } from "@/firebase/AuthContext";
 import { useGpaData } from "@/hooks/GpaDataContext";
 import { useAttendanceData } from "@/hooks/AttendanceDataContext";
@@ -70,6 +70,14 @@ const QUICK_ACTIONS = [
 		desc: "Plan your target CGPA trajectory",
 		color: "text-accent",
 		bg: "bg-accent/10 border-accent/20",
+	},
+	{
+		href: "/leaderboard",
+		icon: <Trophy className="w-5 h-5" />,
+		title: "Leaderboard",
+		desc: "See how you rank among peers",
+		color: "text-amber-400",
+		bg: "bg-amber-500/10 border-amber-500/20",
 	},
 ];
 

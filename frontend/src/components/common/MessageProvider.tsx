@@ -17,7 +17,7 @@ interface MessageDisplayProps {
 	onClose: () => void;
 }
 
-const MessageDisplay: React.FC<MessageDisplayProps> = ({ msgText, type = "info", duration = 8000, onClose }) => {
+const MessageDisplay: React.FC<MessageDisplayProps> = ({ msgText, type = "info", duration = 5000, onClose }) => {
 	const [isVisible, setIsVisible] = useState(true);
 
 	useEffect(() => {
@@ -37,7 +37,7 @@ const MessageDisplay: React.FC<MessageDisplayProps> = ({ msgText, type = "info",
 
 	const getToastStyles = (type: MessageType) => {
 		const baseStyles =
-			"flex items-center justify-between p-4 rounded-lg shadow-2xl min-w-[320px] max-w-md text-white text-sm font-semibold backdrop-blur-md border animate-in fade-in slide-in-from-top-4 duration-300";
+			"flex items-center justify-between p-3 md:p-4 rounded-lg shadow-2xl w-full md:min-w-[320px] md:max-w-md text-white text-xs md:text-sm font-semibold backdrop-blur-md border animate-in fade-in slide-in-from-top-4 duration-300";
 
 		switch (type) {
 			case "success":
@@ -53,24 +53,24 @@ const MessageDisplay: React.FC<MessageDisplayProps> = ({ msgText, type = "info",
 	};
 
 	const icons = {
-		success: <CheckCircle2 className="w-5 h-5 flex-shrink-0" />,
-		error: <AlertCircle className="w-5 h-5 flex-shrink-0" />,
-		warning: <AlertTriangle className="w-5 h-5 flex-shrink-0" />,
-		info: <Info className="w-5 h-5 flex-shrink-0" />,
+		success: <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5 shrink-0" />,
+		error: <AlertCircle className="w-4 h-4 md:w-5 md:h-5 shrink-0" />,
+		warning: <AlertTriangle className="w-4 h-4 md:w-5 md:h-5 shrink-0" />,
+		info: <Info className="w-4 h-4 md:w-5 md:h-5 shrink-0" />,
 	};
 
 	if (!msgText) return null;
 
 	return (
 		<div
-			className={`fixed top-12 right-5 z-[10000] transition-all duration-300 ease-in-out max-md:top-3 max-md:right-3 max-md:left-3 ${
-				isVisible ? "translate-x-0 opacity-100" : "translate-x-full opacity-0"
+			className={`fixed top-12 right-5 z-10000 transition-all duration-300 ease-in-out max-md:top-3 max-md:right-3 max-md:left-3 ${
+				isVisible ? "translate-y-0 opacity-100" : "-translate-y-4 opacity-0 pointer-events-none"
 			}`}
 		>
 			<div className={getToastStyles(type)}>
 				<div className="flex items-center gap-3 flex-1">
 					{icons[type] || icons.info}
-					<span className="break-words leading-relaxed">{msgText}</span>
+					<span className="wrap-break-word leading-relaxed">{msgText}</span>
 				</div>
 				<button
 					className={`p-1.5 rounded border-none cursor-pointer flex items-center justify-center ml-2 opacity-70 transition-opacity duration-200 hover:opacity-100 hover:bg-white/10 ${

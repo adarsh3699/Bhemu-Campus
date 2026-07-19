@@ -85,9 +85,9 @@ export default function SideBar({ isOpen, onClose }: SideBarProps) {
 
 	const handleLogout = useCallback(async () => {
 		try {
+			router.replace("/login");
 			await logout();
 			showMessage("Logged out successfully.", "info");
-			router.push("/login");
 		} catch (err) {
 			console.error("Logout error:", err);
 			showMessage("Logout failed. Please try again.", "error");

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Trophy, Users, Share2, Loader2, EyeOff, Settings } from "lucide-react";
+import { Trophy, Users, Share2, Loader2, EyeOff, Settings, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/firebase/AuthContext";
 import LoginRecommendation from "@/components/common/LoginRecommendation";
@@ -22,8 +22,11 @@ export default function LeaderboardView() {
 	if (loading || profileLoading) {
 		return (
 			<div className="w-full min-h-[calc(100vh-80px)] flex items-center justify-center">
-				<div className="flex flex-col items-center gap-3">
-					<Loader2 className="w-8 h-8 text-primary animate-spin" />
+				<div className="flex flex-col items-center gap-4">
+					<div className="relative">
+						<div className="w-12 h-12 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+						<Trophy className="w-5 h-5 text-primary/60 absolute inset-0 m-auto" />
+					</div>
 					<p className="text-sm text-muted-foreground">Loading leaderboard...</p>
 				</div>
 			</div>
@@ -38,7 +41,7 @@ export default function LeaderboardView() {
 						<EyeOff className="w-6 h-6 text-muted-foreground" />
 					</div>
 					<h2 className="text-lg font-bold text-foreground">Leaderboard Hidden</h2>
-					<p className="text-sm text-muted-foreground">
+					<p className="text-sm text-muted-foreground leading-relaxed">
 						You have opted out of the leaderboard. Your rank is not visible to others and you cannot access the leaderboard while hidden.
 					</p>
 					<Link
@@ -73,54 +76,72 @@ export default function LeaderboardView() {
 		? formatProgramLabel(parsedProgram.programName, parsedProgram.branch)
 		: "Your Program";
 
-	return (
-		<div className="w-full max-w-2xl mx-auto p-4 md:p-6 space-y-6">
-			{/* Header */}
-			<div className="glass-panel backdrop-blur-xl rounded-2xl p-5 md:p-6 relative overflow-hidden">
-				<div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent"></div>
+	const rankPercentile = userRank && totalStudents > 0
+		? Math.round(((totalStudents - userRank) / totalStudents) * 100)
+		: null;
 
-				<div className="flex items-start justify-between gap-4">
-					<div>
-						<div className="flex items-center gap-2 mb-2">
-							<Trophy className="w-5 h-5 text-yellow-400" />
-							<h1 className="text-xl md:text-2xl font-bold text-foreground">Leaderboard</h1>
+	return (
+		<div className="w-full max-w-3xl mx-auto p-4 md:p-6 space-y-4">
+			{/* Header Card */}
+			<div className="relative overflow-hidden rounded-2xl border border-white/10 bg-linear-to-br from-white/5 to-white/2">
+				{/* Ambient glow */}
+				<div className="absolute -top-16 -right-16 w-48 h-48 bg-yellow-400/8 rounded-full blur-3xl pointer-events-none" />
+				<div className="absolute -bottom-12 -left-12 w-40 h-40 bg-primary/8 rounded-full blur-3xl pointer-events-none" />
+				<div className="absolute top-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-yellow-400/30 to-transparent" />
+
+				<div className="relative p-5 md:p-6">
+					<div className="flex items-start justify-between gap-4">
+						<div className="flex items-center gap-3">
+							<div className="w-10 h-10 rounded-xl bg-yellow-400/10 border border-yellow-400/20 flex items-center justify-center shrink-0">
+								<Trophy className="w-5 h-5 text-yellow-400" />
+							</div>
+							<div>
+								<h1 className="text-xl md:text-2xl font-bold text-foreground tracking-tight">Leaderboard</h1>
+								<p className="text-xs text-muted-foreground mt-0.5 truncate max-w-50 md:max-w-none">
+									{groupLabel}
+								</p>
+							</div>
 						</div>
-						<p className="text-sm text-muted-foreground">
-							{groupLabel}
-						</p>
+
+						{leaderboardData.userEntry && (
+							<button
+								onClick={() => setShareModalOpen(true)}
+								className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-primary/30 rounded-lg text-xs font-medium text-foreground/70 hover:text-foreground transition-all duration-200 cursor-pointer shrink-0"
+							>
+								<Share2 className="w-3.5 h-3.5" />
+								Share
+							</button>
+						)}
 					</div>
 
-					{leaderboardData.userEntry && (
-						<button
-							onClick={() => setShareModalOpen(true)}
-							className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-primary/30 rounded-lg text-xs font-medium text-foreground/80 transition-all duration-200"
-						>
-							<Share2 className="w-3.5 h-3.5" />
-							Share
-						</button>
+					{/* Rank Stats Row */}
+					{userRank && totalStudents > 0 && (
+						<div className="mt-5 flex items-center gap-3 flex-wrap">
+							<div className="flex items-center gap-2 px-3.5 py-2 bg-primary/10 border border-primary/20 rounded-xl">
+								<span className="text-xs text-muted-foreground">Your Rank</span>
+								<span className="text-sm font-bold text-primary">#{userRank}</span>
+							</div>
+							<div className="flex items-center gap-2 px-3.5 py-2 bg-white/5 border border-white/10 rounded-xl">
+								<Users className="w-3.5 h-3.5 text-muted-foreground" />
+								<span className="text-xs text-muted-foreground">of <span className="text-foreground/70 font-medium">{totalStudents}</span> students</span>
+							</div>
+							{rankPercentile !== null && rankPercentile > 0 && (
+								<div className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-500/8 border border-emerald-500/20 rounded-xl">
+									<TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+									<span className="text-xs text-emerald-400 font-medium">Top {100 - rankPercentile}%</span>
+								</div>
+							)}
+						</div>
 					)}
 				</div>
-
-				{userRank && totalStudents > 0 && (
-					<div className="mt-4 flex items-center gap-4">
-						<div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-lg">
-							<span className="text-xs text-muted-foreground">Your Rank</span>
-							<span className="text-sm font-bold text-primary">#{userRank}</span>
-						</div>
-						<div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg">
-							<Users className="w-3.5 h-3.5 text-muted-foreground" />
-							<span className="text-xs text-muted-foreground">of {totalStudents} students</span>
-						</div>
-					</div>
-				)}
 			</div>
 
-			{/* Leaderboard Table */}
+			{/* Table */}
 			<LeaderboardTable
-					data={leaderboardData}
-					currentUserId={entryUserId ?? currentUser.uid}
-					currentProfileId={leaderboardData.userEntry?.profileId ?? ""}
-				/>
+				data={leaderboardData}
+				currentUserId={entryUserId ?? currentUser.uid}
+				currentProfileId={leaderboardData.userEntry?.profileId ?? ""}
+			/>
 
 			{/* Share Modal */}
 			<ShareLeaderboardModal

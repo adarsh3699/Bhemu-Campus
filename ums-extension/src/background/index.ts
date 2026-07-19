@@ -26,7 +26,8 @@ async function updateStatus(status: SyncStatus) {
 async function ensureUmsSession(): Promise<boolean> {
   const valid = await isSessionValid();
   if (!valid) {
-    await updateStatus({ lastSyncedAt: null, status: 'needs_login', message: 'Please log in to UMS' });
+    const login = await loginFlow(false);
+    return login.success;
   }
   return valid;
 }
@@ -89,18 +90,25 @@ export async function startAttendanceSync(profileId: string): Promise<{ success:
   }
 }
 
-export async function startLoginFlow(): Promise<{ success: boolean; reason?: string }> {
+async function loginFlow(updateStatusOnSuccess = true): Promise<{ success: boolean; reason?: string }> {
   const tab = await openLoginTab();
   if (!tab.id) return { success: false, reason: 'Could not open UMS login tab' };
   try {
     await setupLoginDetection(tab.id);
-    await updateStatus({ lastSyncedAt: null, status: 'idle', message: 'UMS login successful' });
+    if (updateStatusOnSuccess) {
+      await updateStatus({ lastSyncedAt: null, status: 'idle', message: 'UMS login successful' });
+    }
     return { success: true };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     await updateStatus({ lastSyncedAt: null, status: 'needs_login', message: msg });
     return { success: false, reason: msg };
   }
+}
+
+export async function startLoginFlow(): Promise<{ success: boolean; reason?: string }> {
+  await updateStatus({ lastSyncedAt: null, status: 'syncing', message: 'Opening UMS login...' });
+  return loginFlow(true);
 }
 
 // Listen for messages from popup
@@ -115,16 +123,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
   if (message.type === 'START_LOGIN') {
     startLoginFlow().then(sendResponse);
-    return true;
-  }
-  if (message.type === 'GET_STATUS') {
-    storage.get<SyncStatus>('syncStatus').then(status => {
-      sendResponse(status ?? { lastSyncedAt: null, status: 'idle' });
-    });
-    return true;
-  }
-  if (message.type === 'CLEAR_STATUS') {
-    updateStatus({ lastSyncedAt: null, status: 'idle' }).then(() => sendResponse({ ok: true }));
     return true;
   }
 });

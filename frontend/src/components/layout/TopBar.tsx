@@ -88,9 +88,9 @@ export default function TopBar({ onMenuOpen, onOpenProfileDrawer }: TopBarProps)
 	const handleLogout = useCallback(async () => {
 		setIsProfileOpen(false);
 		try {
+			router.replace("/login");
 			await logout();
 			showMessage("Logged out successfully.", "info");
-			router.push("/login");
 		} catch (err) {
 			console.error("Logout error:", err);
 			showMessage("Logout failed.", "error");

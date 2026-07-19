@@ -1,13 +1,13 @@
 "use client";
 
-import { MoreVertical } from "lucide-react";
-
 export default function LeaderboardSeparator() {
 	return (
-		<div className="flex items-center justify-center py-2">
-			<div className="flex flex-col items-center gap-0.5 text-muted-foreground/50">
-				<MoreVertical className="w-4 h-4" />
-			</div>
+		<div className="flex items-center gap-3 py-1 px-4">
+			<div className="flex-1 border-t border-dashed border-white/10" />
+			<span className="text-[10px] font-medium text-muted-foreground/40 uppercase tracking-widest select-none">
+				···
+			</span>
+			<div className="flex-1 border-t border-dashed border-white/10" />
 		</div>
 	);
 }

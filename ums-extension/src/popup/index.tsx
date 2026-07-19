@@ -1,10 +1,13 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
+import { Storage } from "@plasmohq/storage";
 import { signInWithEmail, signInWithCalcSession, firebaseSignOut, getCurrentUser } from "~lib/firebase";
 import { loadUserProfiles } from "~lib/firebaseSync";
 import type { SyncStatus } from "~lib/types";
 import iconUrl from "data-base64:~/../assets/icon.png";
 import "./style.css";
+
+const storage = new Storage({ area: "local" });
 
 const LAST_PROFILE_KEY = "ums_last_profile_id";
 
@@ -44,35 +47,30 @@ function Popup() {
 	}, []);
 
 	useEffect(() => {
-		// On popup open: read persisted status.
-		// If last sync succeeded, show idle with lastSyncedAt ("Last synced") — not "Synced successfully".
-		// Success is only shown live while the popup stays open during a sync.
-		chrome.runtime.sendMessage({ type: "GET_STATUS" }, (res: SyncStatus | undefined) => {
+		// Read persisted status on popup open
+		storage.get<SyncStatus>("syncStatus").then((res) => {
 			if (!res) return;
+			// Show "Last synced" instead of stale "Synced successfully"
 			if (res.status === "success") {
 				setStatus({ ...res, status: "idle" });
 			} else {
 				setStatus(res);
 			}
 		});
+
 		getCurrentUser().then((user) => {
 			setIsLoggedIn(!!user);
 			setAuthLoading(false);
 			if (user) loadProfiles();
 		});
-	}, [loadProfiles]);
 
-	// Poll while syncing — stops as soon as a terminal state arrives
-	const pollUntilDone = useCallback(() => {
-		const interval = setInterval(() => {
-			chrome.runtime.sendMessage({ type: "GET_STATUS" }, (res: SyncStatus | undefined) => {
-				if (!res) return;
-				setStatus(res);
-				if (res.status !== "syncing") clearInterval(interval);
-			});
-		}, 800);
-		setTimeout(() => clearInterval(interval), 60_000);
-	}, []);
+		// Live status updates from background
+		const onStatusChange = ({ newValue }: { newValue?: SyncStatus }) => {
+			if (newValue) setStatus(newValue);
+		};
+		storage.watch({ syncStatus: onStatusChange });
+		return () => { storage.unwatch({ syncStatus: onStatusChange }); };
+	}, [loadProfiles]);
 
 	const handleCalcLogin = async () => {
 		setAuthError("");
@@ -106,8 +104,7 @@ function Popup() {
 	const handleLogout = async () => {
 		await firebaseSignOut();
 		chrome.storage.local.remove(LAST_PROFILE_KEY);
-		chrome.runtime.sendMessage({ type: "CLEAR_STATUS" });
-		setStatus({ lastSyncedAt: null, status: "idle" });
+		await storage.set("syncStatus", { lastSyncedAt: null, status: "idle" } as SyncStatus);
 		setIsLoggedIn(false);
 		setProfiles([]);
 		setSelectedProfileId("");
@@ -117,25 +114,18 @@ function Popup() {
 
 	const handleSyncGrades = () => {
 		if (!selectedProfileId) return;
-		setStatus({ lastSyncedAt: null, status: "syncing", message: "Starting sync..." });
+		setStatus((s) => ({ ...s, status: "syncing" }));
 		chrome.runtime.sendMessage({ type: "SYNC_GRADES", profileId: selectedProfileId });
-		pollUntilDone();
 	};
 
 	const handleSyncAttendance = () => {
 		if (!selectedProfileId) return;
-		setStatus({ lastSyncedAt: null, status: "syncing", message: "Starting attendance sync..." });
+		setStatus((s) => ({ ...s, status: "syncing" }));
 		chrome.runtime.sendMessage({ type: "SYNC_ATTENDANCE", profileId: selectedProfileId });
-		pollUntilDone();
 	};
 
 	const handleLoginToUMS = () => {
-		setStatus({ lastSyncedAt: null, status: "syncing", message: "Opening UMS login..." });
-		chrome.runtime.sendMessage({ type: "START_LOGIN" }, () => {
-			chrome.runtime.sendMessage({ type: "GET_STATUS" }, (res: SyncStatus | undefined) => {
-				if (res) setStatus(res);
-			});
-		});
+		chrome.runtime.sendMessage({ type: "START_LOGIN" });
 	};
 
 	// ── Loading ──────────────────────────────────────────────────
