@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 	const title = `${entry.name} — Rank #${entry.rank} | Bhemu Calculator`;
 	const description = `${entry.name} is ranked #${entry.rank} among ${entry.totalStudents} ${programLabel} students (Batch ${entry.batchYear}) with a CGPA of ${entry.cgpa.toFixed(2)}.`;
 	const ogTitle = `${entry.name} — Rank #${entry.rank}`;
-	const ogImageUrl = `${SITE_CONFIG.url}/api/og?title=${encodeURIComponent(ogTitle)}&description=${encodeURIComponent(description)}`;
+	const ogImageUrl = `${SITE_CONFIG.url}/api/og?id=${encodeURIComponent(id)}&title=${encodeURIComponent(ogTitle)}&description=${encodeURIComponent(description)}`;
 
 	return {
 		title,
