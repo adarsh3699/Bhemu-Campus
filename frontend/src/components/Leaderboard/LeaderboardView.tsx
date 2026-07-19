@@ -13,7 +13,7 @@ import ShareLeaderboardModal from "./ShareLeaderboardModal";
 
 export default function LeaderboardView() {
 	const { currentUser } = useAuth();
-	const { leaderboardData, loading, error, isEligible, parsedProgram, entryUserId, profileLoading, userOptedOut } = useLeaderboard();
+	const { leaderboardData, loading, error, isEligible, parsedProgram, entryUserId, profileLoading, userOptedOut, needsResync } = useLeaderboard();
 	const [shareModalOpen, setShareModalOpen] = useState(false);
 
 	if (!currentUser) return <LoginRecommendation feature="Leaderboard" />;
@@ -52,6 +52,8 @@ export default function LeaderboardView() {
 			</div>
 		);
 	}
+
+	if (needsResync) return <UMSSyncPrompt />;
 
 	if (error) {
 		return (

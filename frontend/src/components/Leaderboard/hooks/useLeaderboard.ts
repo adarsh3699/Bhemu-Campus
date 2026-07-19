@@ -42,6 +42,7 @@ export function useLeaderboard() {
 	const isEligible = !!(umsVerified && program && cgpa);
 
 	const [userOptedOut, setUserOptedOut] = useState(false);
+	const [needsResync, setNeedsResync] = useState(false);
 	const fetchIdRef = useRef(0);
 
 	useEffect(() => {
@@ -57,12 +58,19 @@ export function useLeaderboard() {
 			setLoading(true);
 			setError(null);
 			setUserOptedOut(false);
+			setNeedsResync(false);
 
 			try {
 				const userEntry = await LeaderboardService.getUserEntry(entryUserId!, profileId!);
 				if (fetchId !== fetchIdRef.current) return;
 
-				if (userEntry?.optOut) {
+				if (!userEntry) {
+					setNeedsResync(true);
+					setLeaderboardData(null);
+					return;
+				}
+
+				if (userEntry.optOut) {
 					setUserOptedOut(true);
 					setLeaderboardData(null);
 					return;
@@ -100,5 +108,5 @@ export function useLeaderboard() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [uid, profileId, entryUserId, isEligible, groupKey, cgpa, batchYear, vid, profileLoading]);
 
-	return { leaderboardData, loading, error, isEligible, parsedProgram, groupKey, entryUserId, profileLoading, userOptedOut };
+	return { leaderboardData, loading, error, isEligible, parsedProgram, groupKey, entryUserId, profileLoading, userOptedOut, needsResync };
 }
