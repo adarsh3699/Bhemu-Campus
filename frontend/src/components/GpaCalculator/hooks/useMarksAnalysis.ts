@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from "react";
-import { useMarksData } from "@/hooks/MarksDataContext";
-import { useGpaData } from "@/hooks/GpaDataContext";
+import { useMarksData } from "@/contexts/MarksDataContext";
+import { useGpaData } from "@/contexts/GpaDataContext";
 import { computeTotal, computeGradeFromMarks } from "@/lib/marksUtils";
 import type { SubjectEditFormState } from "@/components/GpaCalculator/SubjectCard";
 

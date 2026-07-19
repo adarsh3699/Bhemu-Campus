@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react";
 import { Trophy, Eye, EyeOff, Clock } from "lucide-react";
 import { useAuth } from "@/firebase/AuthContext";
-import { useGpaData } from "@/hooks/GpaDataContext";
+import { useGpaData } from "@/contexts/GpaDataContext";
 import { LeaderboardService } from "@/firebase/leaderboardService";
-import { useMessage } from "@/components/common/MessageProvider";
+import { useMessage } from "@/contexts/MessageContext";
 
 const COOLDOWN_DAYS = 7;
 

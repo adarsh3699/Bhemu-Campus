@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/firebase/AuthContext";
-import { useGpaData } from "@/hooks/GpaDataContext";
+import { useGpaData } from "@/contexts/GpaDataContext";
 import { LeaderboardService } from "@/firebase/leaderboardService";
 import { parseProgram, buildGroupKey, deriveBatchYear } from "@/lib/programUtils";
 import type { LeaderboardData, LeaderboardEntry, ParsedProgram } from "@/types";

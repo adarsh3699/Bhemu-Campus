@@ -3,12 +3,12 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 
 import { AuthProvider } from "@/firebase/AuthContext";
-import { MessageProvider } from "@/components/common/MessageProvider";
-import { GpaDataProvider } from "@/hooks/GpaDataContext";
-import { AttendanceDataProvider } from "@/hooks/AttendanceDataContext";
-import { MarksDataProvider } from "@/hooks/MarksDataContext";
+import { MessageProvider } from "@/contexts/MessageContext";
+import { GpaDataProvider } from "@/contexts/GpaDataContext";
+import { AttendanceDataProvider } from "@/contexts/AttendanceDataContext";
+import { MarksDataProvider } from "@/contexts/MarksDataContext";
 import AppShell from "@/components/layout/AppShell";
-import GlobalHandlers from "@/components/common/GlobalHandlers";
+import GlobalHandlers from "@/components/layout/GlobalHandlers";
 import { generatePageMetadata, generateWebsiteJsonLd, generateWebAppJsonLd } from "@/lib/seo";
 
 const inter = Inter({

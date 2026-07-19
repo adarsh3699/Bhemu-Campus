@@ -3,7 +3,7 @@
 import React, { useState, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/firebase/AuthContext";
-import { useGpaData } from "@/hooks/GpaDataContext";
+import { useGpaData } from "@/contexts/GpaDataContext";
 import { type GPAProfile } from "@/types/gpa";
 import SideBar from "./SideBar";
 import TopBar from "./TopBar";

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowRight, ClipboardList, AlertTriangle } from "lucide-react";
-import { useAttendanceData } from "@/hooks/AttendanceDataContext";
+import { useAttendanceData } from "@/contexts/AttendanceDataContext";
 
 const CARD_SHADOW = "inset 0 1px 0 0 rgba(255,255,255,0.04), 0 8px 32px rgba(0,0,0,0.4)";
 

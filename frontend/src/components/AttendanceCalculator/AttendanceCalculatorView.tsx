@@ -9,7 +9,7 @@ import AttendanceSubjectForm from "./AttendanceSubjectForm";
 import AttendanceSubjectList from "./AttendanceSubjectList";
 import { useAttendanceCalculator } from "./hooks/useAttendanceCalculator";
 import { useAuth } from "@/firebase/AuthContext";
-import { useGpaData } from "@/hooks/GpaDataContext";
+import { useGpaData } from "@/contexts/GpaDataContext";
 
 export default function AttendanceCalculatorView() {
 	const { currentUser } = useAuth();

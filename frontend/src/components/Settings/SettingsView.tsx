@@ -4,7 +4,7 @@ import React, { useCallback } from "react";
 import ConfirmModal from "@/components/modal/ConfirmModal";
 import BaseModal from "@/components/modal/BaseModal";
 import { AlertTriangle, XCircle, Trash2, RotateCw, Settings } from "lucide-react";
-import { useProfileData } from "@/hooks/useProfileData";
+import { useProfileData } from "@/components/Settings/hooks/useProfileData";
 import PageHeader from "@/components/common/PageHeader";
 import AccountInfo from "@/components/Settings/AccountInfo";
 import SecuritySection from "@/components/Settings/SecuritySection";

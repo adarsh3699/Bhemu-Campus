@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/firebase/AuthContext";
-import { useMessage } from "@/components/common/MessageProvider";
+import { useMessage } from "@/contexts/MessageContext";
 import {
 	Menu,
 	X,

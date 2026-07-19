@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef, startTransition } from "react";
 import { useAuth } from "@/firebase/AuthContext";
 import { createGPAService, GPAProfile, GPASemester } from "@/firebase/gpaService";
-import { useMessage } from "@/components/common/MessageProvider";
+import { useMessage } from "@/contexts/MessageContext";
 
 // ===== Types =====
 interface GpaDataContextValue {

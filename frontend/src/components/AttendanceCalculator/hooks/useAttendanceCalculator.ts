@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { useAttendanceData } from "@/hooks/AttendanceDataContext";
+import { useAttendanceData } from "@/contexts/AttendanceDataContext";
 import type { AttendanceSubject } from "@/types/attendance";
 
 export interface AttendanceFormState {

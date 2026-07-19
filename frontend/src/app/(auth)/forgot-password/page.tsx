@@ -5,7 +5,7 @@ import Image from "next/image";
 import { Mail, Send, ArrowLeft, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/firebase/AuthContext";
-import { useMessage } from "@/components/common/MessageProvider";
+import { useMessage } from "@/contexts/MessageContext";
 
 export default function ForgotPasswordPage() {
 	const [email, setEmail] = useState("");

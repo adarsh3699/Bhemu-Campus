@@ -11,7 +11,7 @@ import SemesterPanel from "@/components/GpaCalculator/SemesterPanel";
 import GpaStatsBar from "@/components/GpaCalculator/GpaStatsBar";
 import SemesterTabs from "@/components/GpaCalculator/SemesterTabs";
 import { useAuth } from "@/firebase/AuthContext";
-import { useGpaData } from "@/hooks/GpaDataContext";
+import { useGpaData } from "@/contexts/GpaDataContext";
 import { useMarksAnalysis } from "@/components/GpaCalculator/hooks/useMarksAnalysis";
 import { useGpaCalculator } from "@/components/GpaCalculator/hooks/useGpaCalculator";
 

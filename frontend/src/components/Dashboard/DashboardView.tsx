@@ -12,8 +12,8 @@
 import Link from "next/link";
 import { Calculator, GraduationCap, Flag, BookOpen, ArrowRight, ClipboardList, Trophy } from "lucide-react";
 import { useAuth } from "@/firebase/AuthContext";
-import { useGpaData } from "@/hooks/GpaDataContext";
-import { useAttendanceData } from "@/hooks/AttendanceDataContext";
+import { useGpaData } from "@/contexts/GpaDataContext";
+import { useAttendanceData } from "@/contexts/AttendanceDataContext";
 import { calculateCGPA } from "@/lib/gpaUtils";
 import LoginRecommendation from "@/components/common/LoginRecommendation";
 import DashboardStats from "@/components/Dashboard/DashboardStats";

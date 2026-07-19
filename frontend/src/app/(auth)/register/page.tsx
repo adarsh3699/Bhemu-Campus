@@ -7,7 +7,7 @@ import { Eye, EyeOff, User, Mail, ArrowRight, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { AuthShowcase } from "@/components/common/AuthShowcase";
 import { useAuth } from "@/firebase/AuthContext";
-import { useMessage } from "@/components/common/MessageProvider";
+import { useMessage } from "@/contexts/MessageContext";
 
 export default function RegisterPage() {
 	const [fullname, setFullname] = useState("");

@@ -3,8 +3,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useAuth } from "@/firebase/AuthContext";
 import { createAttendanceService, AttendanceService } from "@/firebase/attendanceService";
-import { useGpaData } from "@/hooks/GpaDataContext";
-import { useMessage } from "@/components/common/MessageProvider";
+import { useGpaData } from "@/contexts/GpaDataContext";
+import { useMessage } from "@/contexts/MessageContext";
 import type { AttendanceSubject, AttendanceData } from "@/types/attendance";
 
 interface AttendanceDataContextValue {

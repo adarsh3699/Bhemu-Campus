@@ -4,8 +4,8 @@ import React, { useCallback, useState, useRef, useEffect, useMemo } from "react"
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/firebase/AuthContext";
-import { useMessage } from "@/components/common/MessageProvider";
-import { useGpaData } from "@/hooks/GpaDataContext";
+import { useMessage } from "@/contexts/MessageContext";
+import { useGpaData } from "@/contexts/GpaDataContext";
 import { Menu, LogOut, Info, ChevronRight, Settings, Layers, Check, Users, Plus } from "lucide-react";
 
 // Map route segments to display names

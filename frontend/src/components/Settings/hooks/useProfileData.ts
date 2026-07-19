@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useAuth } from "@/firebase/AuthContext";
-import { useMessage } from "@/components/common/MessageProvider";
+import { useMessage } from "@/contexts/MessageContext";
 import { useRouter } from "next/navigation";
 
 export const useProfileData = () => {

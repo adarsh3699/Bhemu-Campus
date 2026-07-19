@@ -1,8 +1,8 @@
 "use client";
 
 import React, { createContext, useContext, useState, useCallback, useMemo } from "react";
-import { useGpaData } from "@/hooks/GpaDataContext";
-import { useMessage } from "@/components/common/MessageProvider";
+import { useGpaData } from "@/contexts/GpaDataContext";
+import { useMessage } from "@/contexts/MessageContext";
 import { computeGradeFromMarks, computeTotal } from "@/lib/marksUtils";
 import type { SubjectMarks } from "@/types/marks";
 import type { GPASubject } from "@/types";

@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import { useGpaData } from "@/hooks/GpaDataContext";
+import { useGpaData } from "@/contexts/GpaDataContext";
 import { useMarksAnalysis } from "@/components/GpaCalculator/hooks/useMarksAnalysis";
 import type { SubjectEditFormState } from "@/components/GpaCalculator/SubjectCard";
 
