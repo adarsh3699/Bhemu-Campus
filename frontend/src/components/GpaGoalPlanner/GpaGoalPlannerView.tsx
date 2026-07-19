@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { RotateCw, Flag, Flame, AlertTriangle, CheckCircle, Target, BarChart3, Settings } from "lucide-react";
+import PageHeader from "@/components/common/PageHeader";
 
 interface InputGroupProps {
 	label: string;
@@ -135,18 +136,11 @@ export default function GpaGoalPlannerView() {
 
 	return (
 		<div className="px-4 py-8 md:px-8 md:py-10 max-w-6xl mx-auto">
-			{/* Page Header */}
-			<div className="flex items-center gap-4 mb-8">
-				<div className="p-3 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center text-primary shrink-0 shadow-sm">
-					<Flag className="w-6 h-6" />
-				</div>
-				<div>
-					<h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">GPA Goal Planner</h1>
-					<p className="text-sm text-muted-foreground mt-1">
-						Strategize your academic trajectory and plan your target CGPA
-					</p>
-				</div>
-			</div>
+			<PageHeader
+				icon={Flag}
+				title="GPA Goal Planner"
+				description="Strategize your academic trajectory and plan your target CGPA"
+			/>
 
 			<div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 				{/* Left Column — Inputs */}

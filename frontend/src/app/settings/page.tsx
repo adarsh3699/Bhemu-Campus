@@ -1,5 +1,5 @@
 import React from "react";
-import ProfileView from "@/components/Settings/ProfileView";
+import SettingsView from "@/components/Settings/SettingsView";
 import { generatePageMetadata } from "@/lib/seo";
 
 export const metadata = generatePageMetadata({
@@ -11,5 +11,5 @@ export const metadata = generatePageMetadata({
 });
 
 export default function SettingsPage() {
-	return <ProfileView />;
+	return <SettingsView />;
 }

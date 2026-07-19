@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Download, Play, Zap, BarChart2, RefreshCw } from "lucide-react";
+import { Download, Zap, BarChart2, RefreshCw } from "lucide-react";
 import BaseModal from "./BaseModal";
 
 interface UMSExtensionModalProps {

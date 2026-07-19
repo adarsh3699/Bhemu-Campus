@@ -3,16 +3,16 @@
 import React, { useCallback } from "react";
 import ConfirmModal from "@/components/modal/ConfirmModal";
 import BaseModal from "@/components/modal/BaseModal";
-import { AlertTriangle, XCircle, Trash2, RotateCw } from "lucide-react";
+import { AlertTriangle, XCircle, Trash2, RotateCw, Settings } from "lucide-react";
 import { useProfileData } from "@/hooks/useProfileData";
-import ProfileHeader from "@/components/Settings/ProfileHeader";
+import PageHeader from "@/components/common/PageHeader";
 import AccountInfo from "@/components/Settings/AccountInfo";
 import SecuritySection from "@/components/Settings/SecuritySection";
 import LeaderboardSettings from "@/components/Settings/LeaderboardSettings";
 import DangerZone from "@/components/Settings/DangerZone";
 import LoginRecommendation from "@/components/common/LoginRecommendation";
 
-export default function ProfileView() {
+export default function SettingsView() {
 	const {
 		// Data
 		currentUser,
@@ -72,8 +72,11 @@ export default function ProfileView() {
 
 	return (
 		<div className="px-4 py-8 md:px-8 md:py-10 max-w-6xl mx-auto">
-			{/* Header */}
-			<ProfileHeader />
+			<PageHeader
+				icon={Settings}
+				title="Settings"
+				description="Manage your personal information, security, and account options"
+			/>
 
 			{/* Profile Grid: 4 col account left, 8 col settings right */}
 			<div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">

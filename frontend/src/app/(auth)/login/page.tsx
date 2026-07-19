@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { AuthShowcase } from "@/components/auth-showcase";
+import { AuthShowcase } from "@/components/common/AuthShowcase";
 import { useAuth } from "@/firebase/AuthContext";
 import { useMessage } from "@/components/common/MessageProvider";
 

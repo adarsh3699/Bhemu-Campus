@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import PageHeader from "@/components/common/PageHeader";
 import {
 	RotateCw,
 	BookOpen,
@@ -445,18 +446,11 @@ export default function ReappearCalculatorView() {
 
 	return (
 		<div className="px-4 py-8 md:px-8 md:py-10 max-w-6xl mx-auto">
-			{/* Page Header */}
-			<div className="flex items-center gap-4 mb-8">
-				<div className="p-3 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center text-primary shrink-0 shadow-sm">
-					<GraduationCap className="w-6 h-6" />
-				</div>
-				<div>
-					<h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Reappear Calculator</h1>
-					<p className="text-sm text-muted-foreground mt-1">
-						Determine the exact marks needed to clear your backlogs
-					</p>
-				</div>
-			</div>
+			<PageHeader
+				icon={GraduationCap}
+				title="Reappear Calculator"
+				description="Determine the exact marks needed to clear your backlogs"
+			/>
 
 			<div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 				{/* Left Column — Inputs */}

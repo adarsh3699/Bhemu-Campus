@@ -1,6 +1,7 @@
 "use client";
 
 import { ClipboardList, X } from "lucide-react";
+import PageHeader from "@/components/common/PageHeader";
 import { useState } from "react";
 import LoginRecommendation from "@/components/common/LoginRecommendation";
 import ConfirmModal from "@/components/modal/ConfirmModal";
@@ -74,20 +75,12 @@ export default function AttendanceCalculatorView() {
 			/>
 
 			<div className="w-full font-sans bg-transparent flex flex-col items-center justify-start transition-all duration-300 px-4 py-8 md:px-8 md:py-10 max-w-6xl mx-auto pb-10">
-				{/* Header */}
-				<div className="w-full text-left mb-6 md:mb-14 flex items-center gap-4">
-					<div className="p-3 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center text-primary shrink-0 shadow-sm">
-						<ClipboardList className="w-6 h-6" />
-					</div>
-					<div>
-						<h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-							Attendance Calculator
-						</h1>
-						<p className="text-sm text-muted-foreground mt-1">
-							Track your class attendance and see how many classes you can skip or need to attend
-						</p>
-					</div>
-				</div>
+				<PageHeader
+					icon={ClipboardList}
+					title="Attendance Calculator"
+					description="Track your class attendance and see how many classes you can skip or need to attend"
+					className="mb-6 md:mb-14"
+				/>
 
 				{/* Summary card */}
 				<div className="w-full max-w-4xl mb-8 md:mb-10 px-5 md:px-6 py-4 md:py-5 bg-neutral-900/60 rounded-2xl border border-white/10">

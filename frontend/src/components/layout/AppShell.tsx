@@ -7,7 +7,7 @@ import { useGpaData } from "@/hooks/GpaDataContext";
 import { type GPAProfile } from "@/types/gpa";
 import SideBar from "./SideBar";
 import TopBar from "./TopBar";
-import ProfileDrawer from "@/components/ProfileDrawer";
+import ProfileDrawer from "@/components/common/ProfileDrawer";
 import ShareModal, { ShareItem } from "@/components/modal/ShareModal";
 
 const NO_LAYOUT_PATHS = ["/login", "/register", "/forgot-password", "/reset-password", "/verify-email", "/", "/rank"];

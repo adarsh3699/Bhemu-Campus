@@ -1,6 +1,7 @@
 "use client";
 
 import { Calculator, BarChart2 } from "lucide-react";
+import PageHeader from "@/components/common/PageHeader";
 
 import RenderModal from "@/components/modal/RenderModal";
 import LoginRecommendation from "@/components/common/LoginRecommendation";
@@ -73,16 +74,12 @@ export default function GpaCalculatorView() {
 			/>
 
 			<div className="w-full font-sans bg-transparent flex flex-col items-center justify-start transition-all duration-300 px-4 py-8 md:px-8 md:py-10 max-w-6xl mx-auto pb-10">
-				{/* Header */}
-				<div className="w-full text-left mb-6 md:mb-14 flex items-center gap-4">
-					<div className="p-3 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center text-primary shrink-0 shadow-sm">
-						<Calculator className="w-6 h-6" />
-					</div>
-					<div>
-						<h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">GPA Calculator</h1>
-						<p className="text-sm text-muted-foreground mt-1">Calculate your semester GPA and cumulative CGPA</p>
-					</div>
-				</div>
+				<PageHeader
+					icon={Calculator}
+					title="GPA Calculator"
+					description="Calculate your semester GPA and cumulative CGPA"
+					className="mb-6 md:mb-14"
+				/>
 
 				<GpaStatsBar semesters={semesters} />
 

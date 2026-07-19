@@ -132,29 +132,6 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 	}, [currentUser]);
 
 	// ===== CORE ACTIONS =====
-	const saveProfile = useCallback(
-		async (profileData: GPAProfile) => {
-			if (!gpaService || !profileData) return;
-
-			try {
-				setSaving(true);
-
-				// Use collaborative save if the profile is shared with edit permissions
-				if (profileData.isShared && profileData.permission === "edit") {
-					await gpaService.saveProfileWithCollaboration(profileData);
-				} else {
-					await gpaService.saveProfile(profileData);
-				}
-			} catch (error) {
-				console.error("Error saving profile:", error);
-				showMessage("Error saving data. Please try again.", "error");
-			} finally {
-				setSaving(false);
-			}
-		},
-		[gpaService, showMessage]
-	);
-
 	const updateActiveProfile = useCallback((profileId: string | number) => {
 		setActiveProfile(profileId);
 		// Persist to localStorage (same device only — new device always opens default)
