@@ -10,7 +10,7 @@ import TopBar from "./TopBar";
 import ProfileDrawer from "@/components/ProfileDrawer";
 import ShareModal, { ShareItem } from "@/components/modal/ShareModal";
 
-const NO_LAYOUT_PATHS = ["/login", "/register", "/forgot-password", "/reset-password", "/verify-email", "/"];
+const NO_LAYOUT_PATHS = ["/login", "/register", "/forgot-password", "/reset-password", "/verify-email", "/", "/rank"];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
 	const [sidebarOpen, setSidebarOpen] = useState(false);

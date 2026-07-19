@@ -1,5 +1,6 @@
 "use client";
 
+import { Trophy, Medal, Star } from "lucide-react";
 import type { LeaderboardData, ParsedProgram } from "@/types";
 
 interface LeaderboardShareCardProps {
@@ -7,191 +8,305 @@ interface LeaderboardShareCardProps {
 	parsedProgram: ParsedProgram | null;
 }
 
-const s = {
-	card: {
-		width: "400px",
-		padding: "28px 24px 24px 24px",
-		borderRadius: "16px",
-		background: "linear-gradient(150deg, #1e1b4b 0%, #1e1a3a 40%, #172554 100%)",
-		fontFamily: "Arial, Helvetica, sans-serif",
-		boxSizing: "border-box" as const,
+function getPercentile(rank: number, total: number) {
+	if (total <= 1) return 100;
+	return Math.round(((total - rank) / (total - 1)) * 100);
+}
+
+function getAchievementLabel(rank: number, total: number) {
+	if (rank === 1) return "Batch Topper!";
+	if (rank <= 3) return "Top 3";
+	if (rank <= 10) return "Top 10";
+	const percentile = getPercentile(rank, total);
+	if (percentile >= 80) return `Top ${100 - percentile}% of the class`;
+	return `Ranked #${rank} of ${total}`;
+}
+
+function getTier(rank: number) {
+	if (rank === 1) return "gold";
+	if (rank === 2) return "silver";
+	if (rank === 3) return "bronze";
+	return "default";
+}
+
+const tierStyles = {
+	gold: {
+		stripe: "linear-gradient(90deg, #D97706 0%, #FDE68A 40%, #F59E0B 60%, #D97706 100%)",
+		rankGradient: "linear-gradient(180deg, #FDE68A 0%, #FBBF24 40%, #F59E0B 80%, #D97706 100%)",
+		badgeBg: "rgba(245,158,11,0.1)",
+		badgeBorder: "1px solid rgba(245,158,11,0.25)",
+		badgeText: "#FCD34D",
+		iconBg: "rgba(245,158,11,0.15)",
+		iconBorder: "1px solid rgba(245,158,11,0.4)",
 	},
-	header: {
-		display: "flex" as const,
-		flexDirection: "row" as const,
-		alignItems: "flex-start" as const,
-		marginBottom: "20px",
-		gap: "0px",
+	silver: {
+		stripe: "linear-gradient(90deg, #64748B 0%, #CBD5E1 40%, #94A3B8 60%, #64748B 100%)",
+		rankGradient: "linear-gradient(180deg, #F1F5F9 0%, #CBD5E1 40%, #94A3B8 80%, #64748B 100%)",
+		badgeBg: "rgba(148,163,184,0.1)",
+		badgeBorder: "1px solid rgba(148,163,184,0.25)",
+		badgeText: "#CBD5E1",
+		iconBg: "rgba(148,163,184,0.15)",
+		iconBorder: "1px solid rgba(148,163,184,0.4)",
 	},
-	iconBox: {
-		width: "42px",
-		height: "42px",
-		minWidth: "42px",
-		borderRadius: "10px",
-		background: "rgba(250,204,21,0.18)",
-		border: "1px solid rgba(250,204,21,0.35)",
-		display: "flex" as const,
-		alignItems: "center" as const,
-		justifyContent: "center" as const,
-		marginRight: "12px",
-		marginTop: "1px",
+	bronze: {
+		stripe: "linear-gradient(90deg, #92400E 0%, #FED7AA 40%, #F97316 60%, #92400E 100%)",
+		rankGradient: "linear-gradient(180deg, #FED7AA 0%, #FB923C 40%, #F97316 80%, #C2410C 100%)",
+		badgeBg: "rgba(249,115,22,0.1)",
+		badgeBorder: "1px solid rgba(249,115,22,0.25)",
+		badgeText: "#FDBA74",
+		iconBg: "rgba(249,115,22,0.15)",
+		iconBorder: "1px solid rgba(249,115,22,0.4)",
 	},
-	iconText: {
-		fontSize: "22px",
-		lineHeight: "1",
-		fontFamily: "Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif",
+	default: {
+		stripe: "linear-gradient(90deg, #0398ac 0%, #22d3ee 40%, #0398ac 60%, #004eeb 100%)",
+		rankGradient: "linear-gradient(180deg, #67E8F9 0%, #22D3EE 30%, #0398ac 70%, #004eeb 100%)",
+		badgeBg: "rgba(3,152,172,0.1)",
+		badgeBorder: "1px solid rgba(3,152,172,0.25)",
+		badgeText: "#22D3EE",
+		iconBg: "rgba(3,152,172,0.15)",
+		iconBorder: "1px solid rgba(3,152,172,0.4)",
 	},
-	headerText: {
-		display: "flex" as const,
-		flexDirection: "column" as const,
-		justifyContent: "center" as const,
-	},
-	title: {
-		fontSize: "17px",
-		fontWeight: "bold",
-		color: "#ffffff",
-		lineHeight: "22px",
-		height: "22px",
-		display: "block" as const,
-		whiteSpace: "nowrap" as const,
-	},
-	subtitle: {
-		fontSize: "11px",
-		color: "#94a3b8",
-		lineHeight: "16px",
-		height: "16px",
-		display: "block" as const,
-		marginTop: "3px",
-		whiteSpace: "nowrap" as const,
-	},
-	rankCard: {
-		background: "rgba(255,255,255,0.06)",
-		border: "1px solid rgba(255,255,255,0.1)",
-		borderRadius: "12px",
-		textAlign: "center" as const,
-		marginBottom: "12px",
-		padding: "16px",
-	},
-	rankLabel: {
-		fontSize: "10px",
-		color: "#94a3b8",
-		letterSpacing: "2px",
-		display: "block" as const,
-		height: "16px",
-		lineHeight: "16px",
-		marginBottom: "8px",
-	},
-	rankNumber: {
-		fontSize: "54px",
-		fontWeight: "bold",
-		color: "#818cf8",
-		display: "block" as const,
-		lineHeight: "60px",
-		height: "60px",
-		marginBottom: "8px",
-	},
-	rankSub: {
-		fontSize: "12px",
-		color: "#64748b",
-		display: "block" as const,
-		height: "16px",
-		lineHeight: "16px",
-	},
-	cgpaRow: {
-		display: "flex" as const,
-		flexDirection: "row" as const,
-		alignItems: "center" as const,
-		justifyContent: "space-between" as const,
-		background: "rgba(255,255,255,0.05)",
-		border: "1px solid rgba(255,255,255,0.1)",
-		borderRadius: "10px",
-		padding: "12px 16px",
-		marginBottom: "14px",
-		height: "46px",
-		boxSizing: "border-box" as const,
-	},
-	cgpaLabel: {
-		fontSize: "13px",
-		color: "#94a3b8",
-		lineHeight: "22px",
-	},
-	cgpaValue: {
-		fontSize: "22px",
-		fontWeight: "bold",
-		color: "#ffffff",
-		lineHeight: "22px",
-	},
-	name: {
-		textAlign: "center" as const,
-		fontSize: "14px",
-		fontWeight: "bold",
-		color: "rgba(255,255,255,0.8)",
-		display: "block" as const,
-		height: "20px",
-		lineHeight: "20px",
-		marginBottom: "14px",
-	},
-	divider: {
-		borderTop: "1px solid rgba(255,255,255,0.08)",
-		paddingTop: "10px",
-		textAlign: "center" as const,
-	},
-	branding: {
-		fontSize: "10px",
-		color: "#475569",
-		display: "block" as const,
-		height: "14px",
-		lineHeight: "14px",
-	},
-} as const;
+};
 
 function LeaderboardShareCard({ leaderboardData, parsedProgram }: LeaderboardShareCardProps) {
-		const { userEntry, userRank, totalStudents } = leaderboardData;
-		if (!userEntry || !userRank) return null;
+	const { userEntry, userRank, totalStudents } = leaderboardData;
+	if (!userEntry || !userRank) return null;
 
-		const programLine = parsedProgram?.programName ?? "Program";
-		const branchLine = parsedProgram?.branch ? parsedProgram.branch : null;
-		const batchLine = "Batch " + userEntry.batchYear;
+	const programLine = parsedProgram?.programName ?? "Program";
+	const branchLine = parsedProgram?.branch ?? null;
+	const tier = getTier(userRank);
+	const t = tierStyles[tier];
+	const percentile = getPercentile(userRank, totalStudents);
+	const achievementLabel = getAchievementLabel(userRank, totalStudents);
 
-		return (
-			<div style={s.card}>
+	return (
+		<div
+			style={{
+				width: "380px",
+				borderRadius: "16px",
+				overflow: "hidden",
+				background: "linear-gradient(160deg, #111827 0%, #0F172A 100%)",
+				border: "1px solid rgba(255,255,255,0.08)",
+				boxShadow: "0 24px 60px rgba(0,0,0,0.6)",
+			}}
+		>
+			{/* Accent stripe */}
+			<div style={{ height: "4px", background: t.stripe }} />
+
+			<div style={{ padding: "24px" }}>
 				{/* Header */}
-				<div style={s.header}>
-					<div style={s.iconBox}>
-						<span style={s.iconText}>🏆</span>
+				<div
+					style={{
+						display: "flex",
+						alignItems: "flex-start",
+						justifyContent: "space-between",
+						marginBottom: "20px",
+					}}
+				>
+					<div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+						<div
+							style={{
+								width: "40px",
+								height: "40px",
+								borderRadius: "10px",
+								background: t.iconBg,
+								border: t.iconBorder,
+								display: "flex",
+								alignItems: "center",
+								justifyContent: "center",
+								flexShrink: 0,
+							}}
+						>
+							{tier === "default" ? (
+								<Trophy style={{ width: "18px", height: "18px", color: t.badgeText }} />
+							) : (
+								<Medal style={{ width: "18px", height: "18px", color: t.badgeText }} />
+							)}
+						</div>
+						<div>
+							<p
+								style={{
+									fontSize: "11px",
+									fontWeight: 700,
+									color: "#ffffff",
+									letterSpacing: "1.5px",
+									margin: 0,
+									lineHeight: "14px",
+								}}
+							>
+								CGPA LEADERBOARD
+							</p>
+							<p
+								style={{
+									fontSize: "11px",
+									color: "rgba(255,255,255,0.55)",
+									margin: "3px 0 0",
+									lineHeight: "14px",
+								}}
+							>
+								{programLine}
+								{branchLine ? " " + branchLine : ""}
+							</p>
+							<p
+								style={{
+									fontSize: "11px",
+									color: "rgba(255,255,255,0.35)",
+									margin: "2px 0 0",
+									lineHeight: "14px",
+								}}
+							>
+								Batch {userEntry.batchYear}
+							</p>
+						</div>
 					</div>
-					<div style={s.headerText}>
-						<span style={s.title}>CGPA Leaderboard</span>
-						<span style={s.subtitle}>
-							{programLine}
-							{branchLine ? " " + branchLine : ""}
-						</span>
-						<span style={s.subtitle}>{batchLine}</span>
+
+					{/* Rank pill */}
+					<div
+						style={{
+							padding: "4px 12px",
+							borderRadius: "20px",
+							background: t.badgeBg,
+							border: t.badgeBorder,
+							flexShrink: 0,
+						}}
+					>
+						<span style={{ fontSize: "12px", fontWeight: 700, color: t.badgeText }}>#{userRank}</span>
 					</div>
 				</div>
 
-				{/* Rank */}
-				<div style={s.rankCard}>
-					<span style={s.rankLabel}>MY RANK</span>
-					<span style={s.rankNumber}>#{userRank}</span>
-					<span style={s.rankSub}>of {totalStudents} students</span>
+				{/* Rank hero */}
+				<div style={{ textAlign: "center", marginBottom: "20px" }}>
+					<p
+						style={{
+							fontSize: "10px",
+							color: "rgba(255,255,255,0.35)",
+							letterSpacing: "3px",
+							margin: "0 0 6px",
+							textTransform: "uppercase",
+						}}
+					>
+						MY RANK
+					</p>
+					<p
+						style={{
+							fontSize: "72px",
+							fontWeight: 900,
+							lineHeight: "1",
+							letterSpacing: "-3px",
+							margin: 0,
+							background: t.rankGradient,
+							WebkitBackgroundClip: "text",
+							WebkitTextFillColor: "transparent",
+							backgroundClip: "text",
+						}}
+					>
+						#{userRank}
+					</p>
+					<p style={{ fontSize: "13px", color: "rgba(255,255,255,0.35)", margin: "4px 0 0" }}>
+						of {totalStudents} students
+					</p>
 				</div>
 
-				{/* CGPA */}
-				<div style={s.cgpaRow}>
-					<span style={s.cgpaLabel}>CGPA</span>
-					<span style={s.cgpaValue}>{userEntry.cgpa.toFixed(2)}</span>
+				{/* Stats row */}
+				<div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "12px" }}>
+					<div
+						style={{
+							borderRadius: "12px",
+							padding: "12px",
+							textAlign: "center",
+							background: "rgba(255,255,255,0.03)",
+							border: "1px solid rgba(255,255,255,0.07)",
+						}}
+					>
+						<p
+							style={{
+								fontSize: "10px",
+								color: "rgba(255,255,255,0.35)",
+								letterSpacing: "1.5px",
+								margin: "0 0 4px",
+							}}
+						>
+							CGPA
+						</p>
+						<p style={{ fontSize: "24px", fontWeight: 900, color: "#ffffff", margin: 0, lineHeight: "1" }}>
+							{userEntry.cgpa.toFixed(2)}
+						</p>
+					</div>
+					<div
+						style={{
+							borderRadius: "12px",
+							padding: "12px",
+							textAlign: "center",
+							background: "rgba(255,255,255,0.03)",
+							border: "1px solid rgba(255,255,255,0.07)",
+						}}
+					>
+						<p
+							style={{
+								fontSize: "10px",
+								color: "rgba(255,255,255,0.35)",
+								letterSpacing: "1.5px",
+								margin: "0 0 4px",
+							}}
+						>
+							PERCENTILE
+						</p>
+						<p
+							style={{
+								fontSize: "24px",
+								fontWeight: 900,
+								margin: 0,
+								lineHeight: "1",
+								background: t.rankGradient,
+								WebkitBackgroundClip: "text",
+								WebkitTextFillColor: "transparent",
+								backgroundClip: "text",
+							}}
+						>
+							{percentile}
+						</p>
+					</div>
+				</div>
+
+				{/* Achievement badge */}
+				<div
+					style={{
+						display: "flex",
+						alignItems: "center",
+						justifyContent: "center",
+						gap: "6px",
+						padding: "8px 16px",
+						borderRadius: "10px",
+						marginBottom: "16px",
+						background: t.badgeBg,
+						border: t.badgeBorder,
+					}}
+				>
+					<Star style={{ width: "14px", height: "14px", color: t.badgeText, fill: t.badgeText }} />
+					<span style={{ fontSize: "13px", fontWeight: 700, color: t.badgeText }}>{achievementLabel}</span>
 				</div>
 
 				{/* Name */}
-				<span style={s.name}>{userEntry.name}</span>
-
-				{/* Branding */}
-				<div style={s.divider}>
-					<span style={s.branding}>calc.bhemu.in - Bhemu Calculator</span>
-				</div>
+				<p style={{ textAlign: "center", fontSize: "17px", fontWeight: 900, color: "#ffffff", margin: 0 }}>
+					{userEntry.name}
+				</p>
 			</div>
-		);
+
+			{/* Footer */}
+			<div
+				style={{
+					padding: "10px 24px",
+					borderTop: "1px solid rgba(255,255,255,0.05)",
+					background: "rgba(0,0,0,0.25)",
+					textAlign: "center",
+				}}
+			>
+				<span style={{ fontSize: "10px", color: "rgba(255,255,255,0.28)" }}>
+					calc.bhemu.in · Bhemu Calculator
+				</span>
+			</div>
+		</div>
+	);
 }
 
 export default LeaderboardShareCard;

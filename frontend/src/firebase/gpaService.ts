@@ -258,6 +258,9 @@ export class GPAService {
 			const attSnapshot = await getDocs(attRef);
 			attSnapshot.docs.forEach((d) => batch.delete(d.ref));
 
+			// Delete leaderboard entry
+			batch.delete(doc(db, "leaderboard", `${this.userId}_${idStr}`));
+
 			// Clean up outgoing share records
 			await this._cleanupOutgoingShares(batch, idVariants);
 

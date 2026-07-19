@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Trophy, Users, Share2, Loader2 } from "lucide-react";
+import { Trophy, Users, Share2, Loader2, EyeOff, Settings } from "lucide-react";
+import Link from "next/link";
 import { useAuth } from "@/firebase/AuthContext";
 import LoginRecommendation from "@/components/common/LoginRecommendation";
 import { useLeaderboard } from "./hooks/useLeaderboard";
@@ -12,18 +13,41 @@ import ShareLeaderboardModal from "./ShareLeaderboardModal";
 
 export default function LeaderboardView() {
 	const { currentUser } = useAuth();
-	const { leaderboardData, loading, error, isEligible, parsedProgram, entryUserId } = useLeaderboard();
+	const { leaderboardData, loading, error, isEligible, parsedProgram, entryUserId, profileLoading, userOptedOut } = useLeaderboard();
 	const [shareModalOpen, setShareModalOpen] = useState(false);
 
 	if (!currentUser) return <LoginRecommendation feature="Leaderboard" />;
-	if (!isEligible) return <UMSSyncPrompt />;
+	if (!isEligible && !profileLoading) return <UMSSyncPrompt />;
 
-	if (loading) {
+	if (loading || profileLoading) {
 		return (
 			<div className="w-full min-h-[calc(100vh-80px)] flex items-center justify-center">
 				<div className="flex flex-col items-center gap-3">
 					<Loader2 className="w-8 h-8 text-primary animate-spin" />
 					<p className="text-sm text-muted-foreground">Loading leaderboard...</p>
+				</div>
+			</div>
+		);
+	}
+
+	if (userOptedOut) {
+		return (
+			<div className="w-full min-h-[calc(100vh-80px)] flex items-center justify-center p-4">
+				<div className="glass-panel rounded-2xl p-8 max-w-md w-full text-center space-y-4">
+					<div className="w-12 h-12 mx-auto rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
+						<EyeOff className="w-6 h-6 text-muted-foreground" />
+					</div>
+					<h2 className="text-lg font-bold text-foreground">Leaderboard Hidden</h2>
+					<p className="text-sm text-muted-foreground">
+						You have opted out of the leaderboard. Your rank is not visible to others and you cannot access the leaderboard while hidden.
+					</p>
+					<Link
+						href="/settings"
+						className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-lg text-sm font-medium text-primary transition-colors"
+					>
+						<Settings className="w-4 h-4" />
+						Go to Settings
+					</Link>
 				</div>
 			</div>
 		);

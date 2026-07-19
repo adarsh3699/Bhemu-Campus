@@ -17,7 +17,7 @@ interface StudentInfo {
 
 export function useLeaderboard() {
 	const { currentUser } = useAuth();
-	const { currentProfile } = useGpaData();
+	const { currentProfile, loading: profileLoading } = useGpaData();
 
 	const [leaderboardData, setLeaderboardData] = useState<LeaderboardData | null>(null);
 	const [loading, setLoading] = useState(false);
@@ -25,10 +25,8 @@ export function useLeaderboard() {
 
 	const studentInfo = currentProfile?.studentInfo as StudentInfo | undefined;
 
-	// Only primitive values — prevents new object references from triggering the effect
 	const uid = currentUser?.uid ?? null;
 	const profileId = currentProfile ? String(currentProfile.id) : null;
-	// For shared profiles, the leaderboard entry belongs to the owner
 	const entryUserId = currentProfile?.ownerUserId ?? uid;
 	const umsVerified = !!currentProfile?.umsVerified;
 	const program = studentInfo?.program ?? null;
@@ -43,64 +41,64 @@ export function useLeaderboard() {
 		: null;
 	const isEligible = !!(umsVerified && program && cgpa);
 
-	const runningRef = useRef(false);
+	const [userOptedOut, setUserOptedOut] = useState(false);
+	const fetchIdRef = useRef(0);
 
 	useEffect(() => {
+		// Don't fetch until profile is fully resolved (avoids wrong-profile flash)
+		if (profileLoading) return;
 		if (!uid || !profileId || !isEligible || !groupKey || !cgpa || !parsedProgram || !batchYear) {
 			return;
 		}
-		if (runningRef.current) return;
 
-		let cancelled = false;
-		runningRef.current = true;
+		const fetchId = ++fetchIdRef.current;
 
 		async function fetchLeaderboard() {
 			setLoading(true);
 			setError(null);
+			setUserOptedOut(false);
 
 			try {
-				const userCgpa = parseFloat(cgpa!);
-
 				const userEntry = await LeaderboardService.getUserEntry(entryUserId!, profileId!);
-				if (cancelled) return;
+				if (fetchId !== fetchIdRef.current) return;
+
+				if (userEntry?.optOut) {
+					setUserOptedOut(true);
+					setLeaderboardData(null);
+					return;
+				}
+
+				const rankCgpa = userEntry?.cgpa ?? parseFloat(cgpa!);
 
 				const [topEntries, userRank, totalStudents] = await Promise.all([
 					LeaderboardService.getTopStudents(groupKey!, 10),
-					LeaderboardService.getUserRank(groupKey!, userCgpa),
+					LeaderboardService.getUserRank(groupKey!, rankCgpa),
 					LeaderboardService.getTotalCount(groupKey!),
 				]);
-				if (cancelled) return;
+				if (fetchId !== fetchIdRef.current) return;
 
 				let nearbyEntries: LeaderboardEntry[] = [];
 				const isInTop10 = topEntries.some((e) => e.userId === entryUserId && e.profileId === profileId);
 				if (!isInTop10 && userRank > 10) {
-					nearbyEntries = await LeaderboardService.getNearbyAbove(groupKey!, userCgpa, 2);
-					if (cancelled) return;
+					nearbyEntries = await LeaderboardService.getNearbyAbove(groupKey!, rankCgpa, 2);
+					if (fetchId !== fetchIdRef.current) return;
 				}
 
 				setLeaderboardData({ topEntries, userEntry, userRank, nearbyEntries, totalStudents });
 			} catch (err) {
-				if (!cancelled) {
+				if (fetchId === fetchIdRef.current) {
 					setError(err instanceof Error ? err.message : "Failed to load leaderboard");
 				}
 			} finally {
-				if (!cancelled) {
+				if (fetchId === fetchIdRef.current) {
 					setLoading(false);
-					runningRef.current = false;
 				}
 			}
 		}
 
 		fetchLeaderboard();
-		return () => {
-			cancelled = true;
-			runningRef.current = false;
-			setLeaderboardData(null);
-			setLoading(false);
-		};
-		// Only primitive stable values in deps — no objects
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [uid, profileId, entryUserId, isEligible, groupKey, cgpa, batchYear, vid]);
+	}, [uid, profileId, entryUserId, isEligible, groupKey, cgpa, batchYear, vid, profileLoading]);
 
-	return { leaderboardData, loading, error, isEligible, parsedProgram, groupKey, entryUserId };
+	return { leaderboardData, loading, error, isEligible, parsedProgram, groupKey, entryUserId, profileLoading, userOptedOut };
 }

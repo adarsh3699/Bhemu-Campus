@@ -1,14 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import {
-	Share2,
-	Copy,
-	Pencil,
-	Eye,
-	X,
-	Plus,
-} from "lucide-react";
+import { Share2, Copy, Pencil, Eye, X, Plus } from "lucide-react";
 import ConfirmModal from "@/components/modal/ConfirmModal";
 import InputModal from "@/components/modal/InputModal";
 
@@ -115,7 +108,11 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 		}
 	};
 
-	const handleCopyProfile = async (shareId: string, profileName: string, event: React.MouseEvent<HTMLButtonElement>) => {
+	const handleCopyProfile = async (
+		shareId: string,
+		profileName: string,
+		event: React.MouseEvent<HTMLButtonElement>
+	) => {
 		event.stopPropagation();
 		if (onCopySharedProfile) {
 			await onCopySharedProfile(shareId, profileName);
@@ -131,16 +128,20 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 		const ts = updatedAt as { toMillis?: () => number };
 		const ms = ts.toMillis ? ts.toMillis() : Number(updatedAt);
 		if (!ms || isNaN(ms)) return "Never updated";
-		return "Updated " + new Date(ms).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+		return (
+			"Updated " + new Date(ms).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })
+		);
 	};
 
-	const ownProfiles = profiles.filter((p) => {
-		return !p.isShared || (currentUser && p.ownerUserId === currentUser.uid);
-	}).sort((a, b) => {
-		if (a.isDefault && !b.isDefault) return -1;
-		if (!a.isDefault && b.isDefault) return 1;
-		return (a.name || "").localeCompare(b.name || "");
-	});
+	const ownProfiles = profiles
+		.filter((p) => {
+			return !p.isShared || (currentUser && p.ownerUserId === currentUser.uid);
+		})
+		.sort((a, b) => {
+			if (a.isDefault && !b.isDefault) return -1;
+			if (!a.isDefault && b.isDefault) return 1;
+			return (a.name || "").localeCompare(b.name || "");
+		});
 
 	const sharedWithMeProfiles = profiles.filter((p) => {
 		return !!p.isShared && (!p.ownerUserId || (currentUser && p.ownerUserId !== currentUser.uid));
@@ -192,7 +193,7 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 									return (
 										<div
 											key={profile.id}
-											className={`relative rounded-2xl p-5 border cursor-pointer transition-all duration-300 flex flex-col justify-between gap-4 ${
+											className={`relative rounded-xl px-4 py-2.5 border cursor-pointer transition-all duration-300 flex flex-col justify-between gap-4 ${
 												isActive
 													? "bg-indigo-500/10 border-indigo-500/50 shadow-indigo-950/20"
 													: "bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/10"
@@ -250,7 +251,7 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 
 								{/* Add Profile Card */}
 								<div
-									className="rounded-2xl p-5 border-2 border-dashed border-white/10 hover:border-indigo-500/50 hover:bg-indigo-500/5 cursor-pointer transition-all duration-300 flex flex-col items-center justify-center gap-2 min-h-[90px]"
+									className="rounded-xl px-4 py-3 border-2 border-dashed border-white/10 hover:border-indigo-500/50 hover:bg-indigo-500/5 cursor-pointer transition-all duration-300 flex flex-col items-center justify-center gap-2 max-h-[90px]"
 									onClick={handleCreateProfile}
 								>
 									<Plus className="w-6 h-6 text-neutral-400" />
@@ -261,7 +262,7 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 
 						{/* Shared With Me Profiles */}
 						{sharedWithMeProfiles.length > 0 && (
-							<div className="space-y-4 pt-6 border-t border-white/5">
+							<div className="space-y-4 pt-4 border-t border-white/5">
 								<h4 className="text-xs font-bold text-neutral-400 uppercase tracking-wider">
 									Shared With Me
 								</h4>
@@ -272,7 +273,7 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 										return (
 											<div
 												key={`shared-${profile.id}`}
-												className={`relative rounded-2xl p-5 border cursor-pointer transition-all duration-300 flex flex-col justify-between gap-4 border-l-4 border-l-indigo-500 ${
+												className={`relative rounded-xl px-4 py-2.5 border cursor-pointer transition-all duration-300 flex flex-col justify-between gap-4 border-l-4 border-l-indigo-500 ${
 													isActive
 														? "bg-indigo-500/10 border-indigo-500/50 shadow-indigo-950/20"
 														: "bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/10"
@@ -290,11 +291,13 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 														{formatUpdatedAt(profile.updatedAt)}
 													</p>
 													<div className="flex flex-col gap-1.5 mt-3">
-														<span className={`inline-flex px-2 py-0.5 rounded-md text-[9px] font-extrabold uppercase border tracking-wider self-start ${
-															profile.permission === "read"
-																? "bg-blue-500/10 text-blue-400 border-blue-500/20"
-																: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-														}`}>
+														<span
+															className={`inline-flex px-2 py-0.5 rounded-md text-[9px] font-extrabold uppercase border tracking-wider self-start ${
+																profile.permission === "read"
+																	? "bg-blue-500/10 text-blue-400 border-blue-500/20"
+																	: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+															}`}
+														>
 															{profile.permission === "read" ? (
 																<span className="flex items-center gap-1">
 																	<Eye className="w-3 h-3" />
@@ -307,9 +310,6 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 																</span>
 															)}
 														</span>
-														<span className="text-[10px] text-neutral-500 font-semibold">
-															Shared by {profile.ownerEmail || "another user"}
-														</span>
 													</div>
 												</div>
 
@@ -319,7 +319,11 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 														<button
 															className="w-8 h-8 rounded-lg flex items-center justify-center bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 transition-all duration-200"
 															onClick={(e) =>
-																handleCopyProfile(profile.shareId || "", profile.name, e)
+																handleCopyProfile(
+																	profile.shareId || "",
+																	profile.name,
+																	e
+																)
 															}
 															title="Copy to my account"
 															disabled={isLoading}
@@ -334,7 +338,6 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 								</div>
 							</div>
 						)}
-
 					</div>
 				</div>
 			</div>
@@ -361,7 +364,6 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 				confirmText="Delete"
 				type="danger"
 			/>
-
 		</>
 	);
 };

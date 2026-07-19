@@ -6,17 +6,7 @@ import Link from "next/link";
 import { useAuth } from "@/firebase/AuthContext";
 import { useMessage } from "@/components/common/MessageProvider";
 import { useGpaData } from "@/hooks/GpaDataContext";
-import {
-	Menu,
-	LogOut,
-	Info,
-	ChevronRight,
-	Settings,
-	Layers,
-	Check,
-	Users,
-	Plus,
-} from "lucide-react";
+import { Menu, LogOut, Info, ChevronRight, Settings, Layers, Check, Users, Plus } from "lucide-react";
 
 // Map route segments to display names
 const PAGE_LABELS: Record<string, string> = {
@@ -54,8 +44,16 @@ export default function TopBar({ onMenuOpen, onOpenProfileDrawer }: TopBarProps)
 		const rest = profiles
 			.filter((p) => !p.isDefault)
 			.sort((a, b) => {
-				const aTime = a.lastOpened ? (typeof (a.lastOpened as { toMillis?: () => number }).toMillis === "function" ? (a.lastOpened as { toMillis: () => number }).toMillis() : Number(a.lastOpened)) : 0;
-				const bTime = b.lastOpened ? (typeof (b.lastOpened as { toMillis?: () => number }).toMillis === "function" ? (b.lastOpened as { toMillis: () => number }).toMillis() : Number(b.lastOpened)) : 0;
+				const aTime = a.lastOpened
+					? typeof (a.lastOpened as { toMillis?: () => number }).toMillis === "function"
+						? (a.lastOpened as { toMillis: () => number }).toMillis()
+						: Number(a.lastOpened)
+					: 0;
+				const bTime = b.lastOpened
+					? typeof (b.lastOpened as { toMillis?: () => number }).toMillis === "function"
+						? (b.lastOpened as { toMillis: () => number }).toMillis()
+						: Number(b.lastOpened)
+					: 0;
 				return bTime - aTime;
 			})
 			.slice(0, defaultProfile ? 3 : 4);
@@ -154,8 +152,6 @@ export default function TopBar({ onMenuOpen, onOpenProfileDrawer }: TopBarProps)
 
 			{/* Right: actions */}
 			<div className="flex items-center gap-2">
-
-
 				{/* Profile */}
 				{currentUser ? (
 					<div className="relative" ref={profileRef}>
@@ -174,9 +170,7 @@ export default function TopBar({ onMenuOpen, onOpenProfileDrawer }: TopBarProps)
 									<p className="text-white text-base font-semibold truncate">
 										{currentUser.displayName || "User"}
 									</p>
-									<p className="text-muted-foreground text-sm truncate mt-0.5">
-										{currentUser.email}
-									</p>
+									<p className="text-muted-foreground text-sm truncate mt-0.5">{currentUser.email}</p>
 								</div>
 
 								{/* Quick Profile Switcher */}
@@ -192,18 +186,24 @@ export default function TopBar({ onMenuOpen, onOpenProfileDrawer }: TopBarProps)
 												<button
 													key={profile.id}
 													onClick={() => handleQuickSwitch(profile.id)}
-													className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm transition-all ${
+													className={`flex items-center gap-3 w-full px-3 py-2 rounded-xl text-sm transition-all ${
 														isActive
 															? "bg-primary/10 text-white"
 															: "text-neutral-300 hover:bg-white/5 hover:text-white"
 													}`}
 												>
-													<span className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
-														isActive
-															? "bg-primary/20 text-primary"
-															: "bg-white/5 text-neutral-500"
-													}`}>
-														{isActive ? <Check className="w-4 h-4" /> : <Layers className="w-4 h-4" />}
+													<span
+														className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
+															isActive
+																? "bg-primary/20 text-primary"
+																: "bg-white/5 text-neutral-500"
+														}`}
+													>
+														{isActive ? (
+															<Check className="w-4 h-4" />
+														) : (
+															<Layers className="w-4 h-4" />
+														)}
 													</span>
 													<span className="truncate text-sm font-medium">{profile.name}</span>
 													{profile.isDefault && (
@@ -227,25 +227,35 @@ export default function TopBar({ onMenuOpen, onOpenProfileDrawer }: TopBarProps)
 														<button
 															key={`shared-${profile.id}`}
 															onClick={() => handleQuickSwitch(profile.id)}
-															className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm transition-all ${
+															className={`flex items-center gap-3 w-full px-3 py-2 rounded-xl text-sm transition-all ${
 																isActive
 																	? "bg-primary/10 text-white"
 																	: "text-neutral-300 hover:bg-white/5 hover:text-white"
 															}`}
 														>
-															<span className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
-																isActive
-																	? "bg-primary/20 text-primary"
-																	: "bg-white/5 text-neutral-500"
-															}`}>
-																{isActive ? <Check className="w-4 h-4" /> : <Users className="w-4 h-4" />}
+															<span
+																className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
+																	isActive
+																		? "bg-primary/20 text-primary"
+																		: "bg-white/5 text-neutral-500"
+																}`}
+															>
+																{isActive ? (
+																	<Check className="w-4 h-4" />
+																) : (
+																	<Users className="w-4 h-4" />
+																)}
 															</span>
-															<span className="truncate text-sm font-medium">{profile.name}</span>
-															<span className={`ml-auto px-2 py-0.5 rounded-md text-[10px] font-bold uppercase flex-shrink-0 ${
-																profile.permission === "read"
-																	? "bg-blue-500/10 text-blue-400 border border-blue-500/20"
-																	: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-															}`}>
+															<span className="truncate text-sm font-medium">
+																{profile.name}
+															</span>
+															<span
+																className={`ml-auto px-2 py-0.5 rounded-md text-[10px] font-bold uppercase flex-shrink-0 ${
+																	profile.permission === "read"
+																		? "bg-blue-500/10 text-blue-400 border border-blue-500/20"
+																		: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+																}`}
+															>
 																{profile.permission === "read" ? "Read" : "Edit"}
 															</span>
 														</button>
@@ -258,7 +268,10 @@ export default function TopBar({ onMenuOpen, onOpenProfileDrawer }: TopBarProps)
 										<div className="mt-2">
 											{showAddWorkspace ? (
 												<form
-													onSubmit={(e) => { e.preventDefault(); handleAddWorkspace(); }}
+													onSubmit={(e) => {
+														e.preventDefault();
+														handleAddWorkspace();
+													}}
 													className="flex gap-2"
 												>
 													<input
@@ -268,10 +281,20 @@ export default function TopBar({ onMenuOpen, onOpenProfileDrawer }: TopBarProps)
 														placeholder="Workspace name"
 														className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:border-teal-500 transition-all"
 													/>
-													<button type="submit" className="px-3 py-2 rounded-lg bg-teal-500/20 border border-teal-500/30 text-teal-400 text-sm font-bold hover:bg-teal-500/30 transition-all">
+													<button
+														type="submit"
+														className="px-3 py-2 rounded-lg bg-teal-500/20 border border-teal-500/30 text-teal-400 text-sm font-bold hover:bg-teal-500/30 transition-all"
+													>
 														Add
 													</button>
-													<button type="button" onClick={() => { setShowAddWorkspace(false); setNewWorkspaceName(""); }} className="px-2.5 py-2 rounded-lg text-neutral-400 hover:bg-white/5 text-sm transition-all">
+													<button
+														type="button"
+														onClick={() => {
+															setShowAddWorkspace(false);
+															setNewWorkspaceName("");
+														}}
+														className="px-2.5 py-2 rounded-lg text-neutral-400 hover:bg-white/5 text-sm transition-all"
+													>
 														✕
 													</button>
 												</form>
@@ -302,14 +325,20 @@ export default function TopBar({ onMenuOpen, onOpenProfileDrawer }: TopBarProps)
 								{/* Menu items */}
 								<div className="p-2">
 									<button
-										onClick={() => { setIsProfileOpen(false); router.push("/settings"); }}
+										onClick={() => {
+											setIsProfileOpen(false);
+											router.push("/settings");
+										}}
 										className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm text-neutral-300 hover:bg-white/5 hover:text-white transition-all"
 									>
 										<Settings className="w-4 h-4 text-neutral-400 shrink-0" />
 										Settings
 									</button>
 									<button
-										onClick={() => { setIsProfileOpen(false); router.push("/about"); }}
+										onClick={() => {
+											setIsProfileOpen(false);
+											router.push("/about");
+										}}
 										className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm text-neutral-300 hover:bg-white/5 hover:text-white transition-all"
 									>
 										<Info className="w-4 h-4 text-neutral-400 shrink-0" />

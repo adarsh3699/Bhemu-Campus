@@ -327,6 +327,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 				nestedSnap.docs.forEach((d) => batchManager.add((batch) => batch.delete(d.ref)));
 			}
 			batchManager.add((batch) => batch.delete(profileDoc.ref));
+			// Delete leaderboard entry for this profile
+			batchManager.add((batch) => batch.delete(doc(db, "leaderboard", `${userId}_${profileDoc.id}`)));
 		}
 
 		// Delete users/{userId}/sharedProfiles

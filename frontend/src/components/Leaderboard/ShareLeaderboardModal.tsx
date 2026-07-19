@@ -131,9 +131,9 @@ export default function ShareLeaderboardModal({
 	return (
 		<BaseModal isOpen={isOpen} onClose={onClose} title="Share Your Rank" maxWidth="480px">
 			<div className="p-5 space-y-5">
-				{/* Preview — Tailwind is fine here, only used for display not capture */}
+				{/* Preview */}
 				<div className="flex justify-center overflow-hidden rounded-xl">
-					<div className="transform scale-[0.75] origin-top" style={{ height: "368px" }}>
+					<div className="transform scale-[0.72] origin-top" style={{ height: "395px" }}>
 						<LeaderboardShareCard leaderboardData={leaderboardData} parsedProgram={parsedProgram} />
 					</div>
 				</div>
