@@ -110,9 +110,7 @@ export default function LeaderboardView() {
 								<h1 className="text-xl md:text-2xl font-bold text-foreground tracking-tight">
 									Leaderboard
 								</h1>
-								<p className="text-xs text-muted-foreground mt-0.5 truncate">
-									{groupLabel}
-								</p>
+								<p className="text-xs text-muted-foreground mt-0.5 truncate">{groupLabel}</p>
 							</div>
 						</div>
 
@@ -134,12 +132,13 @@ export default function LeaderboardView() {
 								<span className="text-xs text-muted-foreground">Your Rank</span>
 								<span className="text-sm font-bold text-primary">#{userRank}</span>
 							</div>
-							<div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg">
+							{/* commenting out of students display for now, as per the original code */}
+							{/* <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg">
 								<Users className="w-3.5 h-3.5 text-muted-foreground" />
 								<span className="text-xs text-muted-foreground">
 									of <span className="text-foreground/70 font-medium">{totalStudents}</span> students
 								</span>
-							</div>
+							</div> */}
 							{rankPercentile !== null && rankPercentile > 0 && (
 								<div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/8 border border-emerald-500/20 rounded-lg">
 									<TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
