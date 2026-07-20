@@ -47,32 +47,27 @@ Bhemu Calculator is an all-in-one academic toolkit designed specifically for LPU
 
 ## 🏗️ Monorepo Structure
 
+pnpm workspaces + Turborepo. All apps live under `apps/`, all shared packages under `packages/`.
+
 ```
 Bhemu-Calculator/
-├── frontend/              # Next.js web application
-│   ├── src/
-│   │   ├── app/          # Next.js App Router pages
-│   │   ├── components/   # React components (feature-based)
-│   │   ├── contexts/     # React Context providers
-│   │   ├── firebase/     # Firebase services (Auth, Firestore)
-│   │   ├── lib/          # Utility functions & helpers
-│   │   └── types/        # TypeScript type definitions
-│   └── package.json
+├── package.json           # Root workspace (turbo scripts, engines)
+├── pnpm-workspace.yaml    # Workspace definitions
+├── turbo.json             # Turborepo task pipeline
 │
-├── ums-extension/         # Chrome extension for UMS sync
-│   ├── src/
-│   │   ├── background/   # Service worker
-│   │   ├── contents/     # Content scripts
-│   │   ├── popup/        # Extension popup UI
-│   │   └── components/   # Shared React components
-│   └── package.json
+├── packages/
+│   └── shared/            # @bhemu/shared — pure TypeScript, zero deps
+│       └── src/
+│           ├── constants/ # Grade tables (GRADE_TABLE, GRADE_TO_POINT, …)
+│           ├── types/     # Shared interfaces (GPASubject, SubjectMarks, …)
+│           ├── utils/     # Pure functions (calculateGPA, gradeToPoint, …)
+│           └── parsers/   # String → struct parsers (parseProgram, …)
 │
-├── docs/                  # Documentation
-│   ├── firestore-schema.md
-│   ├── design-decisions.md
-│   └── seo-guide.md
-
-
+├── apps/
+│   ├── frontend/          # Next.js 16 web app (React 19, Firebase 12)
+│   └── ums-extension/     # Plasmo Chrome MV3 extension (React 19, Firebase 12)
+│
+└── docs/                  # Documentation (firestore-schema, design decisions)
 ```
 
 ---
@@ -81,8 +76,8 @@ Bhemu-Calculator/
 
 ### Prerequisites
 
-- **Node.js** 18+ (LTS recommended)
-- **pnpm** (package manager)
+- **Node.js** 20+
+- **pnpm** 10+ (`npm install -g pnpm`)
 - **Firebase Project** (for Auth & Firestore)
 
 ### Installation
@@ -92,16 +87,15 @@ Bhemu-Calculator/
 git clone https://github.com/adarsh3699/Bhemu-Calculator.git
 cd Bhemu-Calculator
 
-# Install frontend dependencies
-cd frontend
+# Install all workspace dependencies from root
 pnpm install
 
 # Setup environment variables
-cp .env.example .env
+cp apps/frontend/.env.example apps/frontend/.env
 # Edit .env with your Firebase config
 
-# Start development server
-pnpm dev
+# Start frontend dev server
+pnpm dev:web
 ```
 
 Open [http://localhost:3000](http://localhost:3000) to see the app.
@@ -109,14 +103,17 @@ Open [http://localhost:3000](http://localhost:3000) to see the app.
 ### Chrome Extension Setup
 
 ```bash
-cd ums-extension
-pnpm install
+# Start extension dev server (from repo root)
+pnpm dev:ext
+
+# Or from inside the workspace
+cd apps/ums-extension
 pnpm dev              # Development build with watch mode
 pnpm build            # Production build
 pnpm package          # Build + zip for Chrome Web Store
 ```
 
-Load unpacked extension in Chrome from `ums-extension/build/chrome-mv3-dev`.
+Load unpacked extension in Chrome from `apps/ums-extension/build/chrome-mv3-dev`.
 
 ---
 
@@ -142,7 +139,7 @@ Load unpacked extension in Chrome from `ums-extension/build/chrome-mv3-dev`.
 | **Framework** | Plasmo 0.90.5 (Chrome MV3)  |
 | **Language**  | TypeScript                  |
 | **UI**        | React                       |
-| **Backend**   | Firebase 10                 |
+| **Backend**   | Firebase 12 (JS SDK)        |
 | **Parser**    | linkedom (DOM manipulation) |
 
 ---
@@ -163,13 +160,27 @@ Load unpacked extension in Chrome from `ums-extension/build/chrome-mv3-dev`.
 - **Auth Bridge** — Content script bridges Firebase token from web app to extension
 - **Direct Firestore Writes** — Extension writes parsed UMS data using same user auth
 
-See [CLAUDE.md](./CLAUDE.md) and [frontend/AGENTS.md](./frontend/AGENTS.md) for detailed architecture docs.
+See [CLAUDE.md](./CLAUDE.md) for detailed architecture docs.
 
 ---
 
 ## 📜 Available Scripts
 
-### Frontend (`cd frontend`)
+### Root (Turborepo — run from repo root)
+
+| Command              | Description                                      |
+| -------------------- | ------------------------------------------------ |
+| `pnpm dev:web`       | Start frontend dev server                        |
+| `pnpm dev:ext`       | Start extension dev server                       |
+| `pnpm build`         | Build all workspaces (correct order via turbo)   |
+| `pnpm build:shared`  | Build `@bhemu/shared` only                       |
+| `pnpm build:web`     | Build frontend (shared builds first)             |
+| `pnpm build:ext`     | Build extension (shared builds first)            |
+| `pnpm typecheck`     | Type-check all workspaces                        |
+| `pnpm lint`          | Lint all workspaces                              |
+| `pnpm test`          | Run `@bhemu/shared` unit tests                   |
+
+### Frontend (`cd apps/frontend`)
 
 | Command      | Description                                |
 | ------------ | ------------------------------------------ |
@@ -179,7 +190,7 @@ See [CLAUDE.md](./CLAUDE.md) and [frontend/AGENTS.md](./frontend/AGENTS.md) for 
 | `pnpm lint`  | Run ESLint                                 |
 | `pnpm clean` | Remove `.next` + `node_modules`, reinstall |
 
-### UMS Extension (`cd ums-extension`)
+### UMS Extension (`cd apps/ums-extension`)
 
 | Command         | Description                      |
 | --------------- | -------------------------------- |

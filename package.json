@@ -1,0 +1,23 @@
+{
+	"name": "bhemu-calculator",
+	"private": true,
+	"packageManager": "pnpm@11.13.0",
+	"engines": {
+		"node": ">=20",
+		"pnpm": ">=10"
+	},
+	"scripts": {
+		"dev:web": "turbo dev --filter=./apps/frontend",
+		"dev:ext": "turbo dev --filter=./apps/ums-extension",
+		"build": "turbo build",
+		"build:shared": "turbo build --filter=@bhemu/shared",
+		"build:web": "turbo build --filter=./apps/frontend",
+		"build:ext": "turbo build --filter=./apps/ums-extension",
+		"lint": "turbo lint",
+		"typecheck": "turbo typecheck",
+		"test": "turbo test --filter=@bhemu/shared"
+	},
+	"devDependencies": {
+		"turbo": "^2.5.4"
+	}
+}
