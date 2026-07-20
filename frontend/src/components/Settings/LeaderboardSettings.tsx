@@ -1,31 +1,31 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Trophy, Eye, EyeOff, Clock } from "lucide-react";
+import { Trophy, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/firebase/AuthContext";
 import { useGpaData } from "@/contexts/GpaDataContext";
 import { LeaderboardService } from "@/firebase/leaderboardService";
 import { useMessage } from "@/contexts/MessageContext";
 
-const COOLDOWN_DAYS = 7;
+// const COOLDOWN_DAYS = 7;
 
-function getCooldownRemaining(updatedAt: unknown): number | null {
-	if (!updatedAt || typeof updatedAt !== "object") return null;
-	const ts = updatedAt as { toMillis?: () => number; seconds?: number };
-	const millis = ts.toMillis?.() ?? ((ts.seconds ?? 0) * 1000);
-	if (!millis) return null;
-	const elapsed = Date.now() - millis;
-	const cooldownMs = COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
-	if (elapsed >= cooldownMs) return null;
-	return Math.ceil((cooldownMs - elapsed) / (24 * 60 * 60 * 1000));
-}
+// function getCooldownRemaining(updatedAt: unknown): number | null {
+// 	if (!updatedAt || typeof updatedAt !== "object") return null;
+// 	const ts = updatedAt as { toMillis?: () => number; seconds?: number };
+// 	const millis = ts.toMillis?.() ?? ((ts.seconds ?? 0) * 1000);
+// 	if (!millis) return null;
+// 	const elapsed = Date.now() - millis;
+// 	const cooldownMs = COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
+// 	if (elapsed >= cooldownMs) return null;
+// 	return Math.ceil((cooldownMs - elapsed) / (24 * 60 * 60 * 1000));
+// }
 
 export default function LeaderboardSettings() {
 	const { currentUser } = useAuth();
 	const { currentProfile } = useGpaData();
 	const { showMessage } = useMessage();
 	const [optOut, setOptOut] = useState(false);
-	const [cooldownDays, setCooldownDays] = useState<number | null>(null);
+	// const [cooldownDays, setCooldownDays] = useState<number | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
 
@@ -40,7 +40,7 @@ export default function LeaderboardSettings() {
 			.then((entry) => {
 				if (!cancelled && entry) {
 					setOptOut(!!entry.optOut);
-					setCooldownDays(getCooldownRemaining(entry.updatedAt));
+					// setCooldownDays(getCooldownRemaining(entry.updatedAt));
 				}
 			})
 			.finally(() => {
@@ -51,20 +51,20 @@ export default function LeaderboardSettings() {
 
 	if (!isEligible) return null;
 
-	const isCooldownActive = cooldownDays !== null && !optOut;
+	const isCooldownActive = false; // cooldownDays !== null && !optOut;
 
 	const handleToggle = async () => {
 		if (!currentUser || !currentProfile) return;
-		if (isCooldownActive) {
-			showMessage(`You can opt out again in ${cooldownDays} day${cooldownDays === 1 ? "" : "s"}`, "warning");
-			return;
-		}
+		// if (isCooldownActive) {
+		// 	showMessage(`You can opt out again in ${cooldownDays} day${cooldownDays === 1 ? "" : "s"}`, "warning");
+		// 	return;
+		// }
 		setSaving(true);
 		try {
 			const newValue = !optOut;
 			await LeaderboardService.setOptOut(currentUser.uid, String(currentProfile.id), newValue);
 			setOptOut(newValue);
-			setCooldownDays(COOLDOWN_DAYS);
+			// setCooldownDays(COOLDOWN_DAYS);
 			showMessage(newValue ? "You are now hidden from the leaderboard" : "You are now visible on the leaderboard", "success");
 		} catch {
 			showMessage("Failed to update leaderboard visibility", "error");
@@ -123,14 +123,14 @@ export default function LeaderboardSettings() {
 			</div>
 
 			{/* Cooldown notice */}
-			{isCooldownActive && (
+			{/* {isCooldownActive && (
 				<div className="flex items-center gap-2">
 					<Clock className="w-3.5 h-3.5 text-yellow-400 shrink-0" />
 					<p className="text-xs text-muted-foreground">
 						You can opt out again in {cooldownDays} day{cooldownDays === 1 ? "" : "s"}
 					</p>
 				</div>
-			)}
+			)} */}
 		</div>
 	);
 }

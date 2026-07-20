@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Trophy, Users, Share2, EyeOff, Settings, TrendingUp } from "lucide-react";
+import { Trophy, Share2, EyeOff, Settings, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/firebase/AuthContext";
 import LoginRecommendation from "@/components/common/LoginRecommendation";
