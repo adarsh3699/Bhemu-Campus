@@ -38,3 +38,16 @@ export interface GPAProfile {
 	permission?: "read" | "edit";
 	lastOpened?: unknown;
 }
+
+export interface ShareData {
+	shareId: string;
+	profileId: string | number;
+	profileName: string;
+	ownerUserId: string;
+	targetUserId: string;
+	targetUserEmail: string;
+	permission: "read" | "edit";
+	sharedAt: unknown;
+	isActive: boolean;
+	updatedAt?: unknown;
+}

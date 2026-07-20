@@ -2,7 +2,8 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef, startTransition } from "react";
 import { useAuth } from "@/firebase/AuthContext";
-import { createGPAService, GPAProfile, GPASemester } from "@/firebase/gpaService";
+import { gpaService as createGPAService } from "@/firebase/services";
+import type { GPAProfile, GPASemester } from "@bhemu/shared";
 import { useMessage } from "@/contexts/MessageContext";
 
 // ===== Types =====

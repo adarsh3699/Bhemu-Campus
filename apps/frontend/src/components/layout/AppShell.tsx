@@ -4,7 +4,7 @@ import React, { useState, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/firebase/AuthContext";
 import { useGpaData } from "@/contexts/GpaDataContext";
-import { type GPAProfile } from "@/types/gpa";
+import type { GPAProfile } from "@bhemu/shared";
 import SideBar from "./SideBar";
 import TopBar from "./TopBar";
 import ProfileDrawer from "@/components/common/ProfileDrawer";

@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/firebase/AuthContext";
 import { useGpaData } from "@/contexts/GpaDataContext";
-import { LeaderboardService } from "@/firebase/leaderboardService";
+import { LeaderboardService } from "@/firebase/services";
+import { db } from "@/firebase/config";
 import { parseProgram, buildGroupKey, deriveBatchYear } from "@bhemu/shared";
 import type { LeaderboardData, LeaderboardEntry, ParsedProgram } from "@/types";
 
@@ -61,7 +62,7 @@ export function useLeaderboard() {
 			setNeedsResync(false);
 
 			try {
-				const userEntry = await LeaderboardService.getUserEntry(entryUserId!, profileId!);
+				const userEntry = await LeaderboardService.getUserEntry(db, entryUserId!, profileId!);
 				if (fetchId !== fetchIdRef.current) return;
 
 				if (!userEntry) {
@@ -79,16 +80,16 @@ export function useLeaderboard() {
 				const rankCgpa = userEntry?.cgpa ?? parseFloat(cgpa!);
 
 				const [topEntries, userRank, totalStudents] = await Promise.all([
-					LeaderboardService.getTopStudents(groupKey!, 10),
-					LeaderboardService.getUserRank(groupKey!, rankCgpa),
-					LeaderboardService.getTotalCount(groupKey!),
+					LeaderboardService.getTopStudents(db, groupKey!, 10),
+					LeaderboardService.getUserRank(db, groupKey!, rankCgpa),
+					LeaderboardService.getTotalCount(db, groupKey!),
 				]);
 				if (fetchId !== fetchIdRef.current) return;
 
 				let nearbyEntries: LeaderboardEntry[] = [];
 				const isInTop10 = topEntries.some((e) => e.userId === entryUserId && e.profileId === profileId);
 				if (!isInTop10 && userRank > 10) {
-					nearbyEntries = await LeaderboardService.getNearbyAbove(groupKey!, rankCgpa, 2);
+					nearbyEntries = await LeaderboardService.getNearbyAbove(db, groupKey!, rankCgpa, 2);
 					if (fetchId !== fetchIdRef.current) return;
 				}
 

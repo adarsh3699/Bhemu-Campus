@@ -20,7 +20,8 @@
     ],
     "paths": {
       "@/*": ["./src/*"],
-      "@bhemu/shared": ["../../packages/shared/src"]
+      "@bhemu/shared": ["../../packages/shared/src"],
+      "@bhemu/firebase": ["../../packages/firebase/src"]
     }
   },
   "include": [

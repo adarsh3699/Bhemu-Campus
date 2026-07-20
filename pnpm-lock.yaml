@@ -14,6 +14,9 @@ importers:
 
   apps/frontend:
     dependencies:
+      '@bhemu/firebase':
+        specifier: workspace:*
+        version: link:../../packages/firebase
       '@bhemu/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -130,6 +133,22 @@ importers:
       typescript-eslint:
         specifier: ^8.34.0
         version: 8.64.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
+
+  packages/firebase:
+    dependencies:
+      '@bhemu/shared':
+        specifier: workspace:*
+        version: link:../shared
+      firebase:
+        specifier: ^12.13.0
+        version: 12.16.0
+    devDependencies:
+      tsup:
+        specifier: ^8.5.0
+        version: 8.5.1(@swc/core@1.15.43(@swc/helpers@0.5.23))(jiti@2.7.0)(postcss@8.5.19)(typescript@5.9.3)(yaml@2.9.0)
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
 
   packages/shared:
     devDependencies:

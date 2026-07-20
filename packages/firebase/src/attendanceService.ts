@@ -5,20 +5,22 @@ import {
 	deleteField,
 	serverTimestamp,
 	onSnapshot,
-	Unsubscribe,
+	type Firestore,
+	type Unsubscribe,
 } from "firebase/firestore";
-import { db } from "./config";
-import type { AttendanceData, AttendanceSubject } from "@/types/attendance";
+import type { AttendanceData, AttendanceSubject } from "@bhemu/shared";
 
 export class AttendanceService {
+	private db: Firestore;
 	private userId: string;
 
-	constructor(userId: string) {
+	constructor(db: Firestore, userId: string) {
+		this.db = db;
 		this.userId = userId;
 	}
 
 	private mainDocRef(profileId: string | number) {
-		return doc(db, "users", this.userId, "profiles", profileId.toString(), "attendanceData", "main");
+		return doc(this.db, "users", this.userId, "profiles", profileId.toString(), "attendanceData", "main");
 	}
 
 	async getAttendanceData(profileId: string | number): Promise<AttendanceData | null> {
@@ -36,10 +38,7 @@ export class AttendanceService {
 		try {
 			await setDoc(
 				this.mainDocRef(profileId),
-				{
-					subjects: { [subject.id]: subject },
-					updatedAt: serverTimestamp(),
-				},
+				{ subjects: { [subject.id]: subject }, updatedAt: serverTimestamp() },
 				{ merge: true }
 			);
 		} catch (error) {
@@ -52,10 +51,7 @@ export class AttendanceService {
 		try {
 			await setDoc(
 				this.mainDocRef(profileId),
-				{
-					subjects: { [subjectId]: deleteField() },
-					updatedAt: serverTimestamp(),
-				},
+				{ subjects: { [subjectId]: deleteField() }, updatedAt: serverTimestamp() },
 				{ merge: true }
 			);
 		} catch (error) {
@@ -80,13 +76,7 @@ export class AttendanceService {
 	onAttendanceChange(profileId: string | number, callback: (data: AttendanceData | null) => void): Unsubscribe {
 		return onSnapshot(
 			this.mainDocRef(profileId),
-			(snap) => {
-				if (!snap.exists()) {
-					callback(null);
-				} else {
-					callback(snap.data() as AttendanceData);
-				}
-			},
+			(snap) => callback(snap.exists() ? (snap.data() as AttendanceData) : null),
 			(error) => {
 				console.error("Attendance listener error:", error);
 				callback(null);
@@ -95,6 +85,6 @@ export class AttendanceService {
 	}
 }
 
-export function createAttendanceService(userId: string): AttendanceService {
-	return new AttendanceService(userId);
+export function createAttendanceService(db: Firestore, userId: string): AttendanceService {
+	return new AttendanceService(db, userId);
 }

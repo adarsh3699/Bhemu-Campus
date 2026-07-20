@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { Trophy, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/firebase/AuthContext";
 import { useGpaData } from "@/contexts/GpaDataContext";
-import { LeaderboardService } from "@/firebase/leaderboardService";
+import { LeaderboardService } from "@/firebase/services";
+import { db } from "@/firebase/config";
 import { useMessage } from "@/contexts/MessageContext";
 
 // const COOLDOWN_DAYS = 7;
@@ -36,7 +37,7 @@ export default function LeaderboardSettings() {
 			return;
 		}
 		let cancelled = false;
-		LeaderboardService.getUserEntry(currentUser.uid, String(currentProfile.id))
+		LeaderboardService.getUserEntry(db, currentUser.uid, String(currentProfile.id))
 			.then((entry) => {
 				if (!cancelled && entry) {
 					setOptOut(!!entry.optOut);
@@ -64,7 +65,7 @@ export default function LeaderboardSettings() {
 		setSaving(true);
 		try {
 			const newValue = !optOut;
-			await LeaderboardService.setOptOut(currentUser.uid, String(currentProfile.id), newValue);
+			await LeaderboardService.setOptOut(db, currentUser.uid, String(currentProfile.id), newValue);
 			setOptOut(newValue);
 			// setCooldownDays(COOLDOWN_DAYS);
 			showMessage(

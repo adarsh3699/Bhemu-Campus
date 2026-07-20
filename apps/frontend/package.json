@@ -12,6 +12,7 @@
 	},
 	"dependencies": {
 		"@bhemu/shared": "workspace:*",
+		"@bhemu/firebase": "workspace:*",
 		"firebase": "^12.13.0",
 		"html2canvas": "^1.4.1",
 		"jspdf": "^4.2.1",
