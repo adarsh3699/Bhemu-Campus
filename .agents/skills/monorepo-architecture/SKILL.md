@@ -12,17 +12,18 @@ The `ums-extension` workspace is a Chrome MV3 extension that scrapes academic da
 
 1. [Core Philosophy](#1-core-philosophy)
 2. [Workspace Layout](#2-workspace-layout)
-3. [The Shared Package (`@bhemu/shared`)](#3-the-shared-package-bhemushaed)
-4. [What Goes Where — Decision Tree](#4-what-goes-where--decision-tree)
-5. [Dependency Rules](#5-dependency-rules)
-6. [Package Naming & Configuration](#6-package-naming--configuration)
-7. [Import Rules](#7-import-rules)
-8. [Version Management](#8-version-management)
-9. [Adding a New Feature — Checklist](#9-adding-a-new-feature--checklist)
-10. [Adding a New Workspace](#10-adding-a-new-workspace)
-11. [Deploying the Frontend to Vercel](#11-deploying-the-frontend-to-vercel)
-12. [Anti-Patterns to Avoid](#12-anti-patterns-to-avoid)
-13. [Quick Reference Card](#13-quick-reference-card)
+3. [Turborepo Configuration](#3-turborepo-configuration)
+4. [The Shared Package (`@bhemu/shared`)](#4-the-shared-package-bhemushaed)
+5. [What Goes Where — Decision Tree](#5-what-goes-where--decision-tree)
+6. [Dependency Rules](#6-dependency-rules)
+7. [Package Naming & Configuration](#7-package-naming--configuration)
+8. [Import Rules](#8-import-rules)
+9. [Version Management](#9-version-management)
+10. [Adding a New Feature — Checklist](#10-adding-a-new-feature--checklist)
+11. [Adding a New Workspace](#11-adding-a-new-workspace)
+12. [Deploying the Frontend to Vercel](#12-deploying-the-frontend-to-vercel)
+13. [Anti-Patterns to Avoid](#13-anti-patterns-to-avoid)
+14. [Quick Reference Card](#14-quick-reference-card)
 
 ---
 
@@ -46,12 +47,15 @@ Three questions before writing any code:
 
 ## 2. Workspace Layout
 
+Turborepo's standard convention: **apps go in `apps/`**, **shared packages go in `packages/`**.
+
 ```
 Bhemu-Calculator/                  ← Monorepo root (no source code here)
-├── package.json                   ← Root scripts only (dev, build, lint, test)
+├── package.json                   ← Root scripts (uses turbo), engines, shared devDeps
 ├── pnpm-workspace.yaml            ← Workspace definitions
+├── turbo.json                     ← Turborepo task pipeline
 ├── .prettierrc                    ← Shared formatter config
-├── .gitignore                     ← Root gitignore
+├── .gitignore                     ← Root gitignore (includes .turbo/, dist/)
 │
 ├── packages/
 │   └── shared/                    ← @bhemu/shared (pure TypeScript, zero deps)
@@ -61,32 +65,43 @@ Bhemu-Calculator/                  ← Monorepo root (no source code here)
 │       ├── src/
 │       │   ├── index.ts           ← Master barrel export
 │       │   ├── types/             ← All shared TypeScript interfaces
-│       │   ├── lib/               ← All shared pure utility functions
-│       │   └── constants/         ← Shared constants (if not already in lib)
+│       │   └── lib/               ← All shared pure utility functions
 │       ├── dist/                  ← Build output (gitignored)
 │       └── __tests__/             ← Unit tests (Vitest)
 │
-├── frontend/                      ← Next.js 16 web app
-│   ├── package.json               ← Depends on @bhemu/shared@workspace:*
-│   └── src/
-│
-├── ums-extension/                 ← Plasmo Chrome MV3 extension
-│   ├── package.json               ← Depends on @bhemu/shared@workspace:*
-│   └── src/
-│
-├── mobile/                        ← React Native (Expo) app (future)
-│   ├── package.json               ← Depends on @bhemu/shared@workspace:*
-│   ├── metro.config.js            ← Configure watchFolders for shared package
-│   └── src/
+├── apps/
+│   ├── frontend/                  ← Next.js 16 web app
+│   │   ├── package.json           ← Depends on @bhemu/shared@workspace:*
+│   │   └── src/
+│   │
+│   ├── ums-extension/             ← Plasmo Chrome MV3 extension
+│   │   ├── package.json           ← Depends on @bhemu/shared@workspace:*
+│   │   └── src/
+│   │
+│   └── mobile/                    ← React Native (Expo) app (future)
+│       ├── package.json           ← Depends on @bhemu/shared@workspace:*
+│       ├── metro.config.js        ← Configure watchFolders for shared package
+│       └── src/
 │
 └── docs/                          ← Documentation only, no source code
 ```
 
+### `pnpm-workspace.yaml`
+
+```yaml
+packages:
+  - 'apps/*'
+  - 'packages/*'
+```
+
+Adding a new workspace means adding it under `apps/` — no change to this file needed as long as the new directory is inside `apps/`.
+
 ### What lives at the root
 
 **Allowed at root:**
-- `package.json` — workspace scripts, engines, devDependencies shared across all workspaces (e.g. `concurrently`)
+- `package.json` — workspace scripts (delegates to `turbo`), `engines`, `packageManager`, devDependencies shared across all workspaces (e.g. `turbo`, `concurrently`)
 - `pnpm-workspace.yaml`
+- `turbo.json`
 - `.prettierrc`, `.eslintrc` (shared config files)
 - `.gitignore`
 - `README.md`, `CLAUDE.md`
@@ -98,7 +113,121 @@ Bhemu-Calculator/                  ← Monorepo root (no source code here)
 
 ---
 
-## 3. The Shared Package (`@bhemu/shared`)
+## 3. Turborepo Configuration
+
+This monorepo uses Turborepo as the task runner. It provides three things you cannot replicate cleanly with raw pnpm scripts:
+
+- **Build ordering**: `turbo build` reads the `workspace:*` dependency graph and guarantees `@bhemu/shared` builds before any app workspace — zero manual chaining
+- **Caching**: tasks are hashed by inputs (source files + env vars + config); a cache hit skips the task entirely and restores outputs from `.turbo/`
+- **Parallelism**: after shared is built, `apps/frontend` and `apps/ums-extension` build concurrently without extra config
+
+Turborepo is a **devDependency** at the root:
+
+```bash
+pnpm add turbo --save-dev -w
+```
+
+Add to root `.gitignore`:
+```
+.turbo/
+```
+
+### `turbo.json`
+
+```json
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**", "dist/**", ".plasmo/**", "build/**"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {
+      "dependsOn": ["^lint"]
+    },
+    "typecheck": {
+      "dependsOn": ["^typecheck"],
+      "outputs": []
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"]
+    }
+  }
+}
+```
+
+**Key concepts:**
+
+| Field | Meaning |
+|-------|---------|
+| `"dependsOn": ["^build"]` | Build all workspace dependencies first. `^` means "run in dependency packages before this one." |
+| `"dependsOn": []` (no `^`) | Run this task only after other tasks in the same package complete. |
+| `"cache": false` | Never cache this task (dev servers produce no stable output). |
+| `"persistent": true` | This task runs indefinitely (watch mode, dev server). Turbo won't wait for it to finish before running others. |
+| `"outputs"` | Paths to cache. Only files listed here are restored from cache on a hit. |
+
+### Root `package.json` scripts
+
+```json
+{
+  "scripts": {
+    "dev:web": "turbo dev --filter=./apps/frontend",
+    "dev:ext": "turbo dev --filter=./apps/ums-extension",
+    "build": "turbo build",
+    "build:shared": "turbo build --filter=@bhemu/shared",
+    "build:web": "turbo build --filter=./apps/frontend",
+    "build:ext": "turbo build --filter=./apps/ums-extension",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test --filter=@bhemu/shared"
+  }
+}
+```
+
+**`--filter` syntax:**
+- `--filter=@bhemu/shared` — filter by package name
+- `--filter=./apps/frontend` — filter by path
+- `--filter=./apps/*` — all apps
+- `--filter=./packages/*` — all packages
+
+### How Turborepo determines build order
+
+Given the dependency graph:
+```
+@bhemu/shared ← apps/frontend
+@bhemu/shared ← apps/ums-extension
+```
+
+When you run `turbo build`:
+1. Turbo reads `package.json` dependencies to find `workspace:*` references
+2. `"dependsOn": ["^build"]` tells it to run `@bhemu/shared#build` before `apps/frontend#build`
+3. `apps/frontend` and `apps/ums-extension` build in parallel after shared is done
+
+You never need to manually order these again.
+
+### Caching behaviour
+
+Turbo hashes: source files, environment variables (declared in `turbo.json`), task config. On a cache hit, outputs are restored from `.turbo/` and the task is skipped entirely.
+
+```bash
+turbo build
+# First run: builds everything, writes to cache
+# Second run (no changes): "cache hit, replaying logs"
+
+turbo build --force
+# Ignore cache, rebuild everything
+```
+
+Cache is local by default. Vercel's remote cache can be added later for team/CI use — not needed now.
+
+---
+
+## 4. The Shared Package (`@bhemu/shared`)
 
 ### What `@bhemu/shared` is
 
@@ -167,7 +296,7 @@ Use `tsup` with `platform: 'neutral'` so the output works everywhere.
 
 ---
 
-## 4. What Goes Where — Decision Tree
+## 5. What Goes Where — Decision Tree
 
 Use this before writing **any** piece of logic:
 
@@ -182,9 +311,9 @@ Is this code used (or likely to be used) in 2+ workspaces?
 │
 └── NO → It belongs in the specific workspace
     │
-    ├── frontend/   → Next.js specific (SSR utilities, SEO, canvas, React contexts)
-    ├── ums-extension/ → Extension specific (UMS parsing, content scripts, background)
-    └── mobile/     → React Native specific (navigation, native APIs)
+    ├── apps/frontend/      → Next.js specific (SSR utilities, SEO, canvas, React contexts)
+    ├── apps/ums-extension/ → Extension specific (UMS parsing, content scripts, background)
+    └── apps/mobile/        → React Native specific (navigation, native APIs)
 ```
 
 ### Inside a workspace, where does code go?
@@ -205,7 +334,7 @@ Does it use React (hooks, JSX, context)?
 
 ---
 
-## 5. Dependency Rules
+## 6. Dependency Rules
 
 ### The allowed dependency graph
 
@@ -219,9 +348,9 @@ frontend     ums-extension     mobile
 
 **Rules:**
 - `@bhemu/shared` → imports **nothing** from any workspace
-- `frontend` → imports from `@bhemu/shared` only (not from extension or mobile)
-- `ums-extension` → imports from `@bhemu/shared` only (not from frontend or mobile)
-- `mobile` → imports from `@bhemu/shared` only (not from frontend or extension)
+- `apps/frontend` → imports from `@bhemu/shared` only (not from extension or mobile)
+- `apps/ums-extension` → imports from `@bhemu/shared` only (not from frontend or mobile)
+- `apps/mobile` → imports from `@bhemu/shared` only (not from frontend or extension)
 - **Cross-workspace imports are forbidden** (frontend importing from ums-extension, etc.)
 
 ### Layer import rules within `@bhemu/shared`
@@ -236,7 +365,7 @@ index.ts →  re-exports from lib/ and types/
 
 ---
 
-## 6. Package Naming & Configuration
+## 7. Package Naming & Configuration
 
 ### Package names
 
@@ -255,10 +384,10 @@ All packages use **kebab-case**. No exceptions.
    ```json
    "@bhemu/shared": "workspace:*"
    ```
-2. Add path alias to `tsconfig.json`:
+2. Add path alias to `tsconfig.json` — note the path is now **two levels up** because apps live in `apps/`:
    ```json
    "paths": {
-     "@bhemu/shared": ["../packages/shared/src"]
+     "@bhemu/shared": ["../../packages/shared/src"]
    }
    ```
 3. Run `pnpm install` from the **root** (not from inside the workspace)
@@ -267,17 +396,15 @@ All packages use **kebab-case**. No exceptions.
 
 ```yaml
 packages:
+  - 'apps/*'
   - 'packages/*'
-  - 'frontend'
-  - 'ums-extension'
-  - 'mobile'
 ```
 
-Add new workspaces here before running `pnpm install`.
+New workspaces added under `apps/` are automatically picked up. No change to this file needed.
 
 ---
 
-## 7. Import Rules
+## 8. Import Rules
 
 ### In frontend / extension / mobile
 
@@ -322,18 +449,18 @@ import { calculateGPA } from "@bhemu/shared/lib/gpa";
 
 ---
 
-## 8. Version Management
+## 9. Version Management
 
 ### Firebase version
 
-**For JS SDK workspaces** (`frontend`, `ums-extension`): must use the **same major version**. Currently: `^12.x`. Upgrade both in the same commit — never let them diverge.
+**For JS SDK workspaces** (`apps/frontend`, `apps/ums-extension`): must use the **same major version**. Currently: `^12.x`. Upgrade both in the same commit — never let them diverge.
 
 | Workspace | Firebase Package | Version |
 |-----------|-----------------|---------|
 | `@bhemu/shared` | none | — |
-| `frontend` | `firebase` (JS SDK) | `^12.x` |
-| `ums-extension` | `firebase` (JS SDK) | `^12.x` |
-| `mobile` | `@react-native-firebase/*` | independently versioned (currently ~20.x) |
+| `apps/frontend` | `firebase` (JS SDK) | `^12.x` |
+| `apps/ums-extension` | `firebase` (JS SDK) | `^12.x` |
+| `apps/mobile` | `@react-native-firebase/*` | independently versioned (currently ~20.x) |
 
 **Mobile is a different case.** `@react-native-firebase` is an entirely separate package family with its own version numbers, unrelated to the JS SDK's `12.x`. The rule that must stay aligned across all three workspaces is not the SDK version — it's the **Firestore data schema and security rules** they all read and write against. If you change a Firestore collection structure or add a new field, update `docs/firestore-schema.md` and verify all three workspaces handle the change correctly.
 
@@ -344,9 +471,9 @@ React versions may differ between workspaces — this is acceptable because `@bh
 | Workspace | React Version | Reason |
 |-----------|--------------|--------|
 | `@bhemu/shared` | **none** | Pure TypeScript |
-| `frontend` | 19.x | Next.js 16 requirement |
-| `ums-extension` | 19.x | `plasmo` has no React peer dep; `@plasmohq/storage` accepts `^19.0.0` |
-| `mobile` | 19.x | Expo SDK 53+ ships React 19 alongside React Native 0.79; SDK 55 (current) includes React 19.2 |
+| `apps/frontend` | 19.x | Next.js 16 requirement |
+| `apps/ums-extension` | 19.x | `plasmo` has no React peer dep; `@plasmohq/storage` accepts `^19.0.0` |
+| `apps/mobile` | 19.x | Expo SDK 53+ ships React 19 alongside React Native 0.79; SDK 55 (current) includes React 19.2 |
 
 All app workspaces run React 19. `@bhemu/shared` remains React-free.
 
@@ -370,11 +497,11 @@ When updating the pnpm version:
 1. Update `packageManager` in root `package.json`
 2. Delete `pnpm-lock.yaml`
 3. Run `pnpm install` from root
-4. Verify all workspaces build: `pnpm build`
+4. Verify all workspaces build: `turbo build`
 
 ---
 
-## 9. Adding a New Feature — Checklist
+## 10. Adding a New Feature — Checklist
 
 When adding any new feature (e.g. "GPA Goal Planner v2"):
 
@@ -390,53 +517,55 @@ When adding any new feature (e.g. "GPA Goal Planner v2"):
 
 □ 3. Are there unit tests for the new shared logic?
       All functions added to @bhemu/shared must have tests in packages/shared/__tests__/
-      Run: pnpm --filter '@bhemu/shared' test
+      Run: turbo test --filter=@bhemu/shared
 
 □ 4. Is @bhemu/shared built before running the workspace?
-      Run: pnpm build:shared (or pnpm --filter '@bhemu/shared' build)
+      Run: turbo build --filter=@bhemu/shared
+      (turbo handles this automatically when you run turbo build or turbo dev)
 
 □ 5. Does the feature exist only in web, and later needs to be in mobile?
       The business logic in @bhemu/shared already works on mobile — only UI needs to be built.
 
 □ 6. Is the feature UI in the right place?
-      Frontend: src/components/<FeatureName>/ (see react-architecture skill)
-      Extension: src/popup/ or src/tabs/
-      Mobile: src/screens/ or src/components/
+      Frontend:  apps/frontend/src/components/<FeatureName>/ (see react-architecture skill)
+      Extension: apps/ums-extension/src/popup/ or src/tabs/
+      Mobile:    apps/mobile/src/screens/ or src/components/
 
 □ 7. If the feature modifies Firestore schema, is docs/firestore-schema.md updated?
 ```
 
 ---
 
-## 10. Adding a New Workspace
+## 11. Adding a New Workspace
 
-When adding a new workspace (e.g. `mobile/`):
+When adding a new workspace (e.g. `apps/mobile/`):
 
 ```
-□ 1. Create the workspace directory
-□ 2. Add it to pnpm-workspace.yaml
+□ 1. Create the directory under apps/
+□ 2. pnpm-workspace.yaml already covers 'apps/*' — no change needed
 □ 3. Create package.json with:
       - Correct workspace name (e.g. "bhemu-mobile")
       - "@bhemu/shared": "workspace:*" in dependencies
-□ 4. Add TypeScript path alias: "@bhemu/shared": ["../packages/shared/src"]
+□ 4. Add TypeScript path alias: "@bhemu/shared": ["../../packages/shared/src"]
+      Note: two levels up because the workspace is in apps/, not at root
 □ 5. For React Native (Expo): configure Metro for pnpm workspace symlinks.
       pnpm uses symlinked node_modules; Metro's default resolver does not follow
       symlinks, which causes "@bhemu/shared" to silently fail to resolve.
 
       Option A — use expo/metro-config (recommended for Expo SDK 53+):
       ```js
-      // mobile/metro.config.js
+      // apps/mobile/metro.config.js
       const { getDefaultConfig } = require('expo/metro-config');
       const path = require('path');
 
       const projectRoot = __dirname;
-      const monorepoRoot = path.resolve(projectRoot, '..');
+      const monorepoRoot = path.resolve(projectRoot, '../..');
 
       const config = getDefaultConfig(projectRoot);
 
       // Scope watchFolders tightly — only the directories mobile actually needs.
-      // Do NOT point at monorepoRoot: that watches frontend/, ums-extension/, docs/,
-      // and everything else, causing Metro to index the entire repo on every change.
+      // Do NOT point at monorepoRoot: that watches apps/frontend/, docs/, and everything
+      // else, causing Metro to index the entire repo on every change.
       config.watchFolders = [
         path.resolve(monorepoRoot, 'packages'),  // @bhemu/shared and any future packages
       ];
@@ -460,35 +589,36 @@ When adding a new workspace (e.g. `mobile/`):
 
       Verify resolution works:
       ```bash
-      cd mobile
+      cd apps/mobile
       node -e "require.resolve('@bhemu/shared')"
       # Should print the resolved path without error
       ```
 
 □ 6. Run pnpm install from root (not from inside workspace)
-□ 7. Verify @bhemu/shared imports resolve: import { calculateGPA } from '@bhemu/shared'
-□ 8. Add workspace to root package.json scripts:
-      "dev:mobile": "pnpm --filter './mobile' start"
-      "build:mobile": "pnpm --filter '@bhemu/shared' build && pnpm --filter './mobile' build"
+□ 7. Add workspace scripts to root package.json:
+      "dev:mobile": "turbo dev --filter=./apps/mobile"
+      "build:mobile": "turbo build --filter=./apps/mobile"
+□ 8. Add output paths to turbo.json if the new workspace has non-standard build output
+□ 9. Verify @bhemu/shared imports resolve: import { calculateGPA } from '@bhemu/shared'
 ```
 
 ---
 
-## 11. Deploying the Frontend to Vercel
+## 12. Deploying the Frontend to Vercel
 
 Vercel supports pnpm workspaces natively. Three settings to configure in the Vercel project dashboard:
 
 | Setting | Value |
 |---------|-------|
-| **Root Directory** | `frontend` |
+| **Root Directory** | `apps/frontend` |
 | **Include files outside the Root Directory** | ✅ **must be enabled** |
 | **Build Command** | `pnpm build` (default, no change) |
 | **Install Command** | leave blank (Vercel auto-detects pnpm workspace and runs from repo root) |
 
-**The "Include files outside the Root Directory" toggle is not optional.** When Root Directory is set to `frontend`, Vercel scopes the build container to that subfolder only. Without this toggle, `packages/shared/` is not present in the filesystem at build time, and Next.js fails with a `Module not found: @bhemu/shared` error. Enable it in: Project Settings → General → Root Directory → tick "Include files outside the Root Directory in the Build Step."
+**The "Include files outside the Root Directory" toggle is not optional.** When Root Directory is set to `apps/frontend`, Vercel scopes the build container to that subfolder only. Without this toggle, `packages/shared/` is not present in the filesystem at build time, and Next.js fails with a `Module not found: @bhemu/shared` error. Enable it in: Project Settings → General → Root Directory → tick "Include files outside the Root Directory in the Build Step."
 
 **Why `@bhemu/shared` doesn't need a pre-build step on Vercel:**
-Next.js resolves `@bhemu/shared` via the `tsconfig.json` path alias (`"@bhemu/shared": ["../packages/shared/src"]`), which points directly to the TypeScript source. The `dist/` output (which is gitignored) is not used during the Next.js build. No extra build command needed — but `packages/shared/src/` must be in the filesystem (hence the toggle above).
+Next.js resolves `@bhemu/shared` via the `tsconfig.json` path alias (`"@bhemu/shared": ["../../packages/shared/src"]`), which points directly to the TypeScript source. The `dist/` output (which is gitignored) is not used during the Next.js build. No extra build command needed — but `packages/shared/src/` must be in the filesystem (hence the toggle above).
 
 **Environment variables:**
 Add all `NEXT_PUBLIC_*` Firebase config vars in the Vercel project dashboard (Settings → Environment Variables). These are not in the repo.
@@ -500,25 +630,27 @@ Build Command: pnpm --filter '@bhemu/shared' build && pnpm build
 
 ---
 
-## 12. Anti-Patterns to Avoid
+## 13. Anti-Patterns to Avoid
 
 | Anti-Pattern | What it looks like | Fix |
 |--------------|-------------------|-----|
 | **Cross-workspace duplication** | `programUtils.ts` exists in both frontend and extension | Move to `@bhemu/shared`, delete duplicates |
+| **App not in `apps/`** | `frontend/` or `mobile/` at the repo root | Move to `apps/frontend/`, `apps/mobile/` |
 | **Deep imports from shared** | `import x from "@bhemu/shared/lib/gpa"` | Always import from `"@bhemu/shared"` top-level |
 | **React in shared** | `import { useState } from "react"` inside `packages/shared/src/` | Move to workspace-specific file |
 | **Firebase in shared** | `import { getFirestore } from "firebase/firestore"` in shared | Move to workspace-specific firebase service |
-| **Cross-workspace imports** | Frontend importing from `ums-extension/src/` | Extract shared logic to `@bhemu/shared` instead |
-| **Installing from workspace subfolder** | `cd frontend && pnpm install` | Always run `pnpm install` from root |
+| **Cross-workspace imports** | Frontend importing from `apps/ums-extension/src/` | Extract shared logic to `@bhemu/shared` instead |
+| **Installing from workspace subfolder** | `cd apps/frontend && pnpm install` | Always run `pnpm install` from root |
 | **Root source code** | TypeScript files at repo root | All source code lives inside a workspace |
-| **Unversioned shared changes** | Changing `@bhemu/shared` without rebuilding | Always run `pnpm build:shared` after changes |
-| **Diverged Firebase JS SDK versions** | `frontend` and `ums-extension` on different major versions | Both must stay on the same major version (currently `^12.x`); mobile uses `@react-native-firebase` which is versioned separately |
+| **Unversioned shared changes** | Changing `@bhemu/shared` without rebuilding | `turbo build --filter=@bhemu/shared` rebuilds automatically |
+| **Diverged Firebase JS SDK versions** | `apps/frontend` and `apps/ums-extension` on different major versions | Both must stay on the same major version (currently `^12.x`); mobile uses `@react-native-firebase` which is versioned separately |
 | **No tests for shared logic** | Adding functions to `@bhemu/shared` without tests | Every exported function needs a test |
 | **Platform-specific polyfills in shared** | `typeof window !== 'undefined'` checks in shared | Keep platform detection in workspace code |
+| **Skipping `turbo.json` outputs** | New build artifacts not listed in `outputs` | Add artifact paths to prevent stale cache restores |
 
 ---
 
-## 13. Quick Reference Card
+## 14. Quick Reference Card
 
 ```
 Before writing any logic:
@@ -529,24 +661,30 @@ Before writing any logic:
 2. Needed in 2+ workspaces?
    Yes → add to packages/shared/src/lib/ or types/
          write unit tests
-         run: pnpm build:shared
+         run: turbo build --filter=@bhemu/shared  (or just turbo build — it handles order)
          import from "@bhemu/shared" everywhere
 
 3. Workspace-specific only?
    Yes → write it inside the workspace
-         frontend:   src/lib/, src/firebase/, src/components/
-         extension:  src/lib/, src/parsers/, src/utils/
-         mobile:     src/lib/, src/screens/
+         frontend:   apps/frontend/src/lib/, src/firebase/, src/components/
+         extension:  apps/ums-extension/src/lib/, src/parsers/, src/utils/
+         mobile:     apps/mobile/src/lib/, src/screens/
 
 4. Touching @bhemu/shared?
-   Always: pnpm build:shared before running any workspace
+   Always: turbo build (builds shared first, then dependents)
    Always: update tests in packages/shared/__tests__/
    Always: update the barrel export in packages/shared/src/index.ts
 
+Folder rule:
+  apps/          → all runnable workspaces (web, extension, mobile)
+  packages/      → shared libraries (@bhemu/shared; add more as needed)
+  docs/          → documentation only, no source
+  root           → config files only (turbo.json, pnpm-workspace.yaml, package.json)
+
 Dependency direction:
-  @bhemu/shared  ←  frontend
-  @bhemu/shared  ←  ums-extension
-  @bhemu/shared  ←  mobile
+  @bhemu/shared  ←  apps/frontend
+  @bhemu/shared  ←  apps/ums-extension
+  @bhemu/shared  ←  apps/mobile
   (shared never imports from any workspace)
   (workspaces never import from each other)
 
@@ -557,20 +695,22 @@ Version rule:
   React: all app workspaces on 19.x; @bhemu/shared has none
   TypeScript: same version across all workspaces
 
-Build order:
-  1. @bhemu/shared (must build first)
-  2. frontend / ums-extension / mobile (in any order, parallel ok)
+Turborepo task order (automatic via turbo.json dependsOn):
+  1. @bhemu/shared#build  (always first, because apps depend on it)
+  2. apps/* builds        (in parallel, after shared)
 
 Root scripts:
-  pnpm dev:web         → run frontend dev server
-  pnpm dev:ext         → run extension dev server
-  pnpm build:shared    → build @bhemu/shared (required before others)
-  pnpm build:web       → build:shared + build frontend
-  pnpm build:ext       → build:shared + build extension
-  pnpm test            → run @bhemu/shared unit tests
-  pnpm typecheck       → type-check all workspaces
+  pnpm dev:web         → turbo dev --filter=./apps/frontend
+  pnpm dev:ext         → turbo dev --filter=./apps/ums-extension
+  pnpm build           → turbo build (all workspaces, correct order)
+  pnpm build:shared    → turbo build --filter=@bhemu/shared
+  pnpm build:web       → turbo build --filter=./apps/frontend
+  pnpm build:ext       → turbo build --filter=./apps/ums-extension
+  pnpm test            → turbo test --filter=@bhemu/shared
+  pnpm typecheck       → turbo typecheck
+  pnpm lint            → turbo lint
 ```
 
 ---
 
-> **Target:** pnpm workspaces · TypeScript · Next.js · Plasmo · React Native (Expo) · Firebase
+> **Target:** pnpm workspaces · Turborepo · TypeScript · Next.js · Plasmo · React Native (Expo) · Firebase
