@@ -64,8 +64,10 @@ Bhemu-Calculator/                  ← Monorepo root (no source code here)
 │       ├── tsup.config.ts
 │       ├── src/
 │       │   ├── index.ts           ← Master barrel export
-│       │   ├── types/             ← All shared TypeScript interfaces
-│       │   └── lib/               ← All shared pure utility functions
+│       │   ├── constants/         ← Raw data tables (GRADE_TABLE, etc.)
+│       │   ├── types/             ← TypeScript interfaces only
+│       │   ├── utils/             ← Pure functions on typed/clean data
+│       │   └── parsers/           ← Functions that convert raw strings → typed objects
 │       ├── dist/                  ← Build output (gitignored)
 │       └── __tests__/             ← Unit tests (Vitest)
 │
@@ -240,12 +242,12 @@ A **pure TypeScript** package with absolutely zero runtime dependencies on React
 
 ### What belongs in `@bhemu/shared`
 
-| Category | Examples | Rule |
-|----------|----------|------|
-| **Core Types** | `GPASubject`, `GPASemester`, `SubjectMarks`, `AttendanceData` | Any type used in 2+ workspaces |
-| **Calculation Logic** | `calculateGPA()`, `calculateCGPA()`, `computeGradeFromMarks()` | Pure functions with no side effects |
-| **Grade Tables** | `GRADE_TABLE`, `STANDARD_GRADE_TABLE`, `GRADE_TO_POINT` | Constants used across workspaces |
-| **Domain Utilities** | `parseProgram()`, `buildGroupKey()`, `deriveBatchYear()` | Parsing/transformation logic |
+| Category | Folder | Examples |
+|----------|--------|----------|
+| **Constants** | `constants/` | `GRADE_TABLE`, `STANDARD_GRADE_TABLE`, `GRADE_TO_POINT` |
+| **Types** | `types/` | `GPASubject`, `GPASemester`, `SubjectMarks`, `AttendanceData` |
+| **Utils** | `utils/` | `calculateGPA()`, `calculateCGPA()`, `gradeToPoint()`, `computeGradeFromMarks()` |
+| **Parsers** | `parsers/` | `parseProgram()`, `buildGroupKey()`, `deriveBatchYear()`, `shortenName()` |
 
 ### What does NOT belong in `@bhemu/shared`
 
@@ -261,26 +263,52 @@ A **pure TypeScript** package with absolutely zero runtime dependencies on React
 
 ### `@bhemu/shared` internal structure
 
+Four folders, each with a single clear role:
+
+| Folder | Role | Rule |
+|--------|------|------|
+| `constants/` | Raw data tables — no logic, just values | Never contains functions |
+| `types/` | TypeScript interfaces and type definitions only | Never contains values or logic |
+| `utils/` | Pure functions that compute or transform **typed/clean** data | Input and output are typed; no string parsing |
+| `parsers/` | Functions that convert **raw string/external data** into typed objects | Input is messy; output is a typed struct |
+
 ```
 packages/shared/src/
-├── index.ts           ← Master barrel export (re-exports everything below)
+├── index.ts              ← Master barrel export (re-exports everything below)
+│
+├── constants/
+│   ├── index.ts
+│   └── grades.ts         ← GRADE_TABLE, STANDARD_GRADE_TABLE, GRADE_TO_POINT, POINT_TO_GRADE, SELECTABLE_GRADES
+│
 ├── types/
-│   ├── index.ts       ← Re-exports all types
-│   ├── gpa.ts         ← GPASubject, GPASemester, GPAProfile (without sharing/firebase fields)
-│   ├── marks.ts       ← SubjectMarks, CustomCutoff, GradeTableEntry
-│   ├── attendance.ts  ← AttendanceSubject, AttendanceData
-│   └── leaderboard.ts ← LeaderboardEntry, ParsedProgram
-├── lib/
-│   ├── index.ts       ← Re-exports all utilities
-│   ├── gpa.ts         ← calculateGPA(), calculateCGPA()
-│   ├── marks.ts       ← computeGradeFromMarks(), computeTotal(), lookupStandardGrade()
-│   ├── grades.ts      ← GRADE_TABLE, gradeToPoint(), pointToGrade(), SELECTABLE_GRADES
-│   └── program.ts     ← parseProgram(), shortenName(), buildGroupKey(), formatProgramLabel()
+│   ├── index.ts
+│   ├── gpa.ts            ← GPASubject, GPASemester, GPAProfile (no firebase/sharing fields)
+│   ├── marks.ts          ← SubjectMarks, CustomCutoff, GradeTableEntry
+│   ├── attendance.ts     ← AttendanceSubject, AttendanceData
+│   └── leaderboard.ts    ← LeaderboardEntry, ParsedProgram
+│
+├── utils/
+│   ├── index.ts
+│   ├── gpa.ts            ← calculateGPA(), calculateCGPA()
+│   ├── marks.ts          ← computeGradeFromMarks(), computeTotal(), lookupStandardGrade()
+│   └── grades.ts         ← gradeToPoint(), pointToGrade()  (converters using constants/grades)
+│
+├── parsers/
+│   ├── index.ts
+│   └── program.ts        ← parseProgram(), buildGroupKey(), deriveBatchYear(), shortenName(), formatProgramLabel()
+│
 └── __tests__/
     ├── gpa.test.ts
     ├── marks.test.ts
-    └── grades.test.ts
+    ├── grades.test.ts
+    └── program.test.ts
 ```
+
+**The split rule in one sentence per folder:**
+- `constants/` — data you look up
+- `types/` — shapes you enforce
+- `utils/` — logic on clean data
+- `parsers/` — logic on raw/string data
 
 ### Build requirement
 
@@ -305,9 +333,10 @@ Is this code used (or likely to be used) in 2+ workspaces?
 │
 ├── YES → It belongs in @bhemu/shared
 │   │
-│   ├── Is it a type/interface? → packages/shared/src/types/
-│   ├── Is it a pure function?  → packages/shared/src/lib/
-│   └── Is it a constant?       → packages/shared/src/lib/<domain>.ts
+│   ├── Type/interface only?                   → src/types/
+│   ├── Raw data table (no logic)?             → src/constants/
+│   ├── Pure function on clean/typed data?     → src/utils/
+│   └── Function that parses raw strings?      → src/parsers/
 │
 └── NO → It belongs in the specific workspace
     │
@@ -356,12 +385,14 @@ frontend     ums-extension     mobile
 ### Layer import rules within `@bhemu/shared`
 
 ```
-types/   →  imports nothing
-lib/     →  may import from types/ only
-index.ts →  re-exports from lib/ and types/
+types/      →  imports nothing
+constants/  →  imports nothing
+utils/      →  may import from types/ and constants/ only
+parsers/    →  may import from types/ and constants/ only
+index.ts    →  re-exports from all four folders
 ```
 
-`@bhemu/shared` lib files must NEVER import from React, Firebase, Next.js, or any browser/Node API.
+Nothing inside `@bhemu/shared` may ever import from React, Firebase, Next.js, or any browser/Node API.
 
 ---
 
@@ -425,14 +456,14 @@ import { syncGradesAndMarks } from "~lib/firebaseSync";       // extension
 ### In `@bhemu/shared`
 
 ```typescript
-// ✅ Correct — only relative imports
+// ✅ Correct — only relative imports between the four folders
 import type { GPASemester } from "../types/gpa";
-import { GRADE_TABLE } from "./grades";
+import { GRADE_TO_POINT } from "../constants/grades";
 
 // ❌ Wrong — never import platform-specific packages
-import { useState } from "react";              // NO
+import { useState } from "react";                  // NO
 import { getFirestore } from "firebase/firestore"; // NO
-import { Platform } from "react-native";        // NO
+import { Platform } from "react-native";           // NO
 ```
 
 ### Barrel exports
@@ -444,7 +475,7 @@ Every subdirectory in `@bhemu/shared` must have an `index.ts` that re-exports it
 import { calculateGPA, GPASubject, GRADE_TABLE } from "@bhemu/shared";
 
 // ❌ Deep imports are not supported and will break
-import { calculateGPA } from "@bhemu/shared/lib/gpa";
+import { calculateGPA } from "@bhemu/shared/utils/gpa";
 ```
 
 ---
@@ -511,7 +542,9 @@ When adding any new feature (e.g. "GPA Goal Planner v2"):
       No  → Skip
 
 □ 2. Does this feature need new calculation/utility logic?
-      Yes → Add to @bhemu/shared/src/lib/ if shared
+      Yes → Add to @bhemu/shared/src/utils/ (pure functions on typed data)
+             or @bhemu/shared/src/parsers/ (raw string → typed object)
+             or @bhemu/shared/src/constants/ (new data tables)
              Or src/lib/ in the workspace if it's workspace-specific
       No  → Skip
 
@@ -636,7 +669,7 @@ Build Command: pnpm --filter '@bhemu/shared' build && pnpm build
 |--------------|-------------------|-----|
 | **Cross-workspace duplication** | `programUtils.ts` exists in both frontend and extension | Move to `@bhemu/shared`, delete duplicates |
 | **App not in `apps/`** | `frontend/` or `mobile/` at the repo root | Move to `apps/frontend/`, `apps/mobile/` |
-| **Deep imports from shared** | `import x from "@bhemu/shared/lib/gpa"` | Always import from `"@bhemu/shared"` top-level |
+| **Deep imports from shared** | `import x from "@bhemu/shared/utils/gpa"` | Always import from `"@bhemu/shared"` top-level |
 | **React in shared** | `import { useState } from "react"` inside `packages/shared/src/` | Move to workspace-specific file |
 | **Firebase in shared** | `import { getFirestore } from "firebase/firestore"` in shared | Move to workspace-specific firebase service |
 | **Cross-workspace imports** | Frontend importing from `apps/ums-extension/src/` | Extract shared logic to `@bhemu/shared` instead |
@@ -659,8 +692,12 @@ Before writing any logic:
    Yes → import it. Done.
 
 2. Needed in 2+ workspaces?
-   Yes → add to packages/shared/src/lib/ or types/
-         write unit tests
+   Yes → pick the right folder:
+           type/interface only?           → src/types/
+           raw data table?                → src/constants/
+           pure fn on clean data?         → src/utils/
+           fn that parses raw strings?    → src/parsers/
+         write unit tests in __tests__/
          run: turbo build --filter=@bhemu/shared  (or just turbo build — it handles order)
          import from "@bhemu/shared" everywhere
 
@@ -674,6 +711,7 @@ Before writing any logic:
    Always: turbo build (builds shared first, then dependents)
    Always: update tests in packages/shared/__tests__/
    Always: update the barrel export in packages/shared/src/index.ts
+   Always: update the subfolder's index.ts (constants/, types/, utils/, or parsers/)
 
 Folder rule:
   apps/          → all runnable workspaces (web, extension, mobile)
