@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 import { NextRequest } from "next/server";
 import { fetchLeaderboardEntry } from "@/lib/fetchLeaderboardEntry";
-import { formatProgramLabel } from "@/lib/programUtils";
+import { formatProgramLabel } from "@bhemu/shared";
 
 export const runtime = "edge";
 

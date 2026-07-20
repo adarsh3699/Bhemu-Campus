@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/firebase/AuthContext";
 import { useGpaData } from "@/contexts/GpaDataContext";
 import { LeaderboardService } from "@/firebase/leaderboardService";
-import { parseProgram, buildGroupKey, deriveBatchYear } from "@/lib/programUtils";
+import { parseProgram, buildGroupKey, deriveBatchYear } from "@bhemu/shared";
 import type { LeaderboardData, LeaderboardEntry, ParsedProgram } from "@/types";
 
 interface StudentInfo {

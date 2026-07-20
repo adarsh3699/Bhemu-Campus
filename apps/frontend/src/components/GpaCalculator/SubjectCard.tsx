@@ -2,8 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { Pencil, Trash2 } from "lucide-react";
-import { pointToGrade, SELECTABLE_GRADES } from "@/lib/grades";
-import { computeGradeFromMarks } from "@/lib/marksUtils";
+import { pointToGrade, SELECTABLE_GRADES, computeGradeFromMarks } from "@bhemu/shared";
 import type { GPASubject } from "@/types";
 import type { CustomCutoff } from "@/types/marks";
 

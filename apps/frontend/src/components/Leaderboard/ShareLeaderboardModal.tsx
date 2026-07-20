@@ -5,7 +5,7 @@ import { Download, FileText, MessageCircle, Link2, Check } from "lucide-react";
 import BaseModal from "@/components/modal/BaseModal";
 import LeaderboardShareCard from "./LeaderboardShareCard";
 import { drawLeaderboardCard } from "@/lib/drawLeaderboardCard";
-import { formatProgramLabel } from "@/lib/programUtils";
+import { formatProgramLabel } from "@bhemu/shared";
 import type { LeaderboardData, ParsedProgram } from "@/types";
 
 interface ShareLeaderboardModalProps {

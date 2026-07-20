@@ -2,7 +2,8 @@
 
 import React from "react";
 import { Plus, X } from "lucide-react";
-import { calculateGPA, type Semester } from "@/lib/gpaUtils";
+import { calculateGPA } from "@bhemu/shared";
+import type { GPASemester as Semester } from "@bhemu/shared";
 
 interface SemesterTabsProps {
 	semesters: Semester[];

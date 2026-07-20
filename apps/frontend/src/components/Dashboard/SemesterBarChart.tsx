@@ -12,7 +12,7 @@
 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import type { GPASemester } from "@/types";
-import { calculateGPA } from "@/lib/gpaUtils";
+import { calculateGPA } from "@bhemu/shared";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface ChartEntry {

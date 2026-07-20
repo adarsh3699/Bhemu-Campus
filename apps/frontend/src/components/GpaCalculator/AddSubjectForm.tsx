@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Plus, X, Info, Puzzle } from "lucide-react";
 import UMSExtensionModal from "@/components/modal/UMSExtensionModal";
-import { SELECTABLE_GRADES } from "@/lib/grades";
+import { SELECTABLE_GRADES } from "@bhemu/shared";
 
 const GRADE_COLOR: Record<string, string> = {
 	O: "from-emerald-400 to-teal-400",

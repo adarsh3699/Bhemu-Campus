@@ -14,12 +14,12 @@ import { Calculator, GraduationCap, Flag, BookOpen, ArrowRight, ClipboardList, T
 import { useAuth } from "@/firebase/AuthContext";
 import { useGpaData } from "@/contexts/GpaDataContext";
 import { useAttendanceData } from "@/contexts/AttendanceDataContext";
-import { calculateCGPA } from "@/lib/gpaUtils";
+import { calculateCGPA } from "@bhemu/shared";
 import LoginRecommendation from "@/components/common/LoginRecommendation";
 import DashboardStats from "@/components/Dashboard/DashboardStats";
 import SemesterBarChart from "@/components/Dashboard/SemesterBarChart";
 import SemesterRoadmap from "@/components/Dashboard/SemesterRoadmap";
-import { pointToGrade } from "@/lib/grades";
+import { pointToGrade } from "@bhemu/shared";
 
 // ─── Grade display helper (local — colours only, labels come from grades lib) ─
 const GRADE_COLOR: Record<number, string> = {

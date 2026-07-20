@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { calculateGPA } from "@/lib/gpaUtils";
+import { calculateGPA } from "@bhemu/shared";
 import SubjectCard, { SubjectEditFormState } from "@/components/GpaCalculator/SubjectCard";
 import type { GPASubject } from "@/types";
 

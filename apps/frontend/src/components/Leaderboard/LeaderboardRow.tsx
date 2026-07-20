@@ -2,7 +2,7 @@
 
 import { Trophy, Medal } from "lucide-react";
 import type { LeaderboardEntry } from "@/types";
-import { shortenName } from "@/lib/programUtils";
+import { shortenName } from "@bhemu/shared";
 
 interface LeaderboardRowProps {
 	entry: LeaderboardEntry;

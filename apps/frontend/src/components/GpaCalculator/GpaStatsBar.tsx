@@ -2,7 +2,7 @@
 
 import React from "react";
 import type { GPASemester } from "@/types";
-import { calculateCGPA } from "@/lib/gpaUtils";
+import { calculateCGPA } from "@bhemu/shared";
 
 interface GpaStatsBarProps {
 	semesters: GPASemester[];

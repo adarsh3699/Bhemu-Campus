@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from "react";
 import { useMarksData } from "@/contexts/MarksDataContext";
 import { useGpaData } from "@/contexts/GpaDataContext";
-import { computeTotal, computeGradeFromMarks } from "@/lib/marksUtils";
+import { computeTotal, computeGradeFromMarks } from "@bhemu/shared";
 import type { SubjectEditFormState } from "@/components/GpaCalculator/SubjectCard";
 
 // Keep these exports for any remaining consumers

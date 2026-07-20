@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { fetchLeaderboardEntry } from "@/lib/fetchLeaderboardEntry";
-import { formatProgramLabel } from "@/lib/programUtils";
+import { formatProgramLabel } from "@bhemu/shared";
 import { SITE_CONFIG } from "@/lib/seo";
 import { getPercentile, getAchievementLabel, getRankTier } from "@/components/Rank/lib/rankUtils";
 import RankCardView from "@/components/Rank/RankCardView";
