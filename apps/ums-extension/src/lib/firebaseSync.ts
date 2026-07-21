@@ -64,12 +64,11 @@ export async function syncGradesAndMarks(data: SyncResult, profileId: string): P
     if (parsed) {
       const groupKey = buildGroupKey(siBatchYear, parsed.programCode);
       const leaderboardDocRef = doc(db, 'leaderboard', `${uid}_${profileId}`);
-      // Check if doc exists so we only set optOut:false on creation, never overwriting a user's opt-out choice
       const existing = await getDoc(leaderboardDocRef);
       const entry: Record<string, unknown> = {
         userId: uid,
         profileId,
-        name: si.name ?? 'Anonymous',
+        realName: si.name ?? 'Anonymous',
         vid: si.vid ?? '',
         programCode: parsed.programCode,
         programName: parsed.programName,
@@ -80,6 +79,9 @@ export async function syncGradesAndMarks(data: SyncResult, profileId: string): P
         updatedAt: serverTimestamp(),
       };
       if (!existing.exists()) {
+        const profileSnap = await getDoc(profileRef);
+        const profileData = profileSnap.data() as { name?: string } | undefined;
+        entry.name = profileData?.name ?? si.name ?? 'Anonymous';
         entry.optOut = false;
       }
       batch.set(leaderboardDocRef, entry, { merge: true });

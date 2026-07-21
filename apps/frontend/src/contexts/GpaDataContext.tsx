@@ -2,7 +2,8 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef, startTransition } from "react";
 import { useAuth } from "@/firebase/AuthContext";
-import { gpaService as createGPAService } from "@/firebase/services";
+import { gpaService as createGPAService, LeaderboardService } from "@/firebase/services";
+import { db } from "@/firebase/config";
 import type { GPAProfile, GPASemester } from "@bhemu/shared";
 import { useMessage } from "@/contexts/MessageContext";
 
@@ -302,12 +303,16 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 			setProfiles((prev) => prev.map((p) => p.id === profileId ? { ...p, name: newName } : p));
 			try {
 				await gpaService.renameProfile(profileId, newName);
+				if (currentUser) {
+					LeaderboardService.updateDisplayName(db, currentUser.uid, String(profileId), newName)
+						.catch((err) => console.error("Failed to sync leaderboard name:", err));
+				}
 			} catch (error) {
 				console.error("Error renaming profile:", error);
 				showMessage("Error renaming profile. Please try again.", "error");
 			}
 		},
-		[gpaService, showMessage]
+		[gpaService, showMessage, currentUser]
 	);
 
 	// ===== DATA UPDATE ACTIONS =====

@@ -1,7 +1,7 @@
 # Firestore Schema — Bhemu Calculator
 
 Last audited & cleaned: 2026-06-28. 124 profiles verified clean.
-Last updated: 2026-07-18 (added `leaderboard` collection).
+Last updated: 2026-07-22 (leaderboard: switched `name` to profile display name, added `realName`).
 
 ---
 
@@ -150,7 +150,8 @@ Document ID: `{userId}_{profileId}` — deterministic, enables idempotent upsert
 |-------|------|-------|
 | userId | string | Firebase Auth UID of the profile owner |
 | profileId | string | Profile doc ID |
-| name | string | Student's full name (from `studentInfo.name`) |
+| name | string | Profile display name (user-editable, synced from `profile.name` on rename) |
+| realName | string? | UMS-scraped legal name (from `studentInfo.name`). Preserved for internal reference; never displayed publicly. |
 | vid | string | Registration number (e.g. `"12401984"`) |
 | programCode | string | Parsed from program string (e.g. `"P132"`, `"P164-NN1"`) |
 | programName | string | e.g. `"B.Tech."`, `"MCA"` |
@@ -162,8 +163,9 @@ Document ID: `{userId}_{profileId}` — deterministic, enables idempotent upsert
 | updatedAt | Timestamp | `serverTimestamp()` on each sync |
 
 **Write rules:**
-- First sync: writes all fields including `optOut: false`
-- Re-sync: omits `optOut` (preserves any user-set opt-out)
+- First sync: writes all fields including `optOut: false`; `name` is set from the profile's `name` field (not the UMS real name)
+- Re-sync: writes `realName` + academic fields (cgpa, programCode, etc.); omits `name` and `optOut` (preserves user's display name and opt-out choice)
+- Profile rename: writes `{ name, updatedAt }` via write-through in GpaDataContext
 - Settings opt-out toggle: writes only `{ optOut, updatedAt }` via `setDoc merge`
 
 **Required Firestore indexes:**

@@ -425,6 +425,7 @@ grade = umsGradePoint                          if UMS has declared a grade
 | Account | View email, creation date |
 | Security | Create password (Google-only accounts) |
 | Security | Change password (email/password accounts) |
+| Profile | Rename profile (leaderboard display name updates automatically) |
 | Leaderboard | Toggle leaderboard visibility (opt-out) |
 | Danger Zone | Delete account with re-auth |
 
@@ -489,7 +490,7 @@ Manual close button available.
 - **Your Rank** badge + **N students** count
 - Top 10 students by CGPA, ordered descending
   - Rank #1–3 show gold/silver/bronze medal icons
-  - All students shown with shortened name (`First L.`) except the active profile row (full name + "(You)")
+  - All students shown with shortened **profile display name** (`First L.`) except the active profile row (full name + "(You)")
 - If active profile rank > 10: separator (`⋮`) + 2 students above + active profile row highlighted
 - Share button (only shown when user has a leaderboard entry)
 
@@ -534,6 +535,7 @@ Utility: `parseProgram()` in `src/lib/programUtils.ts` (duplicated in `ums-exten
 `formatProgramLabel(programName, branch)` used for all display rendering.
 
 ### Data Flow
-1. UMS extension sync writes to `leaderboard/{uid}_{profileId}` (first sync sets `optOut: false`; re-syncs never touch `optOut`)
-2. Frontend `useLeaderboard` hook reads from Firestore client SDK using `LeaderboardService`
-3. Rank page and OG image route fetch via Firestore REST API (server-side, no auth token)
+1. UMS extension sync writes to `leaderboard/{uid}_{profileId}` (first sync sets `name` from profile's display name and `optOut: false`; re-syncs update `realName` + academic fields but never touch `name` or `optOut`)
+2. Profile rename in the frontend writes `{ name, updatedAt }` to the same leaderboard doc (write-through denormalization — keeps display name in sync without re-running UMS sync)
+3. Frontend `useLeaderboard` hook reads from Firestore client SDK using `LeaderboardService`
+4. Rank page and OG image route fetch via Firestore REST API (server-side, no auth token)
