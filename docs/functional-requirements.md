@@ -490,7 +490,7 @@ Manual close button available.
 - **Your Rank** badge + **N students** count
 - Top 10 students by CGPA, ordered descending
   - Rank #1–3 show gold/silver/bronze medal icons
-  - All students shown with shortened **profile display name** (`First L.`) except the active profile row (full name + "(You)")
+  - All students shown with their full profile display name; active profile row also shows "(You)"
 - If active profile rank > 10: separator (`⋮`) + 2 students above + active profile row highlighted
 - Share button (only shown when user has a leaderboard entry)
 

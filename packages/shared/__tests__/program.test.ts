@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseProgram, shortenName, buildGroupKey, formatProgramLabel, deriveBatchYear } from "../src/parsers/program";
+import { parseProgram, buildGroupKey, formatProgramLabel, deriveBatchYear } from "../src/parsers/program";
 
 describe("parseProgram", () => {
 	it("parses B.Tech with branch", () => {
@@ -21,13 +21,6 @@ describe("parseProgram", () => {
 		expect(parseProgram("")).toBeNull();
 		expect(parseProgram("No parens here")).toBeNull();
 	});
-});
-
-describe("shortenName", () => {
-	it("shortens multi-word name", () => expect(shortenName("Adarsh Kumar Singh")).toBe("Adarsh S."));
-	it("shortens two-word name", () => expect(shortenName("Aditi Suman")).toBe("Aditi S."));
-	it("returns single name as-is", () => expect(shortenName("Aditi")).toBe("Aditi"));
-	it("handles empty string", () => expect(shortenName("")).toBe(""));
 });
 
 describe("buildGroupKey", () => {

@@ -2,7 +2,6 @@
 
 import { Trophy, Medal } from "lucide-react";
 import type { LeaderboardEntry } from "@/types";
-import { shortenName } from "@bhemu/shared";
 
 interface LeaderboardRowProps {
 	entry: LeaderboardEntry;
@@ -18,7 +17,7 @@ function RankBadge({ rank }: { rank: number }) {
 }
 
 export default function LeaderboardRow({ entry, rank, isCurrentUser }: LeaderboardRowProps) {
-	const displayName = isCurrentUser ? entry.name : shortenName(entry.name);
+	const displayName = entry.name;
 	const isTop3 = rank <= 3;
 
 	const containerClass = isCurrentUser

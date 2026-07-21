@@ -21,14 +21,6 @@ export function parseProgram(program: string | null | undefined): ParsedProgram 
 	return { programName, branch, programCode };
 }
 
-export function shortenName(fullName: string): string {
-	if (!fullName) return "";
-	const parts = fullName.trim().split(/\s+/);
-	if (parts.length <= 1) return parts[0];
-	const lastName = parts[parts.length - 1];
-	return `${parts[0]} ${lastName[0]}.`;
-}
-
 export function buildGroupKey(batchYear: string, programCode: string): string {
 	return `${batchYear}_${programCode}`;
 }
