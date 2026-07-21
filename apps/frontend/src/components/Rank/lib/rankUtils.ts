@@ -8,8 +8,7 @@ export function getAchievementLabel(rank: number, total: number) {
 	if (rank <= 3) return "Top 3";
 	if (rank <= 10) return "Top 10";
 	const percentile = getPercentile(rank, total);
-	if (percentile >= 80) return `Top ${100 - percentile}% of the class`;
-	return `Ranked #${rank} of ${total}`;
+	return `Top ${100 - percentile}%`;
 }
 
 export function getRankTier(rank: number): "gold" | "silver" | "bronze" | "default" {

@@ -5,16 +5,7 @@ import { useAuth } from "@/firebase/AuthContext";
 import { useGpaData } from "@/contexts/GpaDataContext";
 import { LeaderboardService } from "@/firebase/services";
 import { db } from "@/firebase/config";
-import { parseProgram, buildGroupKey, deriveBatchYear } from "@bhemu/shared";
-import type { LeaderboardData, LeaderboardEntry, ParsedProgram } from "@/types";
-
-interface StudentInfo {
-	vid?: string | null;
-	name?: string | null;
-	program?: string | null;
-	batchYear?: string | null;
-	cgpa?: string | null;
-}
+import type { LeaderboardData, LeaderboardEntry } from "@/types";
 
 export function useLeaderboard() {
 	const { currentUser } = useAuth();
@@ -23,35 +14,22 @@ export function useLeaderboard() {
 	const [leaderboardData, setLeaderboardData] = useState<LeaderboardData | null>(null);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-
-	const studentInfo = currentProfile?.studentInfo as StudentInfo | undefined;
-
-	const uid = currentUser?.uid ?? null;
-	const profileId = currentProfile ? String(currentProfile.id) : null;
-	const entryUserId = currentProfile?.ownerUserId ?? uid;
-	const umsVerified = !!currentProfile?.umsVerified;
-	const program = studentInfo?.program ?? null;
-	const cgpa = studentInfo?.cgpa ?? null;
-	const vid = studentInfo?.vid ?? null;
-	const rawBatchYear = studentInfo?.batchYear ?? null;
-
-	const batchYear = deriveBatchYear(vid, rawBatchYear);
-	const parsedProgram: ParsedProgram | null = program ? parseProgram(program) : null;
-	const groupKey = (batchYear && parsedProgram?.programCode)
-		? buildGroupKey(batchYear, parsedProgram.programCode)
-		: null;
-	const isEligible = !!(umsVerified && program && cgpa);
-
 	const [userOptedOut, setUserOptedOut] = useState(false);
 	const [needsResync, setNeedsResync] = useState(false);
 	const fetchIdRef = useRef(0);
 
+	const uid = currentUser?.uid ?? null;
+	const profileId = currentProfile ? String(currentProfile.id) : null;
+	const entryUserId = currentProfile?.ownerUserId ?? uid;
+
+	const studentInfo = currentProfile?.studentInfo as
+		{ program?: string | null; cgpa?: string | null } | undefined;
+	const umsVerified = !!currentProfile?.umsVerified;
+	const isEligible = !!(umsVerified && studentInfo?.program && studentInfo?.cgpa);
+
 	useEffect(() => {
-		// Don't fetch until profile is fully resolved (avoids wrong-profile flash)
 		if (profileLoading) return;
-		if (!uid || !profileId || !isEligible || !groupKey || !cgpa || !parsedProgram || !batchYear) {
-			return;
-		}
+		if (!uid || !profileId || !isEligible) return;
 
 		const fetchId = ++fetchIdRef.current;
 
@@ -77,19 +55,21 @@ export function useLeaderboard() {
 					return;
 				}
 
-				const rankCgpa = userEntry?.cgpa ?? parseFloat(cgpa!);
+				const { groupKey, cgpa } = userEntry;
 
 				const [topEntries, userRank, totalStudents] = await Promise.all([
-					LeaderboardService.getTopStudents(db, groupKey!, 10),
-					LeaderboardService.getUserRank(db, groupKey!, rankCgpa),
-					LeaderboardService.getTotalCount(db, groupKey!),
+					LeaderboardService.getTopStudents(db, groupKey, 10),
+					LeaderboardService.getUserRank(db, groupKey, cgpa),
+					LeaderboardService.getTotalCount(db, groupKey),
 				]);
 				if (fetchId !== fetchIdRef.current) return;
 
 				let nearbyEntries: LeaderboardEntry[] = [];
-				const isInTop10 = topEntries.some((e) => e.userId === entryUserId && e.profileId === profileId);
+				const isInTop10 = topEntries.some(
+					(e) => e.userId === entryUserId && e.profileId === profileId
+				);
 				if (!isInTop10 && userRank > 10) {
-					nearbyEntries = await LeaderboardService.getNearbyAbove(db, groupKey!, rankCgpa, 2);
+					nearbyEntries = await LeaderboardService.getNearbyAbove(db, groupKey, cgpa, 2);
 					if (fetchId !== fetchIdRef.current) return;
 				}
 
@@ -106,8 +86,7 @@ export function useLeaderboard() {
 		}
 
 		fetchLeaderboard();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [uid, profileId, entryUserId, isEligible, groupKey, cgpa, batchYear, vid, profileLoading]);
+	}, [uid, profileId, entryUserId, isEligible, profileLoading]);
 
-	return { leaderboardData, loading, error, isEligible, parsedProgram, groupKey, entryUserId, profileLoading, userOptedOut, needsResync };
+	return { leaderboardData, loading, error, isEligible, entryUserId, profileLoading, userOptedOut, needsResync };
 }

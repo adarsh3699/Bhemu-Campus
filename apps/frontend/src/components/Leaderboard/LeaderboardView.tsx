@@ -7,23 +7,15 @@ import { useAuth } from "@/firebase/AuthContext";
 import LoginRecommendation from "@/components/common/LoginRecommendation";
 import { useLeaderboard } from "./hooks/useLeaderboard";
 import { formatProgramLabel } from "@bhemu/shared";
+import { getPercentile } from "@/components/Rank/lib/rankUtils";
 import LeaderboardTable from "./LeaderboardTable";
 import UMSSyncPrompt from "./UMSSyncPrompt";
 import ShareLeaderboardModal from "./ShareLeaderboardModal";
 
 export default function LeaderboardView() {
 	const { currentUser } = useAuth();
-	const {
-		leaderboardData,
-		loading,
-		error,
-		isEligible,
-		parsedProgram,
-		entryUserId,
-		profileLoading,
-		userOptedOut,
-		needsResync,
-	} = useLeaderboard();
+	const { leaderboardData, loading, error, isEligible, entryUserId, profileLoading, userOptedOut, needsResync } =
+		useLeaderboard();
 	const [shareModalOpen, setShareModalOpen] = useState(false);
 
 	if (!currentUser) return <LoginRecommendation feature="Leaderboard" />;
@@ -82,13 +74,10 @@ export default function LeaderboardView() {
 
 	if (!leaderboardData) return null;
 
-	const { userRank, totalStudents } = leaderboardData;
-	const groupLabel = parsedProgram
-		? formatProgramLabel(parsedProgram.programName, parsedProgram.branch)
-		: "Your Program";
+	const { userEntry, userRank, totalStudents } = leaderboardData;
+	const groupLabel = userEntry ? formatProgramLabel(userEntry.programName, userEntry.branch) : "Your Program";
 
-	const rankPercentile =
-		userRank && totalStudents > 0 ? Math.round(((totalStudents - userRank) / totalStudents) * 100) : null;
+	const rankPercentile = userRank && totalStudents > 0 ? getPercentile(userRank, totalStudents) : null;
 
 	return (
 		<div className="w-full max-w-3xl mx-auto p-4 md:p-6 space-y-4">
@@ -114,7 +103,7 @@ export default function LeaderboardView() {
 							</div>
 						</div>
 
-						{leaderboardData.userEntry && (
+						{userEntry && (
 							<button
 								onClick={() => setShareModalOpen(true)}
 								className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-primary/30 rounded-lg text-xs font-medium text-foreground/70 hover:text-foreground transition-all duration-200 cursor-pointer shrink-0"
@@ -132,7 +121,7 @@ export default function LeaderboardView() {
 								<span className="text-xs text-muted-foreground">Your Rank</span>
 								<span className="text-sm font-bold text-primary">#{userRank}</span>
 							</div>
-							{/* commenting out of students display for now, as per the original code */}
+							{/* Out of student badge */}
 							{/* <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg">
 								<Users className="w-3.5 h-3.5 text-muted-foreground" />
 								<span className="text-xs text-muted-foreground">
@@ -156,7 +145,7 @@ export default function LeaderboardView() {
 			<LeaderboardTable
 				data={leaderboardData}
 				currentUserId={entryUserId ?? currentUser.uid}
-				currentProfileId={leaderboardData.userEntry?.profileId ?? ""}
+				currentProfileId={userEntry?.profileId ?? ""}
 			/>
 
 			{/* Share Modal */}
@@ -164,7 +153,6 @@ export default function LeaderboardView() {
 				isOpen={shareModalOpen}
 				onClose={() => setShareModalOpen(false)}
 				leaderboardData={leaderboardData}
-				parsedProgram={parsedProgram}
 			/>
 		</div>
 	);

@@ -1,32 +1,11 @@
 "use client";
 
 import { Trophy, Medal, Star } from "lucide-react";
-import type { LeaderboardData, ParsedProgram } from "@/types";
+import { getPercentile, getAchievementLabel, getRankTier } from "@/components/Rank/lib/rankUtils";
+import type { LeaderboardData } from "@/types";
 
 interface LeaderboardShareCardProps {
 	leaderboardData: LeaderboardData;
-	parsedProgram: ParsedProgram | null;
-}
-
-function getPercentile(rank: number, total: number) {
-	if (total <= 1) return 100;
-	return Math.round(((total - rank) / (total - 1)) * 100);
-}
-
-function getAchievementLabel(rank: number, total: number) {
-	if (rank === 1) return "Batch Topper!";
-	if (rank <= 3) return "Top 3";
-	if (rank <= 10) return "Top 10";
-	const percentile = getPercentile(rank, total);
-	if (percentile >= 80) return `Top ${100 - percentile}% of the class`;
-	return `Ranked #${rank} of ${total}`;
-}
-
-function getTier(rank: number) {
-	if (rank === 1) return "gold";
-	if (rank === 2) return "silver";
-	if (rank === 3) return "bronze";
-	return "default";
 }
 
 const tierStyles = {
@@ -68,13 +47,11 @@ const tierStyles = {
 	},
 };
 
-function LeaderboardShareCard({ leaderboardData, parsedProgram }: LeaderboardShareCardProps) {
+function LeaderboardShareCard({ leaderboardData }: LeaderboardShareCardProps) {
 	const { userEntry, userRank, totalStudents } = leaderboardData;
 	if (!userEntry || !userRank) return null;
 
-	const programLine = parsedProgram?.programName ?? "Program";
-	const branchLine = parsedProgram?.branch ?? null;
-	const tier = getTier(userRank);
+	const tier = getRankTier(userRank);
 	const t = tierStyles[tier];
 	const percentile = getPercentile(userRank, totalStudents);
 	const achievementLabel = getAchievementLabel(userRank, totalStudents);
@@ -144,8 +121,8 @@ function LeaderboardShareCard({ leaderboardData, parsedProgram }: LeaderboardSha
 									lineHeight: "14px",
 								}}
 							>
-								{programLine}
-								{branchLine ? " " + branchLine : ""}
+								{userEntry.programName}
+								{userEntry.branch ? " " + userEntry.branch : ""}
 							</p>
 							<p
 								style={{
