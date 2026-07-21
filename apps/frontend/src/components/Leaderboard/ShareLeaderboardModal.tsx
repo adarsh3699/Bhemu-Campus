@@ -6,19 +6,18 @@ import BaseModal from "@/components/modal/BaseModal";
 import LeaderboardShareCard from "./LeaderboardShareCard";
 import { drawLeaderboardCard } from "@/lib/drawLeaderboardCard";
 import { formatProgramLabel } from "@bhemu/shared";
-import type { LeaderboardData, ParsedProgram } from "@/types";
+import type { LeaderboardData } from "@/types";
 
 interface ShareLeaderboardModalProps {
 	isOpen: boolean;
 	onClose: () => void;
 	leaderboardData: LeaderboardData;
-	parsedProgram: ParsedProgram | null;
 }
 
-function buildShareMessage(data: LeaderboardData, parsedProgram: ParsedProgram | null, withEmoji: boolean): string {
+function buildShareMessage(data: LeaderboardData, withEmoji: boolean): string {
 	const { userEntry, userRank, totalStudents } = data;
 	if (!userEntry || !userRank) return "";
-	const programLabel = formatProgramLabel(parsedProgram?.programName, parsedProgram?.branch, "my program");
+	const programLabel = formatProgramLabel(userEntry.programName, userEntry.branch, "my program");
 	const trophy = withEmoji ? " 🏆" : "";
 	const rankUrl = `https://calc.bhemu.in/rank/${userEntry.userId}_${userEntry.profileId}`;
 	return `I'm ranked #${userRank} among ${totalStudents} ${programLabel} students (Batch ${userEntry.batchYear}) with a CGPA of ${userEntry.cgpa.toFixed(2)}!${trophy}\n\nTrack your CGPA, plan your goals, and see where you stand — sync your LPU UMS data with Bhemu Calculator.\n${rankUrl}`;
@@ -28,7 +27,6 @@ export default function ShareLeaderboardModal({
 	isOpen,
 	onClose,
 	leaderboardData,
-	parsedProgram,
 }: ShareLeaderboardModalProps) {
 	const [exporting, setExporting] = useState(false);
 	const [copied, setCopied] = useState(false);
@@ -43,7 +41,7 @@ export default function ShareLeaderboardModal({
 		setCopied(true);
 		setTimeout(() => setCopied(false), 2000);
 	};
-	const shareMessage = buildShareMessage(leaderboardData, parsedProgram, isMobile);
+	const shareMessage = buildShareMessage(leaderboardData, isMobile);
 
 	const buildCanvas = useCallback((): HTMLCanvasElement | null => {
 		const { userEntry, userRank, totalStudents } = leaderboardData;
@@ -53,10 +51,10 @@ export default function ShareLeaderboardModal({
 			totalStudents,
 			cgpa: userEntry.cgpa.toFixed(2),
 			name: userEntry.name,
-			programLine: formatProgramLabel(parsedProgram?.programName, parsedProgram?.branch),
+			programLine: formatProgramLabel(userEntry.programName, userEntry.branch),
 			batchYear: userEntry.batchYear,
 		});
-	}, [leaderboardData, parsedProgram]);
+	}, [leaderboardData]);
 
 	const getBlob = useCallback((): Promise<Blob | null> => {
 		const canvas = buildCanvas();
@@ -107,11 +105,9 @@ export default function ShareLeaderboardModal({
 
 	const handleWhatsApp = async () => {
 		if (!isMobile) {
-			// Desktop: open WhatsApp web with text directly — system share sheet is useless on desktop
 			window.open(`https://wa.me/?text=${encodeURIComponent(shareMessage)}`, "_blank");
 			return;
 		}
-		// Mobile: use native share sheet with image so user can pick WhatsApp
 		setExporting(true);
 		try {
 			const blob = await getBlob();
@@ -119,7 +115,6 @@ export default function ShareLeaderboardModal({
 			if (file && navigator.canShare?.({ files: [file] })) {
 				await navigator.share({ text: shareMessage, files: [file] });
 			} else {
-				// HTTP or unsupported — fall back to text-only
 				window.open(`https://wa.me/?text=${encodeURIComponent(shareMessage)}`, "_blank");
 			}
 		} catch {
@@ -132,10 +127,10 @@ export default function ShareLeaderboardModal({
 	return (
 		<BaseModal isOpen={isOpen} onClose={onClose} title="Share Your Rank" maxWidth="560px">
 			<div className="p-4 space-y-4">
-				{/* Preview card — outer height = card natural height × scale to eliminate dead space */}
+				{/* Preview card */}
 				<div className="flex justify-center overflow-hidden" style={{ height: "398px" }}>
 					<div className="transform scale-[0.88] origin-top shrink-0">
-						<LeaderboardShareCard leaderboardData={leaderboardData} parsedProgram={parsedProgram} />
+						<LeaderboardShareCard leaderboardData={leaderboardData} />
 					</div>
 				</div>
 
@@ -194,7 +189,7 @@ export default function ShareLeaderboardModal({
 					)}
 				</div>
 
-				{/* Copy link + Download — same row */}
+				{/* Copy link + Download */}
 				{shareUrl && (
 					<div className="space-y-2">
 						<p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-widest px-0.5">

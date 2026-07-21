@@ -1,3 +1,5 @@
+import { getPercentile, getAchievementLabel } from "@/components/Rank/lib/rankUtils";
+
 interface DrawCardData {
 	rank: number;
 	totalStudents: number;
@@ -22,36 +24,39 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 }
 
 function getTierColors(rank: number) {
-	if (rank === 1) return {
-		stripe: ["#D97706", "#FDE68A", "#F59E0B", "#D97706"],
-		rankGradient: ["#FDE68A", "#FBBF24", "#F59E0B", "#D97706"],
-		badgeBg: "rgba(245,158,11,0.12)",
-		badgeBorder: "rgba(245,158,11,0.3)",
-		badgeText: "#FCD34D",
-		glowColor: "rgba(245,158,11,0.2)",
-		iconBg: "rgba(245,158,11,0.15)",
-		iconBorder: "rgba(245,158,11,0.4)",
-	};
-	if (rank === 2) return {
-		stripe: ["#64748B", "#CBD5E1", "#94A3B8", "#64748B"],
-		rankGradient: ["#F1F5F9", "#CBD5E1", "#94A3B8", "#64748B"],
-		badgeBg: "rgba(148,163,184,0.12)",
-		badgeBorder: "rgba(148,163,184,0.3)",
-		badgeText: "#CBD5E1",
-		glowColor: "rgba(148,163,184,0.15)",
-		iconBg: "rgba(148,163,184,0.15)",
-		iconBorder: "rgba(148,163,184,0.4)",
-	};
-	if (rank === 3) return {
-		stripe: ["#92400E", "#FED7AA", "#F97316", "#92400E"],
-		rankGradient: ["#FED7AA", "#FB923C", "#F97316", "#C2410C"],
-		badgeBg: "rgba(249,115,22,0.12)",
-		badgeBorder: "rgba(249,115,22,0.3)",
-		badgeText: "#FDBA74",
-		glowColor: "rgba(249,115,22,0.15)",
-		iconBg: "rgba(249,115,22,0.15)",
-		iconBorder: "rgba(249,115,22,0.4)",
-	};
+	if (rank === 1)
+		return {
+			stripe: ["#D97706", "#FDE68A", "#F59E0B", "#D97706"],
+			rankGradient: ["#FDE68A", "#FBBF24", "#F59E0B", "#D97706"],
+			badgeBg: "rgba(245,158,11,0.12)",
+			badgeBorder: "rgba(245,158,11,0.3)",
+			badgeText: "#FCD34D",
+			glowColor: "rgba(245,158,11,0.2)",
+			iconBg: "rgba(245,158,11,0.15)",
+			iconBorder: "rgba(245,158,11,0.4)",
+		};
+	if (rank === 2)
+		return {
+			stripe: ["#64748B", "#CBD5E1", "#94A3B8", "#64748B"],
+			rankGradient: ["#F1F5F9", "#CBD5E1", "#94A3B8", "#64748B"],
+			badgeBg: "rgba(148,163,184,0.12)",
+			badgeBorder: "rgba(148,163,184,0.3)",
+			badgeText: "#CBD5E1",
+			glowColor: "rgba(148,163,184,0.15)",
+			iconBg: "rgba(148,163,184,0.15)",
+			iconBorder: "rgba(148,163,184,0.4)",
+		};
+	if (rank === 3)
+		return {
+			stripe: ["#92400E", "#FED7AA", "#F97316", "#92400E"],
+			rankGradient: ["#FED7AA", "#FB923C", "#F97316", "#C2410C"],
+			badgeBg: "rgba(249,115,22,0.12)",
+			badgeBorder: "rgba(249,115,22,0.3)",
+			badgeText: "#FDBA74",
+			glowColor: "rgba(249,115,22,0.15)",
+			iconBg: "rgba(249,115,22,0.15)",
+			iconBorder: "rgba(249,115,22,0.4)",
+		};
 	return {
 		stripe: ["#0398ac", "#22d3ee", "#0398ac", "#004eeb"],
 		rankGradient: ["#67E8F9", "#22D3EE", "#0398ac", "#004eeb"],
@@ -62,20 +67,6 @@ function getTierColors(rank: number) {
 		iconBg: "rgba(3,152,172,0.15)",
 		iconBorder: "rgba(3,152,172,0.4)",
 	};
-}
-
-function getPercentile(rank: number, total: number) {
-	if (total <= 1) return 100;
-	return Math.round(((total - rank) / (total - 1)) * 100);
-}
-
-function getAchievementLabel(rank: number, total: number) {
-	if (rank === 1) return "Batch Topper!";
-	if (rank <= 3) return "Top 3";
-	if (rank <= 10) return "Top 10";
-	const percentile = getPercentile(rank, total);
-	if (percentile >= 80) return `Top ${100 - percentile}% of the class`;
-	return `Ranked #${rank} of ${total}`;
 }
 
 export function drawLeaderboardCard(data: DrawCardData): HTMLCanvasElement {
