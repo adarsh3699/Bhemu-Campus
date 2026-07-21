@@ -8,6 +8,7 @@ export interface LeaderboardEntry {
 	userId: string;
 	profileId: string;
 	name: string;
+	realName?: string;
 	vid: string;
 	programCode: string;
 	programName: string;

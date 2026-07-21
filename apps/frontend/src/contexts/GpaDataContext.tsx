@@ -2,7 +2,8 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef, startTransition } from "react";
 import { useAuth } from "@/firebase/AuthContext";
-import { gpaService as createGPAService } from "@/firebase/services";
+import { gpaService as createGPAService, LeaderboardService } from "@/firebase/services";
+import { db } from "@/firebase/config";
 import type { GPAProfile, GPASemester } from "@bhemu/shared";
 import { useMessage } from "@/contexts/MessageContext";
 
@@ -30,6 +31,7 @@ interface GpaDataContextValue {
 		action?: string
 	) => Promise<void>;
 	copySharedProfile: (shareId: string, profileName: string) => Promise<void>;
+	renameProfile: (profileId: string | number, newName: string) => Promise<void>;
 }
 
 const GpaDataContext = createContext<GpaDataContextValue | undefined>(undefined);
@@ -292,6 +294,25 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 			}
 		},
 		[gpaService, showMessage, updateActiveProfile]
+	);
+
+	const renameProfile = useCallback(
+		async (profileId: string | number, newName: string) => {
+			if (!gpaService) return;
+			// Optimistic update
+			setProfiles((prev) => prev.map((p) => p.id === profileId ? { ...p, name: newName } : p));
+			try {
+				await gpaService.renameProfile(profileId, newName);
+				if (currentUser) {
+					LeaderboardService.updateDisplayName(db, currentUser.uid, String(profileId), newName)
+						.catch((err) => console.error("Failed to sync leaderboard name:", err));
+				}
+			} catch (error) {
+				console.error("Error renaming profile:", error);
+				showMessage("Error renaming profile. Please try again.", "error");
+			}
+		},
+		[gpaService, showMessage, currentUser]
 	);
 
 	// ===== DATA UPDATE ACTIONS =====
@@ -595,6 +616,7 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 			updateSemesters,
 			shareProfileWithUser,
 			copySharedProfile,
+			renameProfile,
 		}),
 		[
 			profiles,
@@ -613,6 +635,7 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 			updateSemesters,
 			shareProfileWithUser,
 			copySharedProfile,
+			renameProfile,
 		]
 	);
 

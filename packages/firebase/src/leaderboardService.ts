@@ -22,6 +22,7 @@ function docFromSnapshot(snapshot: { id: string; data: () => Record<string, unkn
 		userId: data.userId as string,
 		profileId: data.profileId as string,
 		name: data.name as string,
+		realName: (data.realName as string) ?? undefined,
 		vid: data.vid as string,
 		programCode: data.programCode as string,
 		programName: data.programName as string,
@@ -95,5 +96,12 @@ export class LeaderboardService {
 	static async setOptOut(db: Firestore, userId: string, profileId: string, optOut: boolean): Promise<void> {
 		const ref = doc(db, LEADERBOARD_COL, `${userId}_${profileId}`);
 		await setDoc(ref, { optOut, updatedAt: serverTimestamp() }, { merge: true });
+	}
+
+	static async updateDisplayName(db: Firestore, userId: string, profileId: string, newName: string): Promise<void> {
+		const ref = doc(db, LEADERBOARD_COL, `${userId}_${profileId}`);
+		const snap = await getDoc(ref);
+		if (!snap.exists()) return;
+		await setDoc(ref, { name: newName, updatedAt: serverTimestamp() }, { merge: true });
 	}
 }

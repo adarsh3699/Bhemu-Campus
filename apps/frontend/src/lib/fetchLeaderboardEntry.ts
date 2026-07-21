@@ -29,6 +29,7 @@ export interface LeaderboardEntryPublic {
 	userId: string;
 	profileId: string;
 	name: string;
+	realName?: string;
 	vid: string;
 	programCode: string;
 	programName: string;
@@ -101,6 +102,7 @@ export async function fetchLeaderboardEntry(docId: string): Promise<LeaderboardE
 			userId: extractField(f, "userId") as string,
 			profileId: extractField(f, "profileId") as string,
 			name: extractField(f, "name") as string,
+			realName: (extractField(f, "realName") as string) ?? undefined,
 			vid: (extractField(f, "vid") as string) ?? "",
 			programCode: extractField(f, "programCode") as string,
 			programName: extractField(f, "programName") as string,

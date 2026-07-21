@@ -178,7 +178,7 @@ export default function TopBar({ onMenuOpen, onOpenProfileDrawer }: TopBarProps)
 									<div className="px-3 py-3 border-b border-white/5">
 										{/* My Workspaces */}
 										<p className="px-2 pt-1 pb-2 text-[11px] font-bold text-neutral-500 uppercase tracking-wider">
-											My Academic Workspaces
+											My Academic Profiles
 										</p>
 										{recentOwnProfiles.map((profile) => {
 											const isActive = activeProfile === profile.id;
@@ -305,7 +305,7 @@ export default function TopBar({ onMenuOpen, onOpenProfileDrawer }: TopBarProps)
 														className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold text-teal-400 hover:bg-teal-500/10 transition-all border border-dashed border-white/10 hover:border-teal-500/30"
 													>
 														<Plus className="w-4 h-4 shrink-0" />
-														<span className="whitespace-nowrap">New Workspace</span>
+														<span className="whitespace-nowrap">New Profile</span>
 													</button>
 													{(hasMoreProfiles || onOpenProfileDrawer) && (
 														<button

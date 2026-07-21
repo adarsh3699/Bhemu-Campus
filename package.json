@@ -9,6 +9,7 @@
 	"scripts": {
 		"dev:web": "turbo dev --filter=./apps/frontend",
 		"dev:ext": "turbo dev --filter=./apps/ums-extension",
+		"dev:mobile": "turbo dev --filter=./apps/mobile",
 		"build": "turbo build",
 		"build:shared": "turbo build --filter=@bhemu/shared",
 		"build:web": "turbo build --filter=./apps/frontend",

@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Share2, Copy, Pencil, Eye, X, Plus } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Copy, Pencil, Eye, X, Plus, MoreVertical, Share2, Trash2 } from "lucide-react";
 import ConfirmModal from "@/components/modal/ConfirmModal";
 import InputModal from "@/components/modal/InputModal";
 
@@ -36,6 +36,7 @@ interface ProfileDrawerProps {
 	onDeleteProfile: (profileId: string | number) => void;
 	onShareProfile?: (profileId: string | number) => void;
 	onCopySharedProfile?: (shareId: string, profileName: string) => Promise<void>;
+	onRenameProfile?: (profileId: string | number, newName: string) => void;
 	mySharedProfiles?: unknown[];
 	isLoading?: boolean;
 	currentUser?: { uid: string } | null;
@@ -51,15 +52,32 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 	onDeleteProfile,
 	onShareProfile,
 	onCopySharedProfile,
+	onRenameProfile,
 	mySharedProfiles = [],
 	isLoading = false,
 	currentUser,
 }) => {
 	const typedMySharedProfiles = (mySharedProfiles || []) as SharedStatusItem[];
 
-	const [showInputModal, setShowInputModal] = useState(false);
+	const [showCreateModal, setShowCreateModal] = useState(false);
 	const [showConfirmModal, setShowConfirmModal] = useState(false);
 	const [profileToDelete, setProfileToDelete] = useState<{ id: string | number; name: string } | null>(null);
+	const [profileToRename, setProfileToRename] = useState<{ id: string | number; name: string } | null>(null);
+	const [openMenuId, setOpenMenuId] = useState<string | number | null>(null);
+	const menuRef = useRef<HTMLDivElement>(null);
+
+	// Close menu on outside click
+	useEffect(() => {
+		if (!openMenuId) return;
+		const handleClick = (e: MouseEvent) => {
+			if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+				setOpenMenuId(null);
+			}
+		};
+		document.addEventListener("mousedown", handleClick);
+		return () => document.removeEventListener("mousedown", handleClick);
+	}, [openMenuId]);
+
 	// Prevent background scrolling when drawer is open
 	useEffect(() => {
 		if (isOpen) {
@@ -75,36 +93,6 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 	const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
 		if (e.target === e.currentTarget) {
 			onClose();
-		}
-	};
-
-	const handleCreateProfile = () => {
-		setShowInputModal(true);
-	};
-
-	const handleProfileNameSubmit = (name: string) => {
-		onCreateProfile(name);
-		setShowInputModal(false);
-		onClose();
-	};
-
-	const handleDeleteProfile = (profileId: string | number, profileName: string) => {
-		setProfileToDelete({ id: profileId, name: profileName });
-		setShowConfirmModal(true);
-	};
-
-	const handleConfirmDelete = () => {
-		if (profileToDelete) {
-			onDeleteProfile(profileToDelete.id);
-			setProfileToDelete(null);
-		}
-		setShowConfirmModal(false);
-	};
-
-	const handleShareProfile = (profileId: string | number, event: React.MouseEvent<HTMLButtonElement>) => {
-		event.stopPropagation();
-		if (onShareProfile) {
-			onShareProfile(profileId);
 		}
 	};
 
@@ -153,7 +141,7 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 		<>
 			{/* Overlay */}
 			<div
-				className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999] flex items-end sm:items-center justify-center sm:justify-end animate-in fade-in duration-300"
+				className="fixed inset-0 bg-black/20 backdrop-blur-sm z-999 flex items-end sm:items-center justify-center sm:justify-end animate-in fade-in duration-300"
 				onClick={handleOverlayClick}
 			>
 				{/* Drawer Wrapper */}
@@ -182,13 +170,15 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 						{/* Own Profiles Section */}
 						<div className="space-y-4">
 							<h4 className="text-xs font-bold text-neutral-400 uppercase tracking-wider">
-								My Academic Workspaces
+								My Academic Profiles
 							</h4>
 							<div className="grid grid-cols-1 gap-3">
 								{ownProfiles.map((profile) => {
 									const userShares = getProfileUserShares(profile.id);
 									const hasUserShares = userShares.length > 0;
 									const isActive = currentProfile === profile.id;
+									const isMenuOpen = openMenuId === profile.id;
+									const canDelete = ownProfiles.length > 1 && !profile.isDefault;
 
 									return (
 										<div
@@ -203,7 +193,7 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 												onClose();
 											}}
 										>
-											<div className="pr-20">
+											<div className="pr-12">
 												<h5 className="font-bold text-white text-sm truncate">
 													{profile.name}
 												</h5>
@@ -222,27 +212,71 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 												)}
 											</div>
 
-											{/* Quick Actions */}
-											<div className="absolute top-4 right-4 flex gap-1">
+											{/* 3-dot menu */}
+											<div
+												className="absolute top-3 right-3"
+												ref={isMenuOpen ? menuRef : undefined}
+											>
 												<button
-													className="w-8 h-8 rounded-lg flex items-center justify-center bg-teal-500/10 border border-teal-500/20 text-teal-400 hover:bg-teal-500/20 transition-all duration-200"
-													onClick={(e) => handleShareProfile(profile.id, e)}
-													title="Share with users"
+													className="w-8 h-8 rounded-lg flex items-center justify-center text-neutral-400 hover:bg-white/10 hover:text-white transition-all duration-200"
+													onClick={(e) => {
+														e.stopPropagation();
+														setOpenMenuId(isMenuOpen ? null : profile.id);
+													}}
 													disabled={isLoading}
+													title="More options"
 												>
-													<Share2 className="w-4 h-4" />
+													<MoreVertical className="w-4 h-4" />
 												</button>
-												{ownProfiles.length > 1 && !profile.isDefault && (
-													<button
-														className="w-8 h-8 rounded-lg flex items-center justify-center bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all duration-200"
-														onClick={(e) => {
-															e.stopPropagation();
-															handleDeleteProfile(profile.id, profile.name);
-														}}
-														title="Delete profile"
+
+												{isMenuOpen && (
+													<div
+														className="absolute right-0 top-9 z-50 w-44 rounded-xl border border-white/10 bg-neutral-900 shadow-xl py-1 overflow-hidden"
+														onClick={(e) => e.stopPropagation()}
 													>
-														<X className="w-4 h-4" />
-													</button>
+														<button
+															className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-neutral-200 hover:bg-white/8 transition-colors"
+															onClick={() => {
+																setOpenMenuId(null);
+																setProfileToRename({
+																	id: profile.id,
+																	name: profile.name,
+																});
+															}}
+														>
+															<Pencil className="w-3.5 h-3.5 text-neutral-400" />
+															Rename
+														</button>
+														<button
+															className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-neutral-200 hover:bg-white/8 transition-colors"
+															onClick={() => {
+																setOpenMenuId(null);
+																onShareProfile?.(profile.id);
+															}}
+														>
+															<Share2 className="w-3.5 h-3.5 text-neutral-400" />
+															Share
+														</button>
+														{canDelete && (
+															<>
+																<div className="my-1 border-t border-white/8" />
+																<button
+																	className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+																	onClick={() => {
+																		setOpenMenuId(null);
+																		setProfileToDelete({
+																			id: profile.id,
+																			name: profile.name,
+																		});
+																		setShowConfirmModal(true);
+																	}}
+																>
+																	<Trash2 className="w-3.5 h-3.5" />
+																	Delete
+																</button>
+															</>
+														)}
+													</div>
 												)}
 											</div>
 										</div>
@@ -252,7 +286,7 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 								{/* Add Profile Card */}
 								<div
 									className="rounded-xl px-4 py-3 border-2 border-dashed border-white/10 hover:border-indigo-500/50 hover:bg-indigo-500/5 cursor-pointer transition-all duration-300 flex flex-col items-center justify-center gap-2 max-h-[90px]"
-									onClick={handleCreateProfile}
+									onClick={() => setShowCreateModal(true)}
 								>
 									<Plus className="w-6 h-6 text-neutral-400" />
 									<span className="text-xs font-bold text-neutral-400">Add Workspace Profile</span>
@@ -313,7 +347,7 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 													</div>
 												</div>
 
-												{/* Quick Actions */}
+												{/* Copy action for read-only shared profiles */}
 												{profile.permission === "read" && (
 													<div className="absolute top-4 right-4">
 														<button
@@ -342,23 +376,50 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 				</div>
 			</div>
 
-			{/* Sub-modals for workspace controls */}
+			{/* Create Profile Modal */}
 			<InputModal
-				isOpen={showInputModal}
-				onClose={() => setShowInputModal(false)}
-				onConfirm={handleProfileNameSubmit}
+				isOpen={showCreateModal}
+				onClose={() => setShowCreateModal(false)}
+				onConfirm={(name) => {
+					onCreateProfile(name);
+					setShowCreateModal(false);
+					onClose();
+				}}
 				title="Create New Profile"
 				placeholder="Enter profile name"
 				confirmText="Create"
 			/>
 
+			{/* Rename Profile Modal */}
+			<InputModal
+				isOpen={!!profileToRename}
+				onClose={() => setProfileToRename(null)}
+				onConfirm={(name) => {
+					if (profileToRename) {
+						onRenameProfile?.(profileToRename.id, name);
+					}
+					setProfileToRename(null);
+				}}
+				title="Rename Profile"
+				placeholder="Enter new name"
+				initialValue={profileToRename?.name ?? ""}
+				confirmText="Rename"
+			/>
+
+			{/* Delete Confirm Modal */}
 			<ConfirmModal
 				isOpen={showConfirmModal}
 				onClose={() => {
 					setShowConfirmModal(false);
 					setProfileToDelete(null);
 				}}
-				onConfirm={handleConfirmDelete}
+				onConfirm={() => {
+					if (profileToDelete) {
+						onDeleteProfile(profileToDelete.id);
+						setProfileToDelete(null);
+					}
+					setShowConfirmModal(false);
+				}}
 				title="Delete Profile"
 				message={`Are you sure you want to delete "${profileToDelete?.name}"? This action cannot be undone.`}
 				confirmText="Delete"
