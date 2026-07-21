@@ -30,6 +30,7 @@ interface GpaDataContextValue {
 		action?: string
 	) => Promise<void>;
 	copySharedProfile: (shareId: string, profileName: string) => Promise<void>;
+	renameProfile: (profileId: string | number, newName: string) => Promise<void>;
 }
 
 const GpaDataContext = createContext<GpaDataContextValue | undefined>(undefined);
@@ -292,6 +293,21 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 			}
 		},
 		[gpaService, showMessage, updateActiveProfile]
+	);
+
+	const renameProfile = useCallback(
+		async (profileId: string | number, newName: string) => {
+			if (!gpaService) return;
+			// Optimistic update
+			setProfiles((prev) => prev.map((p) => p.id === profileId ? { ...p, name: newName } : p));
+			try {
+				await gpaService.renameProfile(profileId, newName);
+			} catch (error) {
+				console.error("Error renaming profile:", error);
+				showMessage("Error renaming profile. Please try again.", "error");
+			}
+		},
+		[gpaService, showMessage]
 	);
 
 	// ===== DATA UPDATE ACTIONS =====
@@ -595,6 +611,7 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 			updateSemesters,
 			shareProfileWithUser,
 			copySharedProfile,
+			renameProfile,
 		}),
 		[
 			profiles,
@@ -613,6 +630,7 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 			updateSemesters,
 			shareProfileWithUser,
 			copySharedProfile,
+			renameProfile,
 		]
 	);
 
