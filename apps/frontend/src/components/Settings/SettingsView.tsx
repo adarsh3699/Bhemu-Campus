@@ -8,7 +8,7 @@ import { useProfileData } from "@/components/Settings/hooks/useProfileData";
 import PageHeader from "@/components/common/PageHeader";
 import AccountInfo from "@/components/Settings/AccountInfo";
 import SecuritySection from "@/components/Settings/SecuritySection";
-import LeaderboardSettings from "@/components/Settings/LeaderboardSettings";
+import ProfileSettings from "@/components/Settings/ProfileSettings";
 import DangerZone from "@/components/Settings/DangerZone";
 import LoginRecommendation from "@/components/common/LoginRecommendation";
 
@@ -81,7 +81,7 @@ export default function SettingsView() {
 			{/* Profile Grid: 4 col account left, 8 col settings right */}
 			<div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
 				{/* Account Information Card */}
-				<div className="lg:col-span-4">
+				<div className="lg:col-span-4 lg:sticky lg:top-20 lg:self-start">
 					<AccountInfo
 						currentUser={currentUser}
 						isEditingName={isEditingName}
@@ -97,6 +97,7 @@ export default function SettingsView() {
 
 				{/* Security + Danger */}
 				<div className="lg:col-span-8 flex flex-col gap-5">
+					<ProfileSettings />
 					<SecuritySection
 						isGoogleUser={isGoogleUser}
 						hasPassword={hasPassword}
@@ -117,7 +118,6 @@ export default function SettingsView() {
 						handleChangePassword={handleChangePassword}
 						handleCancelPasswordChange={resetPasswordForms}
 					/>
-					<LeaderboardSettings />
 					<DangerZone onShowDeleteModal={() => setShowDeleteModal(true)} isDeletingData={isDeletingData} />
 				</div>
 			</div>
@@ -176,9 +176,7 @@ export default function SettingsView() {
 									<div className="w-full border-t border-white/10" />
 								</div>
 								<div className="relative flex justify-center text-xs uppercase">
-									<span className="bg-neutral-950 px-3 text-neutral-500">
-										or
-									</span>
+									<span className="bg-neutral-950 px-3 text-neutral-500">or</span>
 								</div>
 							</div>
 							<button
