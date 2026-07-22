@@ -499,6 +499,9 @@ Manual close button available.
 - Same `programCode` (extracted from `studentInfo.program`, e.g. `"P132"` from `"B.Tech. (Computer Science and Engineering) (P132 )"`)
 - Ranked by `cgpa` descending
 - Opted-out users (`optOut: true`) excluded from all queries and counts
+- Duplicate entries (same `vid` across multiple profiles/accounts) are deduplicated client-side — only the most recent entry is shown
+- Dedup uses over-fetch strategy (fetch 20, dedup, show 10) for performance — avoids loading all group entries
+- Rank number (from Firestore count query) may be ±1 off in extremely rare cases where a duplicate exists above the user. This is a deliberate trade-off for performance at scale (500+ entries per group)
 
 ### Shared Profile Support
 - When viewing a shared profile, the `(You)` highlight uses the **owner's** `userId` + `profileId` (not the viewer's)

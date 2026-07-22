@@ -57,20 +57,23 @@ export function useLeaderboard() {
 
 				const { groupKey, cgpa } = userEntry;
 
-				const [topEntries, userRank, totalStudents] = await Promise.all([
-					LeaderboardService.getTopStudents(db, groupKey, 10),
+				const [rawTopEntries, userRank, totalStudents] = await Promise.all([
+					LeaderboardService.getTopStudents(db, groupKey, 20),
 					LeaderboardService.getUserRank(db, groupKey, cgpa),
 					LeaderboardService.getTotalCount(db, groupKey),
 				]);
 				if (fetchId !== fetchIdRef.current) return;
+
+				const topEntries = LeaderboardService.deduplicateByVid(rawTopEntries, entryUserId!, profileId!).slice(0, 10);
 
 				let nearbyEntries: LeaderboardEntry[] = [];
 				const isInTop10 = topEntries.some(
 					(e) => e.userId === entryUserId && e.profileId === profileId
 				);
 				if (!isInTop10 && userRank > 10) {
-					nearbyEntries = await LeaderboardService.getNearbyAbove(db, groupKey, cgpa, 2);
+					const rawNearby = await LeaderboardService.getNearbyAbove(db, groupKey, cgpa, 5);
 					if (fetchId !== fetchIdRef.current) return;
+					nearbyEntries = LeaderboardService.deduplicateByVid(rawNearby, entryUserId!, profileId!).slice(-2);
 				}
 
 				setLeaderboardData({ topEntries, userEntry, userRank, nearbyEntries, totalStudents });
