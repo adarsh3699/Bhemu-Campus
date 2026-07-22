@@ -104,4 +104,28 @@ export class LeaderboardService {
 		if (!snap.exists()) return;
 		await setDoc(ref, { name: newName, updatedAt: serverTimestamp() }, { merge: true });
 	}
+
+	static deduplicateByVid(entries: LeaderboardEntry[], currentUserId?: string, currentProfileId?: string): LeaderboardEntry[] {
+		const seen = new Map<string, LeaderboardEntry>();
+		for (const entry of entries) {
+			const key = entry.vid || `${entry.userId}_${entry.profileId}`;
+			const existing = seen.get(key);
+			if (!existing) {
+				seen.set(key, entry);
+				continue;
+			}
+			if (entry.userId === currentUserId && entry.profileId === currentProfileId) {
+				seen.set(key, entry);
+			} else if (existing.userId === currentUserId && existing.profileId === currentProfileId) {
+				// existing is current user's — keep it
+			} else {
+				const existingTime = existing.updatedAt as { seconds?: number } | null;
+				const entryTime = entry.updatedAt as { seconds?: number } | null;
+				if ((entryTime?.seconds ?? 0) > (existingTime?.seconds ?? 0)) {
+					seen.set(key, entry);
+				}
+			}
+		}
+		return [...seen.values()].sort((a, b) => b.cgpa - a.cgpa);
+	}
 }
