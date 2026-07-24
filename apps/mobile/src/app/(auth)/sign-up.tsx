@@ -16,6 +16,7 @@ import { Eye, EyeOff } from "lucide-react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMessage } from "@/contexts/MessageContext";
 import { Colors } from "@/constants/Colors";
+import { Layout, Inputs, Buttons, AuthStyles } from "@/styles";
 
 export default function SignUp() {
 	const { signup } = useAuth();
@@ -57,27 +58,25 @@ export default function SignUp() {
 	}
 
 	return (
-		<KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+		<KeyboardAvoidingView style={Layout.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
 			<ScrollView
-				contentContainerStyle={styles.container}
+				contentContainerStyle={AuthStyles.container}
 				keyboardShouldPersistTaps="handled"
 				showsVerticalScrollIndicator={false}
 			>
-				{/* Big centered logo + heading */}
-				<View style={styles.logoSection}>
-					<View style={styles.logoBox}>
-						<Image source={require("../../../assets/app_icon.png")} style={styles.logoImage} />
+				<View style={AuthStyles.logoSection}>
+					<View style={AuthStyles.logoBox}>
+						<Image source={require("../../../assets/app_icon.png")} style={AuthStyles.logoImage} />
 					</View>
-					<Text style={styles.heading}>Create account</Text>
-					<Text style={styles.subheading}>Join thousands of LPU students.</Text>
+					<Text style={AuthStyles.heading}>Create account</Text>
+					<Text style={AuthStyles.subheading}>Join thousands of LPU students.</Text>
 				</View>
 
-				{/* Form with labels */}
-				<View style={styles.form}>
-					<View style={styles.field}>
-						<Text style={styles.label}>Full Name</Text>
+				<View style={AuthStyles.form}>
+					<View style={AuthStyles.field}>
+						<Text style={AuthStyles.label}>Full Name</Text>
 						<TextInput
-							style={styles.input}
+							style={Inputs.field}
 							value={name}
 							onChangeText={setName}
 							placeholder="Your name"
@@ -87,10 +86,10 @@ export default function SignUp() {
 						/>
 					</View>
 
-					<View style={styles.field}>
-						<Text style={styles.label}>Email address</Text>
+					<View style={AuthStyles.field}>
+						<Text style={AuthStyles.label}>Email address</Text>
 						<TextInput
-							style={styles.input}
+							style={Inputs.field}
 							value={email}
 							onChangeText={setEmail}
 							placeholder="name@gmail.in"
@@ -101,11 +100,11 @@ export default function SignUp() {
 						/>
 					</View>
 
-					<View style={styles.field}>
-						<Text style={styles.label}>Password</Text>
-						<View style={styles.inputRow}>
+					<View style={AuthStyles.field}>
+						<Text style={AuthStyles.label}>Password</Text>
+						<View style={Inputs.row}>
 							<TextInput
-								style={styles.inputFlex}
+								style={Inputs.rowInner}
 								value={password}
 								onChangeText={setPassword}
 								placeholder="Min. 6 characters"
@@ -114,7 +113,7 @@ export default function SignUp() {
 								autoCapitalize="none"
 								autoComplete="new-password"
 							/>
-							<TouchableOpacity onPress={togglePassword} style={styles.eyeBtn} hitSlop={8}>
+							<TouchableOpacity onPress={togglePassword} style={Inputs.iconButton} hitSlop={8}>
 								{showPassword ? (
 									<EyeOff size={20} color={Colors.textMuted} />
 								) : (
@@ -125,7 +124,7 @@ export default function SignUp() {
 					</View>
 
 					<TouchableOpacity
-						style={[styles.primaryButton, loading && styles.disabled]}
+						style={[Buttons.primary, local.buttonMargin, loading && Buttons.disabled]}
 						onPress={handleSignUp}
 						disabled={loading}
 						activeOpacity={0.85}
@@ -133,14 +132,14 @@ export default function SignUp() {
 						{loading ? (
 							<ActivityIndicator color={Colors.textPrimary} size="small" />
 						) : (
-							<Text style={styles.primaryButtonText}>Create Account</Text>
+							<Text style={Buttons.primaryText}>Create Account</Text>
 						)}
 					</TouchableOpacity>
 				</View>
 
-				<View style={styles.footer}>
-					<Text style={styles.footerText}>Already have an account? </Text>
-					<Link href="/(auth)/sign-in" style={styles.link}>
+				<View style={AuthStyles.footer}>
+					<Text style={AuthStyles.footerText}>Already have an account? </Text>
+					<Link href="/(auth)/sign-in" style={AuthStyles.footerLink}>
 						Sign in
 					</Link>
 				</View>
@@ -149,65 +148,6 @@ export default function SignUp() {
 	);
 }
 
-const styles = StyleSheet.create({
-	flex: { flex: 1, backgroundColor: Colors.background },
-	container: { flexGrow: 1, justifyContent: "center", padding: 24 },
-
-	logoSection: { alignItems: "center", marginBottom: 36, gap: 14 },
-	logoBox: { width: 96, height: 96, borderRadius: 24, overflow: "hidden" },
-	logoImage: { width: 96, height: 96 },
-	heading: { fontSize: 30, fontWeight: "700", color: Colors.textPrimary, textAlign: "center" },
-	subheading: { fontSize: 15, color: Colors.textMuted, textAlign: "center" },
-
-	form: { gap: 20 },
-	field: { gap: 6 },
-	label: { fontSize: 13, fontWeight: "500", color: Colors.textMuted },
-
-	input: {
-		backgroundColor: Colors.surfaceElevated,
-		borderWidth: 1,
-		borderColor: Colors.borderLight,
-		borderRadius: 8,
-		height: 48,
-		paddingHorizontal: 14,
-		fontSize: 14,
-		color: Colors.textPrimary,
-	},
-	inputRow: {
-		flexDirection: "row",
-		alignItems: "center",
-		backgroundColor: Colors.surfaceElevated,
-		borderWidth: 1,
-		borderColor: Colors.borderLight,
-		borderRadius: 8,
-		height: 48,
-	},
-	inputFlex: {
-		flex: 1,
-		paddingHorizontal: 14,
-		fontSize: 14,
-		color: Colors.textPrimary,
-		height: "100%",
-	},
-	eyeBtn: { paddingHorizontal: 12, height: "100%", justifyContent: "center" },
-
-	primaryButton: {
-		backgroundColor: Colors.primary,
-		borderRadius: 8,
-		height: 48,
-		alignItems: "center",
-		justifyContent: "center",
-		marginTop: 4,
-		shadowColor: Colors.primary,
-		shadowOffset: { width: 0, height: 0 },
-		shadowOpacity: 0.4,
-		shadowRadius: 20,
-		elevation: 8,
-	},
-	primaryButtonText: { color: Colors.textPrimary, fontSize: 15, fontWeight: "700" },
-	disabled: { opacity: 0.5 },
-
-	footer: { flexDirection: "row", justifyContent: "center", marginTop: 28, flexWrap: "wrap" },
-	footerText: { color: Colors.textMuted, fontSize: 13 },
-	link: { color: Colors.secondary, fontSize: 13, fontWeight: "700" },
+const local = StyleSheet.create({
+	buttonMargin: { marginTop: 4 },
 });

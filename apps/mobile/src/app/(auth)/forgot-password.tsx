@@ -14,7 +14,9 @@ import {
 import { Link } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMessage } from "@/contexts/MessageContext";
-import { Colors } from "@/constants/Colors";
+import { Colors, Radius, FontSize, Spacing } from "@/constants/Theme";
+import { Layout, Inputs, Buttons } from "@/styles";
+import { AuthStyles } from "@/styles/auth.styles";
 
 export default function ForgotPassword() {
 	const { resetPassword } = useAuth();
@@ -47,29 +49,28 @@ export default function ForgotPassword() {
 	}
 
 	return (
-		<KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+		<KeyboardAvoidingView style={Layout.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
 			<ScrollView
-				contentContainerStyle={styles.container}
+				contentContainerStyle={[AuthStyles.container, local.containerGap]}
 				keyboardShouldPersistTaps="handled"
 				showsVerticalScrollIndicator={false}
 			>
-				{/* Big centered logo + heading */}
-				<View style={styles.logoSection}>
-					<View style={styles.logoBox}>
-						<Image source={require("../../../assets/app_icon.png")} style={styles.logoImage} />
+				<View style={AuthStyles.logoSection}>
+					<View style={AuthStyles.logoBox}>
+						<Image source={require("../../../assets/app_icon.png")} style={AuthStyles.logoImage} />
 					</View>
-					<Text style={styles.heading}>Reset password</Text>
-					<Text style={styles.subheading}>
+					<Text style={AuthStyles.heading}>Reset password</Text>
+					<Text style={AuthStyles.subheading}>
 						{sent ? "Check your email for a reset link." : "We'll send you a link to reset it."}
 					</Text>
 				</View>
 
 				{!sent ? (
-					<View style={styles.form}>
-						<View style={styles.field}>
-							<Text style={styles.label}>Email address</Text>
+					<View style={AuthStyles.form}>
+						<View style={AuthStyles.field}>
+							<Text style={AuthStyles.label}>Email address</Text>
 							<TextInput
-								style={styles.input}
+								style={Inputs.field}
 								value={email}
 								onChangeText={setEmail}
 								placeholder="name@gmail.in"
@@ -81,7 +82,7 @@ export default function ForgotPassword() {
 						</View>
 
 						<TouchableOpacity
-							style={[styles.primaryButton, loading && styles.disabled]}
+							style={[Buttons.primary, loading && Buttons.disabled]}
 							onPress={handleReset}
 							disabled={loading}
 							activeOpacity={0.85}
@@ -89,19 +90,19 @@ export default function ForgotPassword() {
 							{loading ? (
 								<ActivityIndicator color={Colors.textPrimary} size="small" />
 							) : (
-								<Text style={styles.primaryButtonText}>Send Reset Link</Text>
+								<Text style={Buttons.primaryText}>Send Reset Link</Text>
 							)}
 						</TouchableOpacity>
 					</View>
 				) : (
-					<View style={styles.successBox}>
-						<Text style={styles.successText}>
+					<View style={local.successBox}>
+						<Text style={local.successText}>
 							Reset link sent to {email}. Check your inbox and spam folder.
 						</Text>
 					</View>
 				)}
 
-				<Link href="/(auth)/sign-in" style={styles.backLink}>
+				<Link href="/(auth)/sign-in" style={local.backLink}>
 					← Back to Sign In
 				</Link>
 			</ScrollView>
@@ -109,51 +110,15 @@ export default function ForgotPassword() {
 	);
 }
 
-const styles = StyleSheet.create({
-	flex: { flex: 1, backgroundColor: Colors.background },
-	container: { flexGrow: 1, justifyContent: "center", padding: 24, gap: 24 },
-
-	logoSection: { alignItems: "center", marginBottom: 36, gap: 14 },
-	logoBox: { width: 96, height: 96, borderRadius: 24, overflow: "hidden" },
-	logoImage: { width: 96, height: 96 },
-	heading: { fontSize: 30, fontWeight: "700", color: Colors.textPrimary, textAlign: "center" },
-	subheading: { fontSize: 15, color: Colors.textMuted, textAlign: "center" },
-
-	form: { gap: 20 },
-	field: { gap: 6 },
-	label: { fontSize: 13, fontWeight: "500", color: Colors.textMuted },
-
-	input: {
-		backgroundColor: Colors.surfaceElevated,
-		borderWidth: 1,
-		borderColor: Colors.borderLight,
-		borderRadius: 8,
-		height: 48,
-		paddingHorizontal: 14,
-		fontSize: 14,
-		color: Colors.textPrimary,
-	},
-	primaryButton: {
-		backgroundColor: Colors.primary,
-		borderRadius: 8,
-		height: 48,
-		alignItems: "center",
-		justifyContent: "center",
-		shadowColor: Colors.primary,
-		shadowOffset: { width: 0, height: 0 },
-		shadowOpacity: 0.4,
-		shadowRadius: 20,
-		elevation: 8,
-	},
-	primaryButtonText: { color: Colors.textPrimary, fontSize: 15, fontWeight: "700" },
-	disabled: { opacity: 0.5 },
+const local = StyleSheet.create({
+	containerGap: { gap: Spacing.xl },
 	successBox: {
 		backgroundColor: "rgba(16,185,129,0.08)",
 		borderWidth: 1,
 		borderColor: "rgba(16,185,129,0.25)",
-		borderRadius: 8,
-		padding: 16,
+		borderRadius: Radius.md,
+		padding: Spacing.lg,
 	},
-	successText: { color: Colors.success, fontSize: 14, lineHeight: 20 },
-	backLink: { color: Colors.secondary, fontSize: 14, textAlign: "center" },
+	successText: { color: Colors.success, fontSize: FontSize.base, lineHeight: 20 },
+	backLink: { color: Colors.secondary, fontSize: FontSize.base, textAlign: "center" },
 });

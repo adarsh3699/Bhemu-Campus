@@ -41,6 +41,10 @@ src/
 ├── firebase/             ← Firebase config + factory wrappers
 ├── hooks/
 │   └── useTheme.ts       ← Access full design system in components
+├── styles/               ← Shared StyleSheet definitions
+│   ├── index.ts          ← Barrel export (import from @/styles)
+│   ├── global.ts         ← App-wide patterns: Layout, Inputs, Buttons
+│   └── auth.styles.ts    ← Auth feature group shared styles
 └── types/                ← TypeScript types (re-exports from @bhemu/shared)
 ```
 
@@ -133,3 +137,40 @@ See `src/constants/Colors.ts` for the full token list with comments. Key tokens:
 | `Colors.textSubtle` | `#737373` | Placeholders |
 | `Colors.border` | `#262626` | Default borders |
 | `Colors.borderLight` | `rgba(255,255,255,0.1)` | Subtle borders |
+
+---
+
+## Shared Styles
+
+Reusable `StyleSheet` definitions live in `src/styles/`. This avoids duplicating the same styles across multiple screens.
+
+### Two Layers
+
+| File | Scope | Exports |
+|---|---|---|
+| `global.ts` | App-wide (any screen) | `Layout`, `Inputs`, `Buttons` |
+| `<feature>.styles.ts` | Feature group (e.g. auth) | `AuthStyles` |
+
+### How to Use
+
+```ts
+import { Layout, Inputs, Buttons } from "@/styles";
+import { AuthStyles } from "@/styles/auth.styles";
+
+// Use directly:
+<View style={Layout.flex}>
+<TextInput style={Inputs.field} />
+<TouchableOpacity style={Buttons.primary}>
+
+// Override with array syntax:
+<TouchableOpacity style={[Buttons.primary, loading && Buttons.disabled]}>
+<TouchableOpacity style={[Buttons.primary, local.extraMargin]}>
+```
+
+### Rules
+
+1. **Never duplicate** — if 2+ screens share the same style, extract it to a shared file
+2. **Array syntax for overrides** — `[Shared.style, local.override]`, never spread at runtime
+3. **Use tokens** — all values in shared files must reference `Colors`, `Spacing`, `Radius`, `FontSize`, `FontWeight`, or `Shadow`
+4. **Screen-local styles** — name the variable `local` (not `styles`) to distinguish from shared imports
+5. **When to create a new feature file** — when a route group (e.g. `(settings)/`) has 2+ screens sharing 3+ identical styles, create `<feature>.styles.ts`

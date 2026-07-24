@@ -97,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		try {
 			await AsyncStorage.removeItem("bhemu_activeProfileId");
 			await AsyncStorage.removeItem("gpa_view_mode");
-		} catch (_e) { /* intentionally swallowed */ }
+		} catch { /* intentionally swallowed */ }
 		return signOut(auth);
 	}
 
@@ -185,14 +185,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			}
 
 			// Set deletion flag before batch to prevent auto profile creation
-			try { await AsyncStorage.setItem(ACCOUNT_DELETING_KEY, "1"); } catch (_e) { /* intentionally swallowed */ }
+			try { await AsyncStorage.setItem(ACCOUNT_DELETING_KEY, "1"); } catch { /* intentionally swallowed */ }
 
 			// Delete all Firestore data
 			await _executeComprehensiveDataDeletion(originalUserId);
 
 			// Delete Auth account
 			await deleteUser(auth.currentUser);
-			try { await AsyncStorage.clear(); } catch (_e) { /* intentionally swallowed */ }
+			try { await AsyncStorage.clear(); } catch { /* intentionally swallowed */ }
 
 			return { success: true };
 		} catch (error) {

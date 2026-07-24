@@ -15,7 +15,8 @@ import { Link, router } from "expo-router";
 import { Eye, EyeOff } from "lucide-react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMessage } from "@/contexts/MessageContext";
-import { Colors } from "@/constants/Colors";
+import { Colors, Spacing, FontSize, FontWeight } from "@/constants/Theme";
+import { Layout, Inputs, Buttons, AuthStyles } from "@/styles";
 
 export default function SignIn() {
 	const { login, signInWithGoogle } = useAuth();
@@ -67,26 +68,24 @@ export default function SignIn() {
 	}
 
 	return (
-		<KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+		<KeyboardAvoidingView style={Layout.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
 			<ScrollView
-				contentContainerStyle={styles.container}
+				contentContainerStyle={AuthStyles.container}
 				keyboardShouldPersistTaps="handled"
 				showsVerticalScrollIndicator={false}
 			>
-				{/* Big centered logo + app name */}
-				<View style={styles.logoSection}>
-					<View style={styles.logoBox}>
-						<Image source={require("../../../assets/app_icon.png")} style={styles.logoImage} />
+				<View style={AuthStyles.logoSection}>
+					<View style={AuthStyles.logoBox}>
+						<Image source={require("../../../assets/app_icon.png")} style={AuthStyles.logoImage} />
 					</View>
-					<Text style={styles.appName}>Bhemu Calculator</Text>
+					<Text style={local.appName}>Bhemu Calculator</Text>
 				</View>
 
-				{/* Form with labels */}
-				<View style={styles.form}>
-					<View style={styles.field}>
-						<Text style={styles.label}>Email address</Text>
+				<View style={AuthStyles.form}>
+					<View style={AuthStyles.field}>
+						<Text style={AuthStyles.label}>Email address</Text>
 						<TextInput
-							style={styles.input}
+							style={Inputs.field}
 							value={email}
 							onChangeText={setEmail}
 							placeholder="name@gmail.in"
@@ -97,16 +96,16 @@ export default function SignIn() {
 						/>
 					</View>
 
-					<View style={styles.field}>
-						<View style={styles.labelRow}>
-							<Text style={styles.label}>Password</Text>
-							<Link href="/(auth)/forgot-password" style={styles.forgotLink}>
+					<View style={AuthStyles.field}>
+						<View style={local.labelRow}>
+							<Text style={AuthStyles.label}>Password</Text>
+							<Link href="/(auth)/forgot-password" style={local.forgotLink}>
 								Forgot password?
 							</Link>
 						</View>
-						<View style={styles.inputRow}>
+						<View style={Inputs.row}>
 							<TextInput
-								style={styles.inputFlex}
+								style={Inputs.rowInner}
 								value={password}
 								onChangeText={setPassword}
 								placeholder="••••••••"
@@ -115,7 +114,7 @@ export default function SignIn() {
 								autoCapitalize="none"
 								autoComplete="current-password"
 							/>
-							<TouchableOpacity onPress={togglePassword} style={styles.eyeBtn} hitSlop={8}>
+							<TouchableOpacity onPress={togglePassword} style={Inputs.iconButton} hitSlop={8}>
 								{showPassword ? (
 									<EyeOff size={20} color={Colors.textMuted} />
 								) : (
@@ -126,7 +125,7 @@ export default function SignIn() {
 					</View>
 
 					<TouchableOpacity
-						style={[styles.primaryButton, (loading || googleLoading) && styles.disabled]}
+						style={[Buttons.primary, (loading || googleLoading) && Buttons.disabled]}
 						onPress={handleLogin}
 						disabled={loading || googleLoading}
 						activeOpacity={0.85}
@@ -134,18 +133,18 @@ export default function SignIn() {
 						{loading ? (
 							<ActivityIndicator color={Colors.textPrimary} size="small" />
 						) : (
-							<Text style={styles.primaryButtonText}>Login</Text>
+							<Text style={Buttons.primaryText}>Login</Text>
 						)}
 					</TouchableOpacity>
 
-					<View style={styles.divider}>
-						<View style={styles.dividerLine} />
-						<Text style={styles.dividerText}>OR CONTINUE WITH</Text>
-						<View style={styles.dividerLine} />
+					<View style={local.divider}>
+						<View style={local.dividerLine} />
+						<Text style={local.dividerText}>OR CONTINUE WITH</Text>
+						<View style={local.dividerLine} />
 					</View>
 
 					<TouchableOpacity
-						style={[styles.googleButton, (loading || googleLoading) && styles.disabled]}
+						style={[Buttons.outline, (loading || googleLoading) && Buttons.disabled]}
 						onPress={handleGoogleSignIn}
 						disabled={loading || googleLoading}
 						activeOpacity={0.8}
@@ -153,14 +152,14 @@ export default function SignIn() {
 						{googleLoading ? (
 							<ActivityIndicator color={Colors.textPrimary} size="small" />
 						) : (
-							<Text style={styles.googleButtonText}>Sign in with Google</Text>
+							<Text style={Buttons.outlineText}>Sign in with Google</Text>
 						)}
 					</TouchableOpacity>
 				</View>
 
-				<View style={styles.footer}>
-					<Text style={styles.footerText}>Don't have an account? </Text>
-					<Link href="/(auth)/sign-up" style={styles.link}>
+				<View style={AuthStyles.footer}>
+					<Text style={AuthStyles.footerText}>Don't have an account? </Text>
+					<Link href="/(auth)/sign-up" style={AuthStyles.footerLink}>
 						Create one
 					</Link>
 				</View>
@@ -169,85 +168,17 @@ export default function SignIn() {
 	);
 }
 
-const styles = StyleSheet.create({
-	flex: { flex: 1, backgroundColor: Colors.background },
-	container: { flexGrow: 1, justifyContent: "center", padding: 24 },
-
-	logoSection: { alignItems: "center", marginBottom: 36, gap: 14 },
-	logoBox: { width: 96, height: 96, borderRadius: 24, overflow: "hidden" },
-	logoImage: { width: 96, height: 96 },
-	appName: { fontSize: 24, fontWeight: "700", color: Colors.textPrimary },
-
-	form: { gap: 20 },
-	field: { gap: 6 },
-	label: { fontSize: 13, fontWeight: "500", color: Colors.textMuted },
+const local = StyleSheet.create({
+	appName: { fontSize: FontSize.xxl, fontWeight: FontWeight.bold, color: Colors.textPrimary },
 	labelRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-
-	input: {
-		backgroundColor: Colors.surfaceElevated,
-		borderWidth: 1,
-		borderColor: Colors.borderLight,
-		borderRadius: 8,
-		height: 48,
-		paddingHorizontal: 14,
-		fontSize: 14,
-		color: Colors.textPrimary,
-	},
-	inputRow: {
-		flexDirection: "row",
-		alignItems: "center",
-		backgroundColor: Colors.surfaceElevated,
-		borderWidth: 1,
-		borderColor: Colors.borderLight,
-		borderRadius: 8,
-		height: 48,
-	},
-	inputFlex: {
-		flex: 1,
-		paddingHorizontal: 14,
-		fontSize: 14,
-		color: Colors.textPrimary,
-		height: "100%",
-	},
-	eyeBtn: { paddingHorizontal: 12, height: "100%", justifyContent: "center" },
-	forgotLink: { fontSize: 12, fontWeight: "600", color: Colors.secondary },
-
-	primaryButton: {
-		backgroundColor: Colors.primary,
-		borderRadius: 8,
-		height: 48,
-		alignItems: "center",
-		justifyContent: "center",
-		shadowColor: Colors.primary,
-		shadowOffset: { width: 0, height: 0 },
-		shadowOpacity: 0.4,
-		shadowRadius: 20,
-		elevation: 8,
-	},
-	primaryButtonText: { color: Colors.textPrimary, fontSize: 15, fontWeight: "700" },
-	disabled: { opacity: 0.5 },
-
-	divider: { flexDirection: "row", alignItems: "center", gap: 10 },
+	forgotLink: { fontSize: FontSize.xs + 1, fontWeight: FontWeight.semibold, color: Colors.secondary },
+	divider: { flexDirection: "row", alignItems: "center", gap: Spacing.sm + 2 },
 	dividerLine: { flex: 1, height: 1, backgroundColor: Colors.borderLight },
 	dividerText: {
 		color: Colors.textSubtle,
 		fontSize: 10,
-		fontWeight: "500",
+		fontWeight: FontWeight.medium,
 		letterSpacing: 1.5,
 		textTransform: "uppercase",
 	},
-
-	googleButton: {
-		height: 48,
-		borderRadius: 8,
-		alignItems: "center",
-		justifyContent: "center",
-		borderWidth: 1,
-		borderColor: Colors.borderLight,
-	},
-	googleButtonText: { color: Colors.textPrimary, fontSize: 14, fontWeight: "500" },
-
-	footer: { flexDirection: "row", justifyContent: "center", marginTop: 28, flexWrap: "wrap" },
-	footerText: { color: Colors.textMuted, fontSize: 13 },
-	link: { color: Colors.secondary, fontSize: 13, fontWeight: "700" },
 });

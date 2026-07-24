@@ -156,6 +156,15 @@ Token files:
 - `apps/mobile/src/constants/Theme.ts` — spacing, radius, font sizes, font weights, shadows
 - `apps/mobile/src/hooks/useTheme.ts` — thin hook; update ONLY this file when light mode is added
 
+**Shared Styles Rule:**
+Reusable styles live in `apps/mobile/src/styles/`. Two layers:
+- `global.ts` — app-wide patterns (Layout, Inputs, Buttons) — import from `@/styles`
+- `<feature>.styles.ts` — feature-specific (e.g. `auth.styles.ts`) — import directly
+
+Never duplicate styles across screens. If 2+ screens share the same style, extract it.
+Use style arrays for overrides: `[Buttons.primary, local.myOverride]` — never spread at runtime.
+Name screen-local styles `local` (not `styles`) to distinguish from shared imports.
+
 ---
 
 ### Deployment
