@@ -2,11 +2,11 @@ import { View, Text, StyleSheet } from "react-native";
 import { Colors, FontSize, FontWeight } from "@/constants/Theme";
 import { Layout } from "@/styles";
 
-export default function HomeTab() {
+export default function SettingsTab() {
 	return (
 		<View style={[Layout.flex, local.center]}>
-			<Text style={local.title}>Dashboard</Text>
-			<Text style={local.subtitle}>Coming in Phase 4</Text>
+			<Text style={local.title}>Settings</Text>
+			<Text style={local.subtitle}>Coming in Phase 8</Text>
 		</View>
 	);
 }

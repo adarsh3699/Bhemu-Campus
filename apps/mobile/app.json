@@ -8,12 +8,6 @@
     "orientation": "portrait",
     "icon": "./assets/app_icon.png",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash-screen.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "in.bhemu.calculator"
@@ -21,11 +15,6 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/app_icon.png",
-        "backgroundColor": "#ffffff"
-      },
-      "splash": {
-        "image": "./assets/splash-screen.png",
-        "resizeMode": "contain",
         "backgroundColor": "#ffffff"
       },
       "package": "in.bhemu.calculator",
@@ -38,7 +27,14 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-splash-screen",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-screen.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ],
       "@react-native-google-signin/google-signin"
     ],
     "experiments": {

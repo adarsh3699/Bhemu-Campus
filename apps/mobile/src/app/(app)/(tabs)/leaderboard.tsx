@@ -2,11 +2,11 @@ import { View, Text, StyleSheet } from "react-native";
 import { Colors, FontSize, FontWeight } from "@/constants/Theme";
 import { Layout } from "@/styles";
 
-export default function HomeTab() {
+export default function LeaderboardTab() {
 	return (
 		<View style={[Layout.flex, local.center]}>
-			<Text style={local.title}>Dashboard</Text>
-			<Text style={local.subtitle}>Coming in Phase 4</Text>
+			<Text style={local.title}>Leaderboard</Text>
+			<Text style={local.subtitle}>Coming in Phase 7</Text>
 		</View>
 	);
 }

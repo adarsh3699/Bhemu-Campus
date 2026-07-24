@@ -20,9 +20,11 @@
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-native-google-signin/google-signin": "^16.1.2",
     "expo": "~57.0.8",
-    "expo-dev-client": "~57.0.8",
+    "expo-constants": "~57.0.7",
+    "expo-dev-client": "~57.0.9",
     "expo-font": "~57.0.1",
     "expo-haptics": "~57.0.1",
+    "expo-linking": "~57.0.4",
     "expo-print": "~57.0.1",
     "expo-router": "~57.0.8",
     "expo-splash-screen": "~57.0.5",
@@ -33,12 +35,13 @@
     "react-native": "0.86.0",
     "react-native-safe-area-context": "5.7.0",
     "react-native-screens": "~4.26.2",
-    "react-native-svg": "^15.15.5"
+    "react-native-svg": "15.15.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
     "@react-native/eslint-plugin": "^0.86.0",
     "@types/react": "~19.2.2",
+    "babel-preset-expo": "~57.0.4",
     "eslint": "^10.7.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "globals": "^16.5.0",

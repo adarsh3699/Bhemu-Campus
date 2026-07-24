@@ -29,12 +29,13 @@ import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { auth, db } from "@/firebase/config";
 import type { FirebaseError, AuthContextType } from "@/types/auth";
+import { STORAGE_KEYS } from "@bhemu/shared";
 
 GoogleSignin.configure({
 	webClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID,
 });
 
-const ACCOUNT_DELETING_KEY = "bhemu_account_deleting";
+const ACCOUNT_DELETING_KEY = STORAGE_KEYS.accountDeleting;
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -95,8 +96,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 	async function logout(): Promise<void> {
 		try {
-			await AsyncStorage.removeItem("bhemu_activeProfileId");
-			await AsyncStorage.removeItem("gpa_view_mode");
+			await AsyncStorage.removeItem(STORAGE_KEYS.activeProfileId);
+			await AsyncStorage.removeItem(STORAGE_KEYS.gpaViewMode);
 		} catch { /* intentionally swallowed */ }
 		return signOut(auth);
 	}

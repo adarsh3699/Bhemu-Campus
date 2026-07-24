@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useAttendanceData } from "@/contexts/AttendanceDataContext";
-import type { AttendanceSubject } from "@/types/attendance";
+import type { AttendanceSubject } from "@bhemu/shared";
 
 export interface AttendanceFormState {
 	id: string;

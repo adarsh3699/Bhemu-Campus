@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { useGpaData } from "@/contexts/GpaDataContext";
+import { STORAGE_KEYS } from "@bhemu/shared";
 import { useMarksAnalysis } from "@/components/GpaCalculator/hooks/useMarksAnalysis";
 import type { SubjectEditFormState } from "@/components/GpaCalculator/SubjectCard";
 
@@ -17,13 +18,13 @@ export function useGpaCalculator(marksAnalysis: MarksAnalysis) {
 	// ===== UI STATE =====
 	const [viewMode, setViewMode] = useState<"gpa" | "marks">(() => {
 		if (typeof window === "undefined") return "marks";
-		const stored = localStorage.getItem("gpa_view_mode");
+		const stored = localStorage.getItem(STORAGE_KEYS.gpaViewMode);
 		return stored === "gpa" || stored === "marks" ? stored : "marks";
 	});
 
 	const setViewModeAndPersist = useCallback((mode: "gpa" | "marks") => {
 		setViewMode(mode);
-		localStorage.setItem("gpa_view_mode", mode);
+		localStorage.setItem(STORAGE_KEYS.gpaViewMode, mode);
 	}, []);
 
 	// Grades-tab subject edit state (add new + edit existing)

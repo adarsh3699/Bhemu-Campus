@@ -29,6 +29,7 @@ import {
 } from "firebase/firestore";
 import { auth, googleProvider, db } from "./config";
 import type { FirebaseError, AuthContextType } from "@/types";
+import { STORAGE_KEYS } from "@bhemu/shared";
 
 // Re-export auth types for consumers of this module
 export type { AuthContextType };
@@ -281,7 +282,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 		// Set flag BEFORE committing — prevents GpaDataContext from auto-recreating a default
 		// profile when it sees 0 profiles after the batch deletes them all.
-		try { localStorage.setItem("bhemu_account_deleting", "1"); } catch {}
+		try { localStorage.setItem(STORAGE_KEYS.accountDeleting, "1"); } catch {}
 
 		// Commit all batches
 		await _commitBatches(batchManager);

@@ -6,7 +6,7 @@ import { attendanceService as createAttendanceService } from "@/firebase/service
 import type { AttendanceService } from "@bhemu/firebase";
 import { useGpaData } from "@/contexts/GpaDataContext";
 import { useMessage } from "@/contexts/MessageContext";
-import type { AttendanceSubject, AttendanceData } from "@/types/attendance";
+import type { AttendanceSubject, AttendanceData } from "@bhemu/shared";
 
 interface AttendanceDataContextValue {
 	attendanceData: AttendanceData | null;
