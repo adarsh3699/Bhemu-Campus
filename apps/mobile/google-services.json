@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "394480746518",
+    "project_id": "bhemu-calc",
+    "storage_bucket": "bhemu-calc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:394480746518:android:fec8e2b5d6440d9d7d3537",
+        "android_client_info": {
+          "package_name": "in.bhemu.calculator"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "394480746518-77dck5ss8ovi5qvilq2nmkh6rk9njb07.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDyHsFiKPE-bt--QlhAqYpLKXRmbPKGqlA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "394480746518-77dck5ss8ovi5qvilq2nmkh6rk9njb07.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,29 +1,18 @@
-import { View, Text, StyleSheet } from "react-native";
+import { Redirect } from "expo-router";
+import { View, ActivityIndicator } from "react-native";
+import { useAuth } from "@/contexts/AuthContext";
+import { Colors } from "@/constants/Colors";
 
 export default function Index() {
-	return (
-		<View style={styles.container}>
-			<Text style={styles.title}>Bhemu Calculator</Text>
-			<Text style={styles.subtitle}>Mobile App — Phase 1 Scaffold</Text>
-		</View>
-	);
-}
+	const { currentUser } = useAuth();
 
-const styles = StyleSheet.create({
-	container: {
-		flex: 1,
-		alignItems: "center",
-		justifyContent: "center",
-		backgroundColor: "#0a0a0a",
-		gap: 8,
-	},
-	title: {
-		fontSize: 24,
-		fontWeight: "700",
-		color: "#ffffff",
-	},
-	subtitle: {
-		fontSize: 14,
-		color: "#888888",
-	},
-});
+	if (currentUser === undefined) {
+		return (
+			<View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: Colors.background }}>
+				<ActivityIndicator color={Colors.primary} />
+			</View>
+		);
+	}
+
+	return <Redirect href={currentUser ? "/(app)/(tabs)/" : "/(auth)/sign-in"} />;
+}
