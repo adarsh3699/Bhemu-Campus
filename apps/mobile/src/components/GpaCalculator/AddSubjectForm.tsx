@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
 	View, Text, StyleSheet, TouchableOpacity, TextInput,
 	ActivityIndicator,
 } from "react-native";
+import type { TextInput as TextInputType } from "react-native";
 import { Plus, X, BarChart2, Calculator } from "lucide-react-native";
 import { SELECTABLE_GRADES } from "@bhemu/shared";
 import { Colors, Spacing, Radius, FontSize, FontWeight } from "@/constants/Theme";
@@ -19,7 +20,6 @@ export interface AddSubjectFormState {
 }
 
 interface AddSubjectFormProps {
-	mode: "grades" | "marks";
 	semesterName: string;
 	isReadOnly: boolean;
 	formState: AddSubjectFormState;
@@ -30,8 +30,20 @@ interface AddSubjectFormProps {
 	onViewModeChange: (mode: "grades" | "marks") => void;
 }
 
+const GRADE_COLORS: Record<string, string> = {
+	"O":  "#10B981",
+	"A+": "#14B8A6",
+	"A":  "#06B6D4",
+	"B+": "#3B82F6",
+	"B":  "#8B5CF6",
+	"C":  "#F59E0B",
+	"D":  "#F97316",
+	"E":  "#EF4444",
+	"F":  "#DC2626",
+	"G":  "#B91C1C",
+};
+
 export default function AddSubjectForm({
-	mode,
 	semesterName,
 	isReadOnly,
 	formState,
@@ -43,15 +55,24 @@ export default function AddSubjectForm({
 }: AddSubjectFormProps) {
 	const [showForm, setShowForm] = useState(false);
 
+	const creditRef = useRef<TextInputType>(null);
+	const caRef = useRef<TextInputType>(null);
+	const midRef = useRef<TextInputType>(null);
+	const endRef = useRef<TextInputType>(null);
+	const attRef = useRef<TextInputType>(null);
+	const marksRefs = [caRef, midRef, endRef, attRef];
+
 	const toN = (v: string) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
 	const runningTotal = toN(formState.ca) + toN(formState.midTerm) + toN(formState.endTerm) + toN(formState.attendanceMarks);
 	const totalOver = runningTotal > 100;
-	const canSubmit = !saving && (mode === "marks" ? !totalOver && !!formState.subjectName : !!formState.grade && !!formState.subjectName);
+	const canSubmit = !saving && !!formState.subjectName.trim() && !!formState.credit.trim() && (viewMode === "marks" ? !totalOver : !!formState.grade);
 
 	const handleSubmit = async () => {
 		if (!canSubmit) return;
-		await onSubmit();
-		setShowForm(false);
+		try {
+			await onSubmit();
+			setShowForm(false);
+		} catch {}
 	};
 
 	return (
@@ -79,7 +100,11 @@ export default function AddSubjectForm({
 
 				<TouchableOpacity
 					style={[local.toggleBtn, (isReadOnly || !semesterName) && Buttons.disabled]}
-					onPress={() => !isReadOnly && semesterName && setShowForm((v) => !v)}
+					onPress={() => {
+						if (!isReadOnly && semesterName) {
+							setShowForm((v) => !v);
+						}
+					}}
 					disabled={isReadOnly || !semesterName}
 					activeOpacity={0.8}
 				>
@@ -102,32 +127,40 @@ export default function AddSubjectForm({
 							placeholder="Subject name *"
 							placeholderTextColor={Colors.textSubtle}
 							autoFocus
+							returnKeyType="next"
+							onSubmitEditing={() => creditRef.current?.focus()}
 						/>
 						<TextInput
+							ref={creditRef}
 							style={[Inputs.field, { width: 80 }]}
 							value={formState.credit}
 							onChangeText={(v) => onChange("credit", v)}
 							placeholder="Credits *"
 							placeholderTextColor={Colors.textSubtle}
 							keyboardType="decimal-pad"
+							returnKeyType={viewMode === "marks" ? "next" : "done"}
+							onSubmitEditing={() => {
+								if (viewMode === "marks") caRef.current?.focus();
+							}}
 						/>
 					</View>
 
 					{/* Grades mode: grade picker */}
-					{mode === "grades" && (
+					{viewMode === "grades" && (
 						<View style={local.section}>
 							<Text style={local.sectionLabel}>Grade</Text>
 							<View style={local.gradeGrid}>
 								{SELECTABLE_GRADES.map(({ grade, gradePoint }) => {
 									const selected = formState.grade === String(gradePoint);
+									const color = GRADE_COLORS[grade] || Colors.textMuted;
 									return (
 										<TouchableOpacity
 											key={grade}
-											style={[local.gradeChip, selected && local.gradeChipSelected]}
+											style={[local.gradeChip, selected && { backgroundColor: color, borderColor: color }]}
 											onPress={() => onChange("grade", selected ? "" : String(gradePoint))}
 											activeOpacity={0.7}
 										>
-											<Text style={[local.gradeText, selected && local.gradeTextSelected]}>
+											<Text style={[local.gradeText, { color }, selected && local.gradeTextSelected]}>
 												{grade}
 											</Text>
 											<Text style={[local.gpText, selected && local.gpTextSelected]}>
@@ -141,18 +174,24 @@ export default function AddSubjectForm({
 					)}
 
 					{/* Marks mode: CA/Mid/End/Att */}
-					{mode === "marks" && (
+					{viewMode === "marks" && (
 						<View style={local.section}>
 							<View style={local.marksGrid}>
 								{(["ca", "midTerm", "endTerm", "attendanceMarks"] as const).map((field, i) => (
 									<TextInput
 										key={field}
+										ref={marksRefs[i]}
 										style={[Inputs.field, local.markInput, totalOver && local.markInputError]}
 										value={formState[field]}
 										onChangeText={(v) => onChange(field, v)}
 										placeholder={["CA /25", "Mid /20", "End /50", "Att. /5"][i]}
 										placeholderTextColor={Colors.textSubtle}
 										keyboardType="decimal-pad"
+										returnKeyType={i < 3 ? "next" : "done"}
+										onSubmitEditing={() => {
+											if (i < 3) marksRefs[i + 1].current?.focus();
+											else if (canSubmit) handleSubmit();
+										}}
 									/>
 								))}
 							</View>
@@ -168,7 +207,6 @@ export default function AddSubjectForm({
 					<TouchableOpacity
 						style={[local.submitBtn, !canSubmit && Buttons.disabled]}
 						onPress={handleSubmit}
-						disabled={!canSubmit}
 						activeOpacity={0.8}
 					>
 						{saving && <ActivityIndicator size="small" color={Colors.success} />}
@@ -262,7 +300,6 @@ const local = StyleSheet.create({
 		alignItems: "center",
 		minWidth: 44,
 	},
-	gradeChipSelected: { backgroundColor: Colors.primary, borderColor: Colors.primary },
 	gradeText: { fontSize: FontSize.sm, fontWeight: FontWeight.bold, color: Colors.textMuted },
 	gradeTextSelected: { color: Colors.textPrimary },
 	gpText: { fontSize: 9, color: Colors.textSubtle, marginTop: 1 },

@@ -49,6 +49,9 @@ export default function SemesterTabs({
 				<ScrollView
 					horizontal
 					showsHorizontalScrollIndicator={false}
+					bounces={false}
+					overScrollMode="never"
+					style={local.scrollView}
 					contentContainerStyle={local.scrollContent}
 				>
 					{semesters.map((semester) => {
@@ -87,6 +90,10 @@ export default function SemesterTabs({
 const local = StyleSheet.create({
 	container: {
 		marginBottom: Spacing.sm,
+		overflow: "visible",
+	},
+	scrollView: {
+		overflow: "visible",
 	},
 	header: {
 		flexDirection: "row",
@@ -121,8 +128,8 @@ const local = StyleSheet.create({
 	},
 	scrollContent: {
 		gap: Spacing.sm,
-		paddingVertical: Spacing.sm,
-		paddingHorizontal: 2,
+		paddingTop: Spacing.sm,
+		paddingBottom: Spacing.sm,
 	},
 	tab: {
 		paddingHorizontal: Spacing.lg,

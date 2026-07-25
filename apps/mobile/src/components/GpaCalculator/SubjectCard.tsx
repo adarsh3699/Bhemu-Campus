@@ -30,12 +30,13 @@ function Badge({ text, style: extraStyle }: { text: string; style?: object }) {
 
 function MarkField({
 	label, name, value,
-	onChangeText,
+	onChangeText, autoFocus,
 }: {
 	label: string;
 	name: string;
 	value: string;
 	onChangeText: (name: string, value: string) => void;
+	autoFocus?: boolean;
 }) {
 	return (
 		<View style={field.wrap}>
@@ -47,6 +48,7 @@ function MarkField({
 				onChangeText={(v) => onChangeText(name, v)}
 				placeholder="—"
 				placeholderTextColor={Colors.textSubtle}
+				autoFocus={autoFocus}
 			/>
 		</View>
 	);
@@ -156,6 +158,7 @@ export default function SubjectCard({
 							onChangeText={(v) => onFormChange("subjectName", v)}
 							placeholder="Subject name"
 							placeholderTextColor={Colors.textSubtle}
+							autoFocus
 						/>
 						<TextInput
 							style={[Inputs.field, { width: 64 }]}
@@ -197,7 +200,7 @@ export default function SubjectCard({
 			{isEditing && mode === "marks" && (
 				<View style={local.form}>
 					<View style={local.marksGrid}>
-						<MarkField label="Credits" name="credit" value={editFormState.credit} onChangeText={onFormChange} />
+						<MarkField label="Credits" name="credit" value={editFormState.credit} onChangeText={onFormChange} autoFocus />
 						<MarkField label="CA" name="ca" value={editFormState.ca} onChangeText={onFormChange} />
 						<MarkField label="Mid" name="midTerm" value={editFormState.midTerm} onChangeText={onFormChange} />
 						<MarkField label="End" name="endTerm" value={editFormState.endTerm} onChangeText={onFormChange} />

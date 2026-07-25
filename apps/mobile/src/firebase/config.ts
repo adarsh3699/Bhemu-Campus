@@ -1,6 +1,8 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { initializeAuth, getAuth, inMemoryPersistence } from "firebase/auth";
+// @ts-expect-error — getReactNativePersistence resolves via react-native condition at runtime
+import { initializeAuth, getAuth, getReactNativePersistence } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const firebaseConfig = {
 	apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -11,15 +13,10 @@ const firebaseConfig = {
 	appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Firebase 12 JS SDK on React Native: getReactNativePersistence was removed.
-// Use initializeAuth with inMemoryPersistence to suppress the default warning.
-// Auth tokens are still stored by Firebase internally; the session persists
-// as long as the app process is alive. For cross-session persistence, we rely
-// on onAuthStateChanged which re-hydrates from Firebase's internal token cache.
 let app;
 if (getApps().length === 0) {
 	app = initializeApp(firebaseConfig);
-	initializeAuth(app, { persistence: inMemoryPersistence });
+	initializeAuth(app, { persistence: getReactNativePersistence(AsyncStorage) });
 } else {
 	app = getApp();
 }

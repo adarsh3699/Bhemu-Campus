@@ -2,10 +2,10 @@ import { View, Text, StyleSheet } from "react-native";
 import { Colors, FontSize, FontWeight, Spacing } from "@/constants/Theme";
 import { Layout } from "@/styles";
 
-export default function LeaderboardTab() {
+export default function AttendanceTab() {
 	return (
 		<View style={Layout.center}>
-			<Text style={local.title}>Leaderboard</Text>
+			<Text style={local.title}>Attendance</Text>
 			<Text style={local.subtitle}>Coming soon</Text>
 		</View>
 	);

@@ -1,5 +1,14 @@
 import type { GPASubject, GPASemester } from "../types/gpa";
 
+export function sortSemesters(semesters: GPASemester[]): GPASemester[] {
+	return [...semesters].sort((a, b) => {
+		const numA = parseInt(a.name?.match(/\d+/)?.[0] ?? "0", 10);
+		const numB = parseInt(b.name?.match(/\d+/)?.[0] ?? "0", 10);
+		if (numA !== numB) return numA - numB;
+		return (a.name ?? "").localeCompare(b.name ?? "");
+	});
+}
+
 export function calculateGPA(subjects: GPASubject[]): string {
 	if (!subjects || subjects.length === 0) return "0.00";
 	const totalPoints = subjects.reduce((acc, s) => acc + s.grade * s.credit, 0);

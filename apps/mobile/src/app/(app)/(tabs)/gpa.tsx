@@ -1,6 +1,6 @@
-import { useState, useCallback } from "react";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
-import { Calculator } from "lucide-react-native";
+import { useState, useCallback, useMemo } from "react";
+import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useGpaData } from "@/contexts/GpaDataContext";
 import { useMarksData } from "@/contexts/MarksDataContext";
@@ -12,21 +12,11 @@ import AddSubjectForm, { AddSubjectFormState } from "@/components/GpaCalculator/
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import { Colors, Spacing, FontSize, FontWeight } from "@/constants/Theme";
 import { Layout } from "@/styles";
-import { SELECTABLE_GRADES } from "@bhemu/shared";
+import { SELECTABLE_GRADES, computeGradeFromMarks, computeTotal } from "@bhemu/shared";
 import type { GPASemester } from "@bhemu/shared";
 import type { SubjectEditFormState } from "@/components/GpaCalculator/SubjectCard";
 
-const EMPTY_ADD_FORM: AddSubjectFormState = {
-	subjectName: "",
-	credit: "",
-	grade: "",
-	ca: "",
-	midTerm: "",
-	endTerm: "",
-	attendanceMarks: "",
-};
-
-const EMPTY_EDIT_FORM: SubjectEditFormState = {
+const EMPTY_FORM = {
 	subjectName: "",
 	credit: "",
 	grade: "",
@@ -40,7 +30,6 @@ export default function GpaTab() {
 	const { semesters, loading, isReadOnlyProfile, updateSemesters } = useGpaData();
 	const { activeTermId, setActiveTermId, subjects, saveMarks } = useMarksData();
 	const { viewMode, setViewMode } = useViewMode();
-
 	// ─── Semester state ──────────────────────────────────────────────────────
 	const [addSemesterLoading, setAddSemesterLoading] = useState(false);
 	const [deleteSemesterModal, setDeleteSemesterModal] = useState<{
@@ -49,8 +38,10 @@ export default function GpaTab() {
 		name: string;
 	}>({ open: false, id: "", name: "" });
 
-	const activeSemesterId = activeTermId;
-	const activeSemesterName = semesters.find((s) => String(s.id) === String(activeSemesterId))?.name ?? "";
+	const activeSemesterName = useMemo(
+		() => semesters.find((s) => String(s.id) === String(activeTermId))?.name ?? "",
+		[semesters, activeTermId]
+	);
 
 	const addSemester = useCallback(async () => {
 		setAddSemesterLoading(true);
@@ -77,32 +68,33 @@ export default function GpaTab() {
 		setDeleteSemesterModal({ open: false, id: "", name: "" });
 		const updated = semesters.filter((s) => String(s.id) !== String(id));
 		await updateSemesters(updated);
-		if (String(activeSemesterId) === String(id) && updated.length > 0) {
+		if (String(activeTermId) === String(id) && updated.length > 0) {
 			setActiveTermId(String(updated[updated.length - 1].id));
 		}
 	};
 
 	// ─── Subject — grades mode ───────────────────────────────────────────────
-	const [addForm, setAddForm] = useState<AddSubjectFormState>(EMPTY_ADD_FORM);
+	const [addForm, setAddForm] = useState<AddSubjectFormState>(EMPTY_FORM);
 	const [addSubjectLoading, setAddSubjectLoading] = useState(false);
 	const [editingSubjectId, setEditingSubjectId] = useState<string | null>(null);
-	const [editForm, setEditForm] = useState<SubjectEditFormState>(EMPTY_EDIT_FORM);
+	const [editForm, setEditForm] = useState<SubjectEditFormState>(EMPTY_FORM);
 	const [deleteSubjectModal, setDeleteSubjectModal] = useState<{
 		open: boolean;
 		id: string | number;
 		name: string;
 	}>({ open: false, id: "", name: "" });
 
-	const handleAddFormChange = (name: string, value: string) => {
+	const handleAddFormChange = useCallback((name: string, value: string) => {
 		setAddForm((prev) => ({ ...prev, [name]: value }));
-	};
+	}, []);
 
-	const handleEditFormChange = (name: string, value: string) => {
+	const handleEditFormChange = useCallback((name: string, value: string) => {
 		setEditForm((prev) => ({ ...prev, [name]: value }));
-	};
+	}, []);
+
 
 	const addOrUpdateSubject = useCallback(async () => {
-		if (!activeSemesterId || !addForm.subjectName || !addForm.grade) return;
+		if (!activeTermId || !addForm.subjectName || !addForm.grade || !addForm.credit) return;
 		setAddSubjectLoading(true);
 		try {
 			const gradePoint = parseFloat(addForm.grade);
@@ -114,26 +106,20 @@ export default function GpaTab() {
 				grade: gradePoint,
 			};
 			const updated = semesters.map((s) =>
-				String(s.id) === String(activeSemesterId) ? { ...s, subjects: [...s.subjects, newSubject] } : s
+				String(s.id) === String(activeTermId) ? { ...s, subjects: [newSubject, ...s.subjects] } : s
 			);
 			await updateSemesters(updated);
-			setAddForm(EMPTY_ADD_FORM);
+			setAddForm(EMPTY_FORM);
 		} finally {
 			setAddSubjectLoading(false);
 		}
-	}, [activeSemesterId, addForm, semesters, updateSemesters]);
+	}, [activeTermId, addForm, semesters, updateSemesters]);
 
 	const handleMarksAddSubject = useCallback(async () => {
-		if (!activeSemesterId || !addForm.subjectName) return;
+		if (!activeTermId || !addForm.subjectName || !addForm.credit) return;
 		setAddSubjectLoading(true);
 		try {
 			const credit = parseFloat(addForm.credit) || 0;
-			const newSubject = { id: Date.now(), subjectName: addForm.subjectName.trim(), credit, grade: 0 };
-			const semWithSubject = semesters.map((s) =>
-				String(s.id) === String(activeSemesterId) ? { ...s, subjects: [...s.subjects, newSubject] } : s
-			);
-			await updateSemesters(semWithSubject);
-			// Save marks in one call if any were entered
 			const toN = (v: string) => {
 				const n = parseFloat(v);
 				return isNaN(n) ? null : n;
@@ -142,14 +128,32 @@ export default function GpaTab() {
 			const midTerm = toN(addForm.midTerm);
 			const endTerm = toN(addForm.endTerm);
 			const attendanceMarks = toN(addForm.attendanceMarks);
-			if (ca !== null || midTerm !== null || endTerm !== null || attendanceMarks !== null) {
-				await saveMarks(newSubject.id, { ca, midTerm, endTerm, attendanceMarks, source: "manual" }, credit);
-			}
-			setAddForm(EMPTY_ADD_FORM);
+			const total = computeTotal(ca, midTerm, endTerm, attendanceMarks);
+			const hasMarks = total !== null;
+
+			const marks = hasMarks
+				? { ca, midTerm, endTerm, attendanceMarks, total, source: "manual" as const, umsGradePoint: null, customCutoff: null }
+				: undefined;
+
+			const computedGrade = total !== null ? computeGradeFromMarks(total) : 0;
+
+			const newSubject = {
+				id: Date.now(),
+				subjectName: addForm.subjectName.trim(),
+				credit,
+				grade: computedGrade,
+				...(marks ? { marks } : {}),
+			};
+
+			const updated = semesters.map((s) =>
+				String(s.id) === String(activeTermId) ? { ...s, subjects: [newSubject, ...s.subjects] } : s
+			);
+			await updateSemesters(updated);
+			setAddForm(EMPTY_FORM);
 		} finally {
 			setAddSubjectLoading(false);
 		}
-	}, [activeSemesterId, addForm, semesters, updateSemesters, saveMarks]);
+	}, [activeTermId, addForm, semesters, updateSemesters]);
 
 	const editSubject = (id: string | number) => {
 		const sub = subjects.find((s) => String(s.id) === String(id));
@@ -168,11 +172,11 @@ export default function GpaTab() {
 	};
 
 	const saveGradesSubject = async (id: string | number) => {
-		if (!activeSemesterId || !editForm.grade) return;
+		if (!activeTermId || !editForm.grade) return;
 		const gradePoint = parseFloat(editForm.grade);
 		const credit = parseFloat(editForm.credit) || 0;
 		const updated = semesters.map((s) =>
-			String(s.id) === String(activeSemesterId)
+			String(s.id) === String(activeTermId)
 				? {
 						...s,
 						subjects: s.subjects.map((sub) =>
@@ -185,11 +189,11 @@ export default function GpaTab() {
 		);
 		await updateSemesters(updated);
 		setEditingSubjectId(null);
-		setEditForm(EMPTY_EDIT_FORM);
+		setEditForm(EMPTY_FORM);
 	};
 
 	const saveMarksSubject = async (id: string | number) => {
-		if (!activeSemesterId) return;
+		if (!activeTermId) return;
 		const credit = parseFloat(editForm.credit) || undefined;
 		const toN = (v: string) => {
 			const n = parseFloat(v);
@@ -210,7 +214,7 @@ export default function GpaTab() {
 		const sub = subjects.find((s) => String(s.id) === String(id));
 		if (sub && editForm.subjectName !== sub.subjectName) {
 			const updated = semesters.map((s) =>
-				String(s.id) === String(activeSemesterId)
+				String(s.id) === String(activeTermId)
 					? {
 							...s,
 							subjects: s.subjects.map((su) =>
@@ -222,7 +226,7 @@ export default function GpaTab() {
 			await updateSemesters(updated);
 		}
 		setEditingSubjectId(null);
-		setEditForm(EMPTY_EDIT_FORM);
+		setEditForm(EMPTY_FORM);
 	};
 
 	const handleSaveSubject = (id: string | number) => {
@@ -230,15 +234,25 @@ export default function GpaTab() {
 		else saveMarksSubject(id);
 	};
 
-	const confirmSubjectDelete = (id: string | number, name: string) => {
+	const confirmSubjectDelete = useCallback((id: string | number, name: string) => {
 		setDeleteSubjectModal({ open: true, id, name });
-	};
+	}, []);
+
+	const handleCancelEdit = useCallback(() => {
+		setEditingSubjectId(null);
+		setEditForm(EMPTY_FORM);
+	}, []);
+
+	const handleDeleteSubjectRequest = useCallback((id: string | number) => {
+		const sub = subjects.find((s) => String(s.id) === String(id));
+		confirmSubjectDelete(id, sub?.subjectName ?? "this subject");
+	}, [subjects, confirmSubjectDelete]);
 
 	const handleDeleteSubject = async () => {
 		const { id } = deleteSubjectModal;
 		setDeleteSubjectModal({ open: false, id: "", name: "" });
 		const updated = semesters.map((s) =>
-			String(s.id) === String(activeSemesterId)
+			String(s.id) === String(activeTermId)
 				? { ...s, subjects: s.subjects.filter((sub) => String(sub.id) !== String(id)) }
 				: s
 		);
@@ -258,28 +272,22 @@ export default function GpaTab() {
 
 	return (
 		<SafeAreaView style={Layout.flex} edges={["top"]}>
-			<ScrollView
+			<KeyboardAwareScrollView
+				bottomOffset={20}
 				contentContainerStyle={local.scroll}
 				keyboardShouldPersistTaps="handled"
 				showsVerticalScrollIndicator={false}
 			>
-				<View style={local.pageHeader}>
-					<View style={local.pageTitleRow}>
-						<View style={local.pageIconBox}>
-							<Calculator size={20} color={Colors.primary} />
-						</View>
-						<View>
-							<Text style={local.pageTitle}>GPA Calculator</Text>
-							<Text style={local.pageSubtitle}>Calculate your semester GPA and cumulative CGPA</Text>
-						</View>
-					</View>
+				{/* Compact toolbar */}
+				<View style={local.toolbar}>
+					<Text style={local.toolbarTitle}>GPA Calculator</Text>
 				</View>
 
 				<GpaStatsBar semesters={semesters} />
 
 				<SemesterTabs
 					semesters={semesters}
-					activeSemester={activeSemesterId}
+					activeSemester={activeTermId}
 					isReadOnly={isReadOnlyProfile}
 					addSemesterLoading={addSemesterLoading}
 					onSelectSemester={(id) => setActiveTermId(String(id))}
@@ -287,9 +295,8 @@ export default function GpaTab() {
 					onDeleteSemester={handleDeleteSemesterClick}
 				/>
 
-				{activeSemesterId && (
+				{activeTermId && (
 					<AddSubjectForm
-						mode={viewMode === "grades" ? "grades" : "marks"}
 						semesterName={activeSemesterName}
 						isReadOnly={isReadOnlyProfile}
 						formState={addForm}
@@ -301,9 +308,9 @@ export default function GpaTab() {
 					/>
 				)}
 
-				{activeSemesterId && (
+				{activeTermId && (
 					<SemesterPanel
-						mode={viewMode === "grades" ? "grades" : "marks"}
+						mode={viewMode}
 						semesterName={activeSemesterName}
 						subjects={subjects}
 						editingSubjectId={editingSubjectId}
@@ -311,14 +318,8 @@ export default function GpaTab() {
 						onFormChange={handleEditFormChange}
 						onEdit={editSubject}
 						onSave={handleSaveSubject}
-						onCancel={() => {
-							setEditingSubjectId(null);
-							setEditForm(EMPTY_EDIT_FORM);
-						}}
-						onDelete={(id) => {
-							const sub = subjects.find((s) => String(s.id) === String(id));
-							confirmSubjectDelete(id, sub?.subjectName ?? "this subject");
-						}}
+						onCancel={handleCancelEdit}
+						onDelete={handleDeleteSubjectRequest}
 						isReadOnly={isReadOnlyProfile}
 					/>
 				)}
@@ -329,7 +330,7 @@ export default function GpaTab() {
 						<Text style={local.emptyBody}>Tap "Add Semester" to get started!</Text>
 					</View>
 				)}
-			</ScrollView>
+			</KeyboardAwareScrollView>
 
 			<ConfirmModal
 				isOpen={deleteSemesterModal.open}
@@ -355,29 +356,12 @@ export default function GpaTab() {
 }
 
 const local = StyleSheet.create({
-	scroll: { padding: Spacing.lg, paddingTop: Spacing.md, paddingBottom: Spacing.xl, gap: Spacing.xl },
-	pageHeader: {},
-	pageTitleRow: { flexDirection: "row", alignItems: "center", gap: Spacing.md },
-	pageIconBox: {
-		width: 44,
-		height: 44,
-		borderRadius: 12,
-		backgroundColor: Colors.surfaceElevated,
-		borderWidth: 1,
-		borderColor: Colors.border,
+	scroll: { padding: Spacing.lg, paddingTop: Spacing.md, paddingBottom: 80, gap: Spacing.xl },
+	toolbar: {
+		flexDirection: "row",
 		alignItems: "center",
-		justifyContent: "center",
 	},
-	pageTitle: {
-		fontSize: FontSize.lg,
-		fontWeight: FontWeight.bold,
-		color: Colors.textPrimary,
-	},
-	pageSubtitle: {
-		fontSize: FontSize.xs,
-		color: Colors.textMuted,
-		marginTop: 2,
-	},
+	toolbarTitle: { fontSize: FontSize.xl, fontWeight: FontWeight.bold, color: Colors.textPrimary },
 	loadingCenter: { alignItems: "center", justifyContent: "center", gap: Spacing.md },
 	loadingText: { fontSize: FontSize.base, color: Colors.textMuted },
 	emptyState: { alignItems: "center", paddingVertical: Spacing.xxxl },

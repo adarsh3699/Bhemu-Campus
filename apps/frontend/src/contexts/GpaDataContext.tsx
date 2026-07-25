@@ -5,7 +5,7 @@ import { useAuth } from "@/firebase/AuthContext";
 import { gpaService as createGPAService, LeaderboardService } from "@/firebase/services";
 import { db } from "@/firebase/config";
 import type { GPAProfile, GPASemester } from "@bhemu/shared";
-import { STORAGE_KEYS } from "@bhemu/shared";
+import { STORAGE_KEYS, sortSemesters } from "@bhemu/shared";
 import { useMessage } from "@/contexts/MessageContext";
 
 // ===== Types =====
@@ -102,15 +102,6 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 	const isReadOnlyProfile = !!(currentProfile?.isShared && currentProfile?.permission === "read");
 
 	// ===== SEMESTERS SUBCOLLECTION LISTENER =====
-	const sortSemesters = useCallback((list: GPASemester[]) => {
-		return [...list].sort((a, b) => {
-			const numA = parseInt(a.name?.match(/\d+/)?.[0] ?? "0", 10);
-			const numB = parseInt(b.name?.match(/\d+/)?.[0] ?? "0", 10);
-			if (numA !== numB) return numA - numB;
-			return (a.name ?? "").localeCompare(b.name ?? "");
-		});
-	}, []);
-
 	useEffect(() => {
 		if (!gpaService || !activeProfile) return;
 
