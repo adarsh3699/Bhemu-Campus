@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, forwardRef, useImperativeHandle } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import { WebView, type WebViewNavigation } from "react-native-webview";
 import { X, RefreshCw } from "lucide-react-native";
@@ -7,16 +7,11 @@ import { Colors, Spacing, FontSize, Radius } from "@/constants/Theme";
 import type { UMSSyncResult } from "@bhemu/firebase";
 import { WEBVIEW_SYNC_SCRIPT } from "./webviewSyncScript";
 
-const UMS_LOGIN_URL = "https://ums.lpu.in/lpuums/StudentDashboard.aspx";
+const DASHBOARD_URL = "https://ums.lpu.in/lpuums/StudentDashboard.aspx";
 
-// Chrome for Android UA — matches the actual WebView Chromium engine so Turnstile's
-// fingerprint check passes. No "wv" marker so the portal doesn't gate on WebView.
 const CHROME_ANDROID_UA =
 	"Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36";
 
-// Runs before page scripts on every navigation. Hides WebView markers and
-// captures POST form bodies (including the submit button name) into Java's
-// __umsPostCapture so shouldInterceptRequest can re-issue without X-Requested-With.
 const STEALTH_JS = `(function(){
   try{var b=window.ReactNativeWebView;if(b){window.__rnb=b;}Object.defineProperty(window,'ReactNativeWebView',{get:function(){return undefined;},configurable:true});}catch(e){}
   try{delete window.Android;}catch(e){}
@@ -59,23 +54,51 @@ const STEALTH_JS = `(function(){
   },true);
 })();true;`;
 
-export interface UMSLoginWebViewProps {
+export interface UMSWebViewHandle {
+	reload: () => void;
+}
+
+interface Props {
+	loginVisible: boolean;
 	onSyncData: (data: UMSSyncResult) => void;
 	onProgress: (msg: string) => void;
+	onNeedsLogin: () => void;
+	onLoginDone: () => void;
 	onError: (msg: string) => void;
 	onClose: () => void;
 }
 
-export default function UMSLoginWebView({ onSyncData, onProgress, onError, onClose }: UMSLoginWebViewProps) {
+const UMSWebView = forwardRef<UMSWebViewHandle, Props>(function UMSWebView(
+	{ loginVisible, onSyncData, onProgress, onNeedsLogin, onLoginDone, onError, onClose },
+	ref
+) {
 	const webViewRef = useRef<WebView>(null);
-	const [loading, setLoading] = useState(true);
-	const [currentUrl, setCurrentUrl] = useState(UMS_LOGIN_URL);
 	const syncStartedRef = useRef(false);
+	const loginShownRef = useRef(false);
+	const [loading, setLoading] = useState(true);
+	const [currentUrl, setCurrentUrl] = useState(DASHBOARD_URL);
+
+	useImperativeHandle(ref, () => ({
+		reload: () => {
+			syncStartedRef.current = false;
+			loginShownRef.current = false;
+			webViewRef.current?.reload();
+		},
+	}));
 
 	const handleNavigationChange = (nav: WebViewNavigation) => {
+		const url = nav.url.toLowerCase();
 		setCurrentUrl(nav.url);
-		if (!nav.loading && nav.url.toLowerCase().includes("studentdashboard") && !syncStartedRef.current) {
+
+		if (url.includes("login") && !loginShownRef.current) {
+			loginShownRef.current = true;
+			onNeedsLogin();
+		} else if (url.includes("studentdashboard") && !nav.loading && !syncStartedRef.current) {
 			syncStartedRef.current = true;
+			if (loginShownRef.current) {
+				// User just logged in — hide browser, sync silently
+				onLoginDone();
+			}
 			setTimeout(() => {
 				webViewRef.current?.injectJavaScript(WEBVIEW_SYNC_SCRIPT);
 			}, 800);
@@ -88,16 +111,12 @@ export default function UMSLoginWebView({ onSyncData, onProgress, onError, onClo
 			if (msg.type === "progress") {
 				onProgress(msg.payload as string);
 			} else if (msg.type === "syncData") {
-				onClose();
 				onSyncData(msg.payload as UMSSyncResult);
 			} else if (msg.type === "error") {
-				syncStartedRef.current = false;
 				if (msg.payload === "SESSION_EXPIRED") {
-					setCurrentUrl(UMS_LOGIN_URL);
-					webViewRef.current?.reload();
+					onNeedsLogin();
 				} else {
 					onError(msg.payload as string);
-					onClose();
 				}
 			}
 		} catch {}
@@ -106,43 +125,37 @@ export default function UMSLoginWebView({ onSyncData, onProgress, onError, onClo
 	const displayUrl = currentUrl.replace(/^https?:\/\//, "").slice(0, 42);
 
 	return (
-		<SafeAreaView style={local.container} edges={["top"]}>
-			<View style={local.header}>
-				<TouchableOpacity onPress={onClose} hitSlop={10} style={local.navBtn}>
-					<X size={20} color={Colors.textMuted} />
-				</TouchableOpacity>
-
-				<View style={local.urlBar}>
-					<Text style={local.urlText} numberOfLines={1}>
-						{displayUrl}
-					</Text>
-				</View>
-
-				<TouchableOpacity
-					onPress={() => {
-						syncStartedRef.current = false;
-						webViewRef.current?.reload();
-					}}
-					hitSlop={10}
-					style={local.navBtn}
-				>
-					{loading ? (
-						<ActivityIndicator size="small" color={Colors.primary} />
-					) : (
-						<RefreshCw size={18} color={Colors.textMuted} />
-					)}
-				</TouchableOpacity>
-			</View>
-
-			{loading && <View style={local.progressBar} />}
-
+		<>
+			{loginVisible && (
+				<SafeAreaView style={local.header} edges={["top"]}>
+					<View style={local.headerRow}>
+						<TouchableOpacity onPress={onClose} hitSlop={10} style={local.navBtn}>
+							<X size={20} color={Colors.textMuted} />
+						</TouchableOpacity>
+						<View style={local.urlBar}>
+							<Text style={local.urlText} numberOfLines={1}>{displayUrl}</Text>
+						</View>
+						<TouchableOpacity
+							onPress={() => webViewRef.current?.reload()}
+							hitSlop={10}
+							style={local.navBtn}
+						>
+							{loading
+								? <ActivityIndicator size="small" color={Colors.primary} />
+								: <RefreshCw size={18} color={Colors.textMuted} />
+							}
+						</TouchableOpacity>
+					</View>
+					{loading && <View style={local.progressBar} />}
+				</SafeAreaView>
+			)}
 			<WebView
 				ref={webViewRef}
-				source={{ uri: UMS_LOGIN_URL }}
-				onLoadStart={() => setLoading(true)}
-				onLoadEnd={() => setLoading(false)}
+				source={{ uri: DASHBOARD_URL }}
 				onNavigationStateChange={handleNavigationChange}
 				onMessage={handleMessage}
+				onLoadStart={() => setLoading(true)}
+				onLoadEnd={() => setLoading(false)}
 				style={local.webview}
 				javaScriptEnabled
 				domStorageEnabled
@@ -152,21 +165,24 @@ export default function UMSLoginWebView({ onSyncData, onProgress, onError, onClo
 				mixedContentMode="always"
 				injectedJavaScriptBeforeContentLoaded={STEALTH_JS}
 			/>
-		</SafeAreaView>
+		</>
 	);
-}
+});
+
+export default UMSWebView;
 
 const local = StyleSheet.create({
-	container: { flex: 1, backgroundColor: Colors.background },
 	header: {
+		backgroundColor: Colors.surface,
+		borderBottomWidth: 1,
+		borderBottomColor: Colors.border,
+	},
+	headerRow: {
 		flexDirection: "row",
 		alignItems: "center",
 		gap: Spacing.sm,
 		paddingHorizontal: Spacing.md,
 		paddingVertical: Spacing.sm,
-		borderBottomWidth: 1,
-		borderBottomColor: Colors.border,
-		backgroundColor: Colors.surface,
 	},
 	navBtn: {
 		width: 36,
@@ -184,15 +200,7 @@ const local = StyleSheet.create({
 		paddingHorizontal: Spacing.md,
 		paddingVertical: 7,
 	},
-	urlText: {
-		fontSize: FontSize.xs,
-		color: Colors.textMuted,
-		textAlign: "center",
-	},
-	progressBar: {
-		height: 2,
-		backgroundColor: Colors.primary,
-		opacity: 0.7,
-	},
+	urlText: { fontSize: FontSize.xs, color: Colors.textMuted, textAlign: "center" },
+	progressBar: { height: 2, backgroundColor: Colors.primary, opacity: 0.7 },
 	webview: { flex: 1 },
 });

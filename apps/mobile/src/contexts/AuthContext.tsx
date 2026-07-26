@@ -28,7 +28,7 @@ import {
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { auth, db } from "@/firebase/config";
-import type { FirebaseError, AuthContextType } from "@/types/auth";
+import type { FirebaseError, AuthContextType } from "@/types";
 import { STORAGE_KEYS } from "@bhemu/shared";
 
 GoogleSignin.configure({

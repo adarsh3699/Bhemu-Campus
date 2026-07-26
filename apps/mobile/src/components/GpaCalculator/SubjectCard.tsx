@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput } from "react-nativ
 import { Pencil, Trash2 } from "lucide-react-native";
 import { pointToGrade, SELECTABLE_GRADES, computeGradeFromMarks } from "@bhemu/shared";
 import type { GPASubject } from "@/types";
-import type { CustomCutoff } from "@/types/marks";
+import type { CustomCutoff } from "@/types";
 import { Colors, Spacing, Radius, FontSize, FontWeight } from "@/constants/Theme";
 import { Inputs } from "@/styles";
 

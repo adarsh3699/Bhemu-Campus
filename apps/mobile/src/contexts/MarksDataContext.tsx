@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useMemo } from
 import { useGpaData } from "@/contexts/GpaDataContext";
 import { useMessage } from "@/contexts/MessageContext";
 import { computeGradeFromMarks, computeTotal } from "@bhemu/shared";
-import type { SubjectMarks } from "@/types/marks";
+import type { SubjectMarks } from "@/types";
 import type { GPASubject } from "@/types";
 
 interface MarksDataContextValue {

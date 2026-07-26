@@ -410,10 +410,10 @@ export class GPAService {
 		return { ...profileData, semesters, id: profileId, permission: permission as "read" | "edit", ownerUserId, isShared: true };
 	}
 
-	async getMySharedProfiles(): Promise<{ success: boolean; sharedProfiles: unknown[]; error?: string }> {
+	async getMySharedProfiles(): Promise<{ success: boolean; sharedProfiles: ShareData[]; error?: string }> {
 		try {
 			const snapshot = await getDocs(query(this.outgoingSharesRef, where("isActive", "==", true)));
-			const sharedProfiles = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+			const sharedProfiles = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as unknown as ShareData));
 			return { success: true, sharedProfiles };
 		} catch (error) {
 			console.error("Error fetching my shared profiles:", error);

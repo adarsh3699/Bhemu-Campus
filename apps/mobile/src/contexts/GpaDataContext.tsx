@@ -5,6 +5,7 @@ import { gpaService as createGPAService, LeaderboardService } from "@/firebase/s
 import { STORAGE_KEYS, sortSemesters } from "@bhemu/shared";
 import { db } from "@/firebase/config";
 import type { GPAProfile, GPASemester } from "@bhemu/shared";
+import type { ShareData } from "@bhemu/firebase";
 import { useMessage } from "@/contexts/MessageContext";
 
 interface GpaDataContextValue {
@@ -13,7 +14,7 @@ interface GpaDataContextValue {
 	loading: boolean;
 	saving: boolean;
 	sharedWithMeProfiles: GPAProfile[];
-	mySharedProfiles: unknown[];
+	mySharedProfiles: ShareData[];
 	allProfiles: GPAProfile[];
 	currentProfile: GPAProfile | undefined;
 	semesters: GPASemester[];
@@ -50,7 +51,7 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
 	const [sharedWithMeProfiles, setSharedWithMeProfiles] = useState<GPAProfile[]>([]);
-	const [mySharedProfiles, setMySharedProfiles] = useState<unknown[]>([]);
+	const [mySharedProfiles, setMySharedProfiles] = useState<ShareData[]>([]);
 
 	const activeListeners = useRef<Record<string, () => void>>({});
 	const isInitializingRef = useRef(false);
