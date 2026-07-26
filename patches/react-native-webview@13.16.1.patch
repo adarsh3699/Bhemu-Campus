@@ -1,0 +1,182 @@
+diff --git a/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java b/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java
+--- a/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java
++++ b/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java
+@@ -81,6 +81,136 @@ public class RNCWebViewClient extends WebViewClient {
+           createWebViewEvent(webView, url)));
+     }
+ 
++    private static final String STEALTH_SCRIPT =
++        "<script>(function(){" +
++        "var b=window.ReactNativeWebView;if(b&&!window.__rnb){window.__rnb=b;}" +
++        "try{Object.defineProperty(window,'ReactNativeWebView',{get:function(){return undefined;},configurable:true});}catch(e){}" +
++        "try{delete window.Android;}catch(e){}" +
++        "try{Object.defineProperty(Navigator.prototype,'webdriver',{get:function(){return undefined;},configurable:true});}catch(e){}" +
++        "})();</script>";
++
++    private static byte[] readAllBytes(java.io.InputStream is) throws java.io.IOException {
++        java.io.ByteArrayOutputStream buf = new java.io.ByteArrayOutputStream();
++        byte[] chunk = new byte[8192];
++        int n;
++        while ((n = is.read(chunk)) != -1) buf.write(chunk, 0, n);
++        return buf.toByteArray();
++    }
++
++    private void syncCookies(String url, java.net.HttpURLConnection conn) {
++        java.util.List<String> cookieHeaders = conn.getHeaderFields().get("Set-Cookie");
++        if (cookieHeaders == null) cookieHeaders = conn.getHeaderFields().get("set-cookie");
++        if (cookieHeaders != null) {
++            CookieManager cm = CookieManager.getInstance();
++            for (String cookie : cookieHeaders) {
++                cm.setCookie(url, cookie);
++            }
++            cm.flush();
++        }
++    }
++
++    @Override
++    @androidx.annotation.RequiresApi(21)
++    public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
++        String host = request.getUrl().getHost();
++        if (host == null || !host.contains("ums.lpu.in")) {
++            return super.shouldInterceptRequest(view, request);
++        }
++        String method = request.getMethod().toUpperCase();
++        String postBody = null;
++        if ("POST".equals(method) && request.isForMainFrame()) {
++            for (int i = 0; i < 25; i++) {
++                postBody = RNCWebView.pendingUmsPostBody.getAndSet(null);
++                if (postBody != null) break;
++                try { Thread.sleep(10); } catch (InterruptedException ignored) {}
++            }
++            if (postBody == null) return super.shouldInterceptRequest(view, request);
++        } else if ("POST".equals(method)) {
++            return super.shouldInterceptRequest(view, request);
++        }
++        try {
++            String requestUrl = request.getUrl().toString();
++            java.net.URL url = new java.net.URL(requestUrl);
++            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
++            conn.setRequestMethod(method);
++            conn.setInstanceFollowRedirects(false);
++            conn.setConnectTimeout(10000);
++            conn.setReadTimeout(15000);
++            for (java.util.Map.Entry<String, String> entry : request.getRequestHeaders().entrySet()) {
++                if (!entry.getKey().equalsIgnoreCase("X-Requested-With")) {
++                    conn.setRequestProperty(entry.getKey(), entry.getValue());
++                }
++            }
++            String cookies = CookieManager.getInstance().getCookie(requestUrl);
++            if (cookies != null) conn.setRequestProperty("Cookie", cookies);
++            if ("POST".equals(method) && postBody != null) {
++                byte[] bodyBytes = postBody.getBytes("UTF-8");
++                conn.setDoOutput(true);
++                conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
++                conn.setRequestProperty("Content-Length", String.valueOf(bodyBytes.length));
++                conn.getOutputStream().write(bodyBytes);
++            }
++            conn.connect();
++            syncCookies(requestUrl, conn);
++            int code = conn.getResponseCode();
++            if (code == 301 || code == 302 || code == 303 || code == 307) {
++                String loc = conn.getHeaderField("Location");
++                if (loc != null) {
++                    if (!loc.startsWith("http")) {
++                        loc = new java.net.URL(url, loc).toString();
++                    }
++                    String redir = "<html><head>" + STEALTH_SCRIPT +
++                        "<script>window.location.replace('" + loc.replace("'", "\\'") + "');</script>" +
++                        "</head><body></body></html>";
++                    byte[] bytes = redir.getBytes("UTF-8");
++                    java.util.Map<String, String> h = new java.util.HashMap<>();
++                    h.put("Content-Type", "text/html; charset=UTF-8");
++                    return new WebResourceResponse("text/html", "UTF-8", 200, "OK", h,
++                        new java.io.ByteArrayInputStream(bytes));
++                }
++            }
++            String contentType = conn.getContentType();
++            if (contentType != null && contentType.contains("text/html")) {
++                java.io.InputStream is = code >= 400 ? conn.getErrorStream() : conn.getInputStream();
++                String html = new String(readAllBytes(is), "UTF-8");
++                is.close();
++                int idx = html.indexOf("<head>");
++                int insertAt = idx >= 0 ? idx + 6 : 0;
++                html = html.substring(0, insertAt) + STEALTH_SCRIPT + html.substring(insertAt);
++                byte[] bytes = html.getBytes("UTF-8");
++                java.util.Map<String, String> headers = new java.util.HashMap<>();
++                for (java.util.Map.Entry<String, java.util.List<String>> e : conn.getHeaderFields().entrySet()) {
++                    if (e.getKey() != null && !e.getValue().isEmpty()
++                        && !e.getKey().equalsIgnoreCase("Set-Cookie")) {
++                        headers.put(e.getKey(), e.getValue().get(0));
++                    }
++                }
++                headers.put("Content-Type", "text/html; charset=UTF-8");
++                String reason = conn.getResponseMessage();
++                return new WebResourceResponse("text/html", "UTF-8",
++                    code >= 400 ? code : 200,
++                    reason != null ? reason : "OK", headers,
++                    new java.io.ByteArrayInputStream(bytes));
++            }
++            java.io.InputStream is = code >= 400 ? conn.getErrorStream() : conn.getInputStream();
++            if (is == null) is = new java.io.ByteArrayInputStream(new byte[0]);
++            String mime = contentType != null ? contentType.split(";")[0].trim() : "application/octet-stream";
++            String encoding = "UTF-8";
++            java.util.Map<String, String> headers = new java.util.HashMap<>();
++            for (java.util.Map.Entry<String, java.util.List<String>> e : conn.getHeaderFields().entrySet()) {
++                if (e.getKey() != null && !e.getValue().isEmpty()
++                    && !e.getKey().equalsIgnoreCase("Set-Cookie")) {
++                    headers.put(e.getKey(), e.getValue().get(0));
++                }
++            }
++            String reason = conn.getResponseMessage();
++            return new WebResourceResponse(mime, encoding, code, reason != null ? reason : "OK", headers, is);
++        } catch (Exception e) {
++            // Fall through on any error so the page still loads
++        }
++        return super.shouldInterceptRequest(view, request);
++    }
++
+     @Override
+     public void onPageStarted(WebView webView, String url, Bitmap favicon) {
+       super.onPageStarted(webView, url, favicon);
+diff --git a/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java b/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java
+--- a/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java
++++ b/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java
+@@ -47,6 +47,7 @@ import org.json.JSONObject;
+ import java.util.List;
+ import java.util.Map;
+ import java.util.Set;
++import java.util.concurrent.atomic.AtomicReference;
+ 
+ public class RNCWebView extends WebView implements LifecycleEventListener {
+     protected @Nullable
+@@ -54,6 +55,8 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
+     protected @Nullable
+     String injectedJSBeforeContentLoaded;
+     protected static final String JAVASCRIPT_INTERFACE = "ReactNativeWebView";
++
++    public static final AtomicReference<String> pendingUmsPostBody = new AtomicReference<>(null);
+     protected @Nullable
+     RNCWebViewBridge fallbackBridge;
+     protected @Nullable
+@@ -269,6 +272,7 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
+             addJavascriptInterface(fallbackBridge, JAVASCRIPT_INTERFACE);
+           }
+         }
++        addJavascriptInterface(new UmsPostCapture(), "__umsPostCapture");
+         injectJavascriptObject();
+     }
+ 
+@@ -430,6 +434,13 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
+       return this.getThemedReactContext().getReactApplicationContext();
+   }
+ 
++  protected static class UmsPostCapture {
++      @JavascriptInterface
++      public void captureBody(String body) {
++          RNCWebView.pendingUmsPostBody.set(body);
++      }
++  }
++
+   protected class RNCWebViewBridge {
+         private String TAG = "RNCWebViewBridge";
+         RNCWebView mWebView;

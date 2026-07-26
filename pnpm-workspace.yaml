@@ -1,11 +1,11 @@
 packages:
-  - 'apps/*'
-  - 'packages/*'
+  - "apps/*"
+  - "packages/*"
 
 allowBuilds:
-  '@firebase/util': true
-  '@parcel/watcher': true
-  '@swc/core': true
+  "@firebase/util": true
+  "@parcel/watcher": true
+  "@swc/core": true
   core-js: true
   esbuild: true
   lmdb: true
@@ -15,16 +15,16 @@ allowBuilds:
   unrs-resolver: true
 
 minimumReleaseAgeExclude:
-  - '@expo/cli@57.0.10'
-  - '@expo/config-plugins@57.0.6'
-  - '@expo/config@57.0.6'
-  - '@expo/fingerprint@0.20.6'
-  - '@expo/image-utils@0.11.4'
-  - '@expo/metro-config@57.0.7'
-  - '@expo/metro-runtime@57.0.7'
-  - '@expo/prebuild-config@57.0.9'
-  - '@expo/require-utils@57.0.4'
-  - '@expo/router-server@57.0.4'
+  - "@expo/cli@57.0.10"
+  - "@expo/config-plugins@57.0.6"
+  - "@expo/config@57.0.6"
+  - "@expo/fingerprint@0.20.6"
+  - "@expo/image-utils@0.11.4"
+  - "@expo/metro-config@57.0.7"
+  - "@expo/metro-runtime@57.0.7"
+  - "@expo/prebuild-config@57.0.9"
+  - "@expo/require-utils@57.0.4"
+  - "@expo/router-server@57.0.4"
   - babel-preset-expo@57.0.4
   - expo-asset@57.0.7
   - expo-constants@57.0.7
@@ -40,3 +40,6 @@ minimumReleaseAgeExclude:
   - expo-dev-client@57.0.8
   - expo-dev-launcher@57.0.8
   - expo-dev-menu@57.0.8
+
+patchedDependencies:
+  react-native-webview@13.16.1: patches/react-native-webview@13.16.1.patch

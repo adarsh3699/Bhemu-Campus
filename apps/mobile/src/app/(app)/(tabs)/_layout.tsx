@@ -61,13 +61,6 @@ export default function TabsLayout() {
 					tabBarIcon: ({ color, size }) => <Settings size={size} color={color} />,
 				}}
 			/>
-			{/* Hide attendance from tab bar — accessible from Home hub */}
-			<Tabs.Screen
-				name="attendance"
-				options={{
-					href: null,
-				}}
-			/>
 		</Tabs>
 	);
 }

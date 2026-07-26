@@ -1,62 +1,53 @@
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { RefreshCw, CloudUpload, CheckCircle } from "lucide-react-native";
-import { Colors, Spacing, Radius, FontSize, FontWeight } from "@/constants/Theme";
-import { Layout } from "@/styles";
+import { useState, useCallback } from "react";
+import { Modal } from "react-native";
+import { useFocusEffect, useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAuth } from "@/contexts/AuthContext";
+import { useGpaData } from "@/contexts/GpaDataContext";
+import { db } from "@/firebase/config";
+import UMSLoginWebView from "@/features/sync/UMSLoginWebView";
+import { writeToFirestore } from "@/features/sync/syncCoordinator";
+import type { UMSSyncResult } from "@bhemu/firebase";
+
+const LAST_SYNC_KEY = "ums_last_sync";
 
 export default function SyncTab() {
+	const { currentUser } = useAuth();
+	const { activeProfile } = useGpaData();
+	const router = useRouter();
+
+	const [showWebView, setShowWebView] = useState(false);
+
+	useFocusEffect(
+		useCallback(() => {
+			setShowWebView(true);
+		}, [])
+	);
+
+	const handleClose = useCallback(() => {
+		setShowWebView(false);
+		router.replace("/(app)/(tabs)/");
+	}, [router]);
+
+	const handleSyncData = useCallback(
+		async (data: UMSSyncResult) => {
+			if (!currentUser || !activeProfile) return;
+			try {
+				await writeToFirestore(data, activeProfile, db, currentUser.uid);
+				await AsyncStorage.setItem(LAST_SYNC_KEY, new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+			} catch {}
+		},
+		[currentUser, activeProfile]
+	);
+
 	return (
-		<SafeAreaView style={Layout.flex} edges={["top"]}>
-			<View style={[Layout.flex, local.center]}>
-				<View style={local.iconBox}>
-					<RefreshCw size={36} color={Colors.primary} />
-				</View>
-				<Text style={local.title}>Sync with UMS</Text>
-				<Text style={local.subtitle}>Import your data from the university portal</Text>
-
-				<TouchableOpacity style={local.syncBtn} activeOpacity={0.7}>
-					<CloudUpload size={18} color={Colors.textPrimary} />
-					<Text style={local.syncBtnText}>Sync Now</Text>
-				</TouchableOpacity>
-
-				<Text style={local.hint}>
-					Make sure you have the UMS extension installed
-				</Text>
-			</View>
-		</SafeAreaView>
+		<Modal visible={showWebView} animationType="slide" onRequestClose={handleClose}>
+			<UMSLoginWebView
+				onSyncData={handleSyncData}
+				onProgress={() => {}}
+				onError={() => {}}
+				onClose={handleClose}
+			/>
+		</Modal>
 	);
 }
-
-const local = StyleSheet.create({
-	center: { alignItems: "center", justifyContent: "center", padding: Spacing.xl, gap: Spacing.md },
-	iconBox: {
-		width: 72,
-		height: 72,
-		borderRadius: 36,
-		backgroundColor: Colors.surfaceElevated,
-		borderWidth: 1,
-		borderColor: Colors.border,
-		alignItems: "center",
-		justifyContent: "center",
-		marginBottom: Spacing.sm,
-	},
-	title: { fontSize: FontSize.xxl, fontWeight: FontWeight.bold, color: Colors.textPrimary },
-	subtitle: { fontSize: FontSize.base, color: Colors.textMuted, textAlign: "center" },
-	syncBtn: {
-		flexDirection: "row",
-		alignItems: "center",
-		gap: Spacing.sm,
-		paddingHorizontal: Spacing.xl,
-		paddingVertical: Spacing.md,
-		backgroundColor: Colors.primary,
-		borderRadius: Radius.xl,
-		marginTop: Spacing.lg,
-		shadowColor: Colors.primary,
-		shadowOffset: { width: 0, height: 4 },
-		shadowOpacity: 0.4,
-		shadowRadius: 10,
-		elevation: 6,
-	},
-	syncBtnText: { fontSize: FontSize.base, fontWeight: FontWeight.bold, color: Colors.textPrimary },
-	hint: { fontSize: FontSize.xs, color: Colors.textSubtle, marginTop: Spacing.md, textAlign: "center" },
-});
