@@ -23,7 +23,8 @@ Bhemu-Calculator/
 │   └── shared/        — @bhemu/shared: shared types, utilities, constants (pure TypeScript, zero deps)
 ├── apps/
 │   ├── frontend/      — Next.js 16 web app (React 19, Firebase 12)
-│   └── ums-extension/ — Plasmo Chrome MV3 extension (React 19, Firebase 12)
+│   ├── ums-extension/ — Plasmo Chrome MV3 extension (React 19, Firebase 12)
+│   └── mobile/        — Expo SDK 57 React Native app (React 19, Firebase 12)
 ├── docs/              — Firestore schema, design docs, SEO guide
 └── test/              — Firebase Admin SDK credential (not a test suite)
 ```
@@ -34,6 +35,7 @@ Bhemu-Calculator/
 ```bash
 pnpm dev:web        # Start frontend dev server
 pnpm dev:ext        # Start extension dev server
+pnpm dev:mobile     # Start mobile Metro bundler
 pnpm build          # Build all workspaces (correct order via turbo)
 pnpm build:shared   # Build @bhemu/shared only
 pnpm build:web      # Build frontend (shared builds first automatically)
@@ -132,6 +134,38 @@ Entry points:
 - `src/background/index.ts` — Service worker; orchestrates UMS fetch + Firestore sync
 - `src/contents/authBridge.ts` — Content script; bridges Firebase auth token from the web app to the extension
 - `src/popup/index.tsx` — Extension popup UI
+
+### Mobile App (`apps/mobile`)
+
+Expo SDK 57, React Native 0.86, Expo Router. See `apps/mobile/README.md` for full docs.
+
+**Design System Rule — CRITICAL:**
+Never use raw hex strings in any component or StyleSheet. Always import from the token files:
+
+```ts
+import { Colors } from "@/constants/Colors";
+import { Spacing, Radius, Shadow } from "@/constants//Theme";
+
+// In StyleSheet.create:
+backgroundColor: Colors.background   // ✅
+backgroundColor: "#0E0E0E"           // ❌ never
+```
+
+Token files:
+- `apps/mobile/src/constants/Colors.ts` — all color tokens (brand, backgrounds, text, borders, semantic)
+- `apps/mobile/src/constants/Theme.ts` — spacing, radius, font sizes, font weights, shadows
+- `apps/mobile/src/hooks/useTheme.ts` — thin hook; update ONLY this file when light mode is added
+
+**Shared Styles Rule:**
+Reusable styles live in `apps/mobile/src/styles/`. Two layers:
+- `global.ts` — app-wide patterns (Layout, Inputs, Buttons) — import from `@/styles`
+- `<feature>.styles.ts` — feature-specific (e.g. `auth.styles.ts`) — import directly
+
+Never duplicate styles across screens. If 2+ screens share the same style, extract it.
+Use style arrays for overrides: `[Buttons.primary, local.myOverride]` — never spread at runtime.
+Name screen-local styles `local` (not `styles`) to distinguish from shared imports.
+
+---
 
 ### Deployment
 

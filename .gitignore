@@ -3,6 +3,11 @@ node_modules/
 test/
 marketing/
 
+# Environment variables (never commit — use .env.example as template)
+.env
+.env.local
+.env.*.local
+
 # Turborepo
 .turbo/
 

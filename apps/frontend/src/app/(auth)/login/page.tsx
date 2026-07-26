@@ -116,7 +116,7 @@ export default function LoginPage() {
 								<input
 									id="email"
 									type="email"
-									placeholder="name@university.edu"
+									placeholder="name@gmail.in"
 									value={email}
 									onChange={(e) => setEmail(e.target.value)}
 									required
@@ -223,7 +223,12 @@ export default function LoginPage() {
 
 					{/* Accessibility / Legal */}
 					<div className="mt-12 flex justify-center gap-6 text-xs text-gray-500">
-						<a href="https://calc.bhemu.in/privacy-policy.html" target="_blank" rel="noreferrer" className="hover:text-gray-300 transition-colors">
+						<a
+							href="https://calc.bhemu.in/privacy-policy.html"
+							target="_blank"
+							rel="noreferrer"
+							className="hover:text-gray-300 transition-colors"
+						>
 							Privacy Policy
 						</a>
 						<Link href="/about" className="hover:text-gray-300 transition-colors">

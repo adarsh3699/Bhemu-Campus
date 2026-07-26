@@ -13,6 +13,7 @@
 		"lint:fix": "eslint src --fix"
 	},
 	"dependencies": {
+		"@bhemu/firebase": "workspace:*",
 		"@bhemu/shared": "workspace:*",
 		"@plasmohq/storage": "^1.15.0",
 		"firebase": "^12.13.0",

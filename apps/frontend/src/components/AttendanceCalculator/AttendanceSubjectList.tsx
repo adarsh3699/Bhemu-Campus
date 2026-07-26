@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Pencil, Trash2, AlertTriangle, CheckCircle, AlertCircle } from "lucide-react";
-import type { AttendanceSubject } from "@/types/attendance";
+import type { AttendanceSubject } from "@bhemu/shared";
 
 interface AttendanceSubjectListProps {
 	subjects: AttendanceSubject[];

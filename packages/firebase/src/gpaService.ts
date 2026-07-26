@@ -182,12 +182,11 @@ export class GPAService {
 		}
 	}
 
-	async renameProfile(profileId: string | number, newName: string): Promise<void> {
-		await setDoc(
-			doc(this.userProfilesRef, profileId.toString()),
-			{ name: newName, updatedAt: serverTimestamp() },
-			{ merge: true }
-		);
+	async renameProfile(profileId: string | number, newName: string, ownerUserId?: string): Promise<void> {
+		const ref = ownerUserId
+			? doc(this.db, "users", ownerUserId, "profiles", profileId.toString())
+			: doc(this.userProfilesRef, profileId.toString());
+		await setDoc(ref, { name: newName, updatedAt: serverTimestamp() }, { merge: true });
 	}
 
 	async updateLastOpened(profileId: string | number): Promise<void> {
@@ -410,10 +409,10 @@ export class GPAService {
 		return { ...profileData, semesters, id: profileId, permission: permission as "read" | "edit", ownerUserId, isShared: true };
 	}
 
-	async getMySharedProfiles(): Promise<{ success: boolean; sharedProfiles: unknown[]; error?: string }> {
+	async getMySharedProfiles(): Promise<{ success: boolean; sharedProfiles: ShareData[]; error?: string }> {
 		try {
 			const snapshot = await getDocs(query(this.outgoingSharesRef, where("isActive", "==", true)));
-			const sharedProfiles = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+			const sharedProfiles = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as unknown as ShareData));
 			return { success: true, sharedProfiles };
 		} catch (error) {
 			console.error("Error fetching my shared profiles:", error);

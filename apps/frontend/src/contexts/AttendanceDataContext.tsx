@@ -6,7 +6,7 @@ import { attendanceService as createAttendanceService } from "@/firebase/service
 import type { AttendanceService } from "@bhemu/firebase";
 import { useGpaData } from "@/contexts/GpaDataContext";
 import { useMessage } from "@/contexts/MessageContext";
-import type { AttendanceSubject, AttendanceData } from "@/types/attendance";
+import type { AttendanceSubject, AttendanceData } from "@bhemu/shared";
 
 interface AttendanceDataContextValue {
 	attendanceData: AttendanceData | null;
@@ -27,7 +27,7 @@ export function useAttendanceData(): AttendanceDataContextValue {
 
 export function AttendanceDataProvider({ children }: { children: React.ReactNode }) {
 	const { currentUser } = useAuth();
-	const { activeProfile } = useGpaData();
+	const { activeProfile, currentProfile } = useGpaData();
 	const { showMessage } = useMessage();
 
 	const [attendanceData, setAttendanceData] = useState<AttendanceData | null>(null);
@@ -41,7 +41,9 @@ export function AttendanceDataProvider({ children }: { children: React.ReactNode
 		serviceRef.current = currentUser ? createAttendanceService(currentUser.uid) : null;
 	}, [currentUser]);
 
-	// Subscribe to attendanceData/main when profile changes
+	// ownerUserId is only set for shared profiles — attendance doc lives under the owner's path
+	const ownerUserId = currentProfile?.isShared ? currentProfile.ownerUserId : undefined;
+
 	useEffect(() => {
 		if (unsubscribeRef.current) {
 			unsubscribeRef.current();
@@ -55,27 +57,27 @@ export function AttendanceDataProvider({ children }: { children: React.ReactNode
 		const unsub = serviceRef.current.onAttendanceChange(activeProfile, (data) => {
 			setAttendanceData(data);
 			setLoading(false);
-		});
+		}, ownerUserId);
 		unsubscribeRef.current = unsub;
 		return () => {
 			unsub();
 			unsubscribeRef.current = null;
 		};
-	}, [activeProfile]);
+	}, [activeProfile, ownerUserId]);
 
 	const addOrUpdateSubject = useCallback(
 		async (subject: AttendanceSubject) => {
 			if (!serviceRef.current || !activeProfile) return;
 			setSaving(true);
 			try {
-				await serviceRef.current.saveSubject(activeProfile, subject);
+				await serviceRef.current.saveSubject(activeProfile, subject, ownerUserId);
 			} catch {
 				showMessage("Failed to save attendance. Please try again.", "error");
 			} finally {
 				setSaving(false);
 			}
 		},
-		[activeProfile, showMessage]
+		[activeProfile, ownerUserId, showMessage]
 	);
 
 	const deleteSubject = useCallback(
@@ -83,14 +85,14 @@ export function AttendanceDataProvider({ children }: { children: React.ReactNode
 			if (!serviceRef.current || !activeProfile) return;
 			setSaving(true);
 			try {
-				await serviceRef.current.deleteSubject(activeProfile, subjectId);
+				await serviceRef.current.deleteSubject(activeProfile, subjectId, ownerUserId);
 			} catch {
 				showMessage("Failed to delete subject. Please try again.", "error");
 			} finally {
 				setSaving(false);
 			}
 		},
-		[activeProfile, showMessage]
+		[activeProfile, ownerUserId, showMessage]
 	);
 
 	const updateDefaultThreshold = useCallback(
@@ -98,25 +100,18 @@ export function AttendanceDataProvider({ children }: { children: React.ReactNode
 			if (!serviceRef.current || !activeProfile) return;
 			setSaving(true);
 			try {
-				await serviceRef.current.updateDefaultThreshold(activeProfile, threshold);
+				await serviceRef.current.updateDefaultThreshold(activeProfile, threshold, ownerUserId);
 			} catch {
 				showMessage("Failed to update threshold. Please try again.", "error");
 			} finally {
 				setSaving(false);
 			}
 		},
-		[activeProfile, showMessage]
+		[activeProfile, ownerUserId, showMessage]
 	);
 
 	const value = useMemo<AttendanceDataContextValue>(
-		() => ({
-			attendanceData,
-			loading,
-			saving,
-			addOrUpdateSubject,
-			deleteSubject,
-			updateDefaultThreshold,
-		}),
+		() => ({ attendanceData, loading, saving, addOrUpdateSubject, deleteSubject, updateDefaultThreshold }),
 		[attendanceData, loading, saving, addOrUpdateSubject, deleteSubject, updateDefaultThreshold]
 	);
 

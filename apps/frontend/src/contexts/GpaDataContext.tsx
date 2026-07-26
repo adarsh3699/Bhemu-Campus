@@ -5,6 +5,7 @@ import { useAuth } from "@/firebase/AuthContext";
 import { gpaService as createGPAService, LeaderboardService } from "@/firebase/services";
 import { db } from "@/firebase/config";
 import type { GPAProfile, GPASemester } from "@bhemu/shared";
+import { STORAGE_KEYS, sortSemesters } from "@bhemu/shared";
 import { useMessage } from "@/contexts/MessageContext";
 
 // ===== Types =====
@@ -101,15 +102,6 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 	const isReadOnlyProfile = !!(currentProfile?.isShared && currentProfile?.permission === "read");
 
 	// ===== SEMESTERS SUBCOLLECTION LISTENER =====
-	const sortSemesters = useCallback((list: GPASemester[]) => {
-		return [...list].sort((a, b) => {
-			const numA = parseInt(a.name?.match(/\d+/)?.[0] ?? "0", 10);
-			const numB = parseInt(b.name?.match(/\d+/)?.[0] ?? "0", 10);
-			if (numA !== numB) return numA - numB;
-			return (a.name ?? "").localeCompare(b.name ?? "");
-		});
-	}, []);
-
 	useEffect(() => {
 		if (!gpaService || !activeProfile) return;
 
@@ -138,7 +130,7 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 	const updateActiveProfile = useCallback((profileId: string | number) => {
 		setActiveProfile(profileId);
 		// Persist to localStorage (same device only — new device always opens default)
-		try { localStorage.setItem("bhemu_activeProfileId", profileId.toString()); } catch {}
+		try { localStorage.setItem(STORAGE_KEYS.activeProfileId, profileId.toString()); } catch {}
 		// Only update lastOpened for own profiles — shared profiles live under the owner's
 		// collection and writing here would create a ghost doc under the recipient's collection.
 		const isShared = sharedWithMeProfiles.some((p) => p.id === profileId);
@@ -299,11 +291,12 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 	const renameProfile = useCallback(
 		async (profileId: string | number, newName: string) => {
 			if (!gpaService) return;
-			// Optimistic update
 			setProfiles((prev) => prev.map((p) => p.id === profileId ? { ...p, name: newName } : p));
 			try {
-				await gpaService.renameProfile(profileId, newName);
-				if (currentUser) {
+				const profile = allProfiles.find((p) => p.id === profileId);
+				const ownerUserId = profile?.isShared ? profile.ownerUserId : undefined;
+				await gpaService.renameProfile(profileId, newName, ownerUserId);
+				if (currentUser && !profile?.isShared) {
 					LeaderboardService.updateDisplayName(db, currentUser.uid, String(profileId), newName)
 						.catch((err) => console.error("Failed to sync leaderboard name:", err));
 				}
@@ -312,7 +305,7 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 				showMessage("Error renaming profile. Please try again.", "error");
 			}
 		},
-		[gpaService, showMessage, currentUser]
+		[gpaService, allProfiles, showMessage, currentUser]
 	);
 
 	// ===== DATA UPDATE ACTIONS =====
@@ -385,7 +378,7 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 			try {
 				// Read last active profile from localStorage (same device memory only)
 				let savedActiveId: string | null = null;
-				try { savedActiveId = localStorage.getItem("bhemu_activeProfileId"); } catch {}
+				try { savedActiveId = localStorage.getItem(STORAGE_KEYS.activeProfileId); } catch {}
 				if (savedActiveId) {
 					initialActiveProfileRef.current = savedActiveId;
 					setActiveProfile(savedActiveId);
@@ -416,7 +409,7 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 						// Skip if account deletion is in progress (the batch that wiped profiles
 						// will fire this listener before the auth token is revoked).
 						let isDeleting = false;
-						try { isDeleting = !!localStorage.getItem("bhemu_account_deleting"); } catch {}
+						try { isDeleting = !!localStorage.getItem(STORAGE_KEYS.accountDeleting); } catch {}
 						if (isDeleting || creatingDefaultProfileRef.current) return;
 						creatingDefaultProfileRef.current = true;
 						try {

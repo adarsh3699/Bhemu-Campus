@@ -19,13 +19,15 @@ export class AttendanceService {
 		this.userId = userId;
 	}
 
-	private mainDocRef(profileId: string | number) {
-		return doc(this.db, "users", this.userId, "profiles", profileId.toString(), "attendanceData", "main");
+	// For shared profiles, attendance lives under the owner's userId, not the viewer's.
+	private mainDocRef(profileId: string | number, ownerUserId?: string) {
+		const uid = ownerUserId ?? this.userId;
+		return doc(this.db, "users", uid, "profiles", profileId.toString(), "attendanceData", "main");
 	}
 
-	async getAttendanceData(profileId: string | number): Promise<AttendanceData | null> {
+	async getAttendanceData(profileId: string | number, ownerUserId?: string): Promise<AttendanceData | null> {
 		try {
-			const snap = await getDoc(this.mainDocRef(profileId));
+			const snap = await getDoc(this.mainDocRef(profileId, ownerUserId));
 			if (!snap.exists()) return null;
 			return snap.data() as AttendanceData;
 		} catch (error) {
@@ -34,10 +36,10 @@ export class AttendanceService {
 		}
 	}
 
-	async saveSubject(profileId: string | number, subject: AttendanceSubject): Promise<void> {
+	async saveSubject(profileId: string | number, subject: AttendanceSubject, ownerUserId?: string): Promise<void> {
 		try {
 			await setDoc(
-				this.mainDocRef(profileId),
+				this.mainDocRef(profileId, ownerUserId),
 				{ subjects: { [subject.id]: subject }, updatedAt: serverTimestamp() },
 				{ merge: true }
 			);
@@ -47,10 +49,10 @@ export class AttendanceService {
 		}
 	}
 
-	async deleteSubject(profileId: string | number, subjectId: string): Promise<void> {
+	async deleteSubject(profileId: string | number, subjectId: string, ownerUserId?: string): Promise<void> {
 		try {
 			await setDoc(
-				this.mainDocRef(profileId),
+				this.mainDocRef(profileId, ownerUserId),
 				{ subjects: { [subjectId]: deleteField() }, updatedAt: serverTimestamp() },
 				{ merge: true }
 			);
@@ -60,10 +62,10 @@ export class AttendanceService {
 		}
 	}
 
-	async updateDefaultThreshold(profileId: string | number, threshold: number): Promise<void> {
+	async updateDefaultThreshold(profileId: string | number, threshold: number, ownerUserId?: string): Promise<void> {
 		try {
 			await setDoc(
-				this.mainDocRef(profileId),
+				this.mainDocRef(profileId, ownerUserId),
 				{ defaultThreshold: threshold, updatedAt: serverTimestamp() },
 				{ merge: true }
 			);
@@ -73,9 +75,13 @@ export class AttendanceService {
 		}
 	}
 
-	onAttendanceChange(profileId: string | number, callback: (data: AttendanceData | null) => void): Unsubscribe {
+	onAttendanceChange(
+		profileId: string | number,
+		callback: (data: AttendanceData | null) => void,
+		ownerUserId?: string
+	): Unsubscribe {
 		return onSnapshot(
-			this.mainDocRef(profileId),
+			this.mainDocRef(profileId, ownerUserId),
 			(snap) => callback(snap.exists() ? (snap.data() as AttendanceData) : null),
 			(error) => {
 				console.error("Attendance listener error:", error);

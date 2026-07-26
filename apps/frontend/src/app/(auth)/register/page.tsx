@@ -14,7 +14,7 @@ export default function RegisterPage() {
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [confirmPassword, setConfirmPassword] = useState("");
-	
+
 	const [showPassword, setShowPassword] = useState(false);
 	const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 	const [loading, setLoading] = useState(false);
@@ -96,7 +96,13 @@ export default function RegisterPage() {
 			<div className="flex flex-1 flex-col justify-center items-center p-6 lg:p-12 relative bg-background w-full lg:w-1/2 overflow-y-auto">
 				{/* Mobile Header Logo (Visible only on mobile) */}
 				<div className="lg:hidden absolute top-6 left-6 flex items-center gap-2">
-					<Image src="/myLogo.webp" alt="Bhemu Calculator Logo" width={32} height={32} className="rounded-lg object-cover" />
+					<Image
+						src="/myLogo.webp"
+						alt="Bhemu Calculator Logo"
+						width={32}
+						height={32}
+						className="rounded-lg object-cover"
+					/>
 					<span className="text-white text-xl font-bold">Bhemu Calculator</span>
 				</div>
 
@@ -109,7 +115,7 @@ export default function RegisterPage() {
 
 					{/* Social Buttons */}
 					<div className="grid grid-cols-2 gap-4">
-						<button 
+						<button
 							type="button"
 							onClick={handleGoogleSignUp}
 							disabled={loading}
@@ -135,7 +141,7 @@ export default function RegisterPage() {
 							</svg>
 							<span>Google</span>
 						</button>
-						<button 
+						<button
 							type="button"
 							className="flex items-center justify-center gap-2 h-12 rounded-lg border border-white/10 hover:bg-white/5 transition-colors bg-transparent text-white font-medium text-sm opacity-60 cursor-not-allowed"
 							disabled={true}
@@ -186,7 +192,7 @@ export default function RegisterPage() {
 								<input
 									id="email"
 									type="email"
-									placeholder="name@university.edu"
+									placeholder="name@gmail.in"
 									value={email}
 									onChange={(e) => setEmail(e.target.value)}
 									required
