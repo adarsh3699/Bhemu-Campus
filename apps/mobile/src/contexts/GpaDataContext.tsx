@@ -225,8 +225,10 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 		if (!gpaService) return;
 		setProfiles((prev) => prev.map((p) => p.id === profileId ? { ...p, name: newName } : p));
 		try {
-			await gpaService.renameProfile(profileId, newName);
-			if (currentUser) {
+			const profile = allProfiles.find((p) => p.id === profileId);
+			const ownerUserId = profile?.isShared ? profile.ownerUserId : undefined;
+			await gpaService.renameProfile(profileId, newName, ownerUserId);
+			if (currentUser && !profile?.isShared) {
 				LeaderboardService.updateDisplayName(db, currentUser.uid, String(profileId), newName)
 					.catch((err) => console.error("Failed to sync leaderboard name:", err));
 			}
@@ -234,7 +236,7 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 			console.error("Error renaming profile:", error);
 			showMessage("Error renaming profile. Please try again.", "error");
 		}
-	}, [gpaService, showMessage, currentUser]);
+	}, [gpaService, allProfiles, showMessage, currentUser]);
 
 	const updateSemesters = useCallback(async (newSemesters: GPASemester[]) => {
 		if (!gpaService || !activeProfile) return;

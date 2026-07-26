@@ -1,7 +1,5 @@
-"use client";
-
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { useAuth } from "@/firebase/AuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { attendanceService as createAttendanceService } from "@/firebase/services";
 import type { AttendanceService } from "@bhemu/firebase";
 import { useGpaData } from "@/contexts/GpaDataContext";

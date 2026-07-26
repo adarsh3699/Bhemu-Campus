@@ -532,7 +532,13 @@ import { createGPAService } from "@bhemu/firebase";
 
 ## Out of Scope
 
-- UMS Sync — Chrome extension only; mobile shows a prompt directing users to the extension
 - OG image generation (`/api/og`) — server-rendered, no mobile equivalent needed
 - Public rank card SEO page (`/rank/[id]`) — web-only; mobile shares the web URL
-- Push notifications — future feature
+
+---
+
+## Post-Phase-8 Refactor — Audit and centralize duplicated code
+
+Once the app is stable and all phases are shipped, do a full audit of all files duplicated between `apps/frontend` and `apps/mobile`. For anything that is truly identical or near-identical, move it into the appropriate shared package.
+
+Plan the approach at that time based on what the codebase looks like then.

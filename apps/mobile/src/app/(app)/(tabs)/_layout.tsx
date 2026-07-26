@@ -1,7 +1,7 @@
 import { useRef, useState, useCallback } from "react";
 import { View, StyleSheet, TouchableOpacity, Animated, Easing } from "react-native";
 import { Tabs } from "expo-router";
-import { Home, Calculator, RefreshCw, Trophy, Settings } from "lucide-react-native";
+import { Home, Calculator, RefreshCw, CalendarCheck, Settings } from "lucide-react-native";
 import { Colors } from "@/constants/Theme";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "@/contexts/AuthContext";
@@ -152,8 +152,8 @@ export default function TabsLayout() {
 							options={{ tabBarButton: () => <SyncButton onPress={startSync} syncState={syncState} /> }}
 						/>
 						<Tabs.Screen
-							name="leaderboard"
-							options={{ title: "Leaderboard", tabBarIcon: ({ color, size }) => <Trophy size={size} color={color} /> }}
+							name="attendance"
+							options={{ title: "Attendance", tabBarIcon: ({ color, size }) => <CalendarCheck size={size} color={color} /> }}
 						/>
 						<Tabs.Screen
 							name="settings"

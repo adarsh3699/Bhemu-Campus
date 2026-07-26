@@ -182,12 +182,11 @@ export class GPAService {
 		}
 	}
 
-	async renameProfile(profileId: string | number, newName: string): Promise<void> {
-		await setDoc(
-			doc(this.userProfilesRef, profileId.toString()),
-			{ name: newName, updatedAt: serverTimestamp() },
-			{ merge: true }
-		);
+	async renameProfile(profileId: string | number, newName: string, ownerUserId?: string): Promise<void> {
+		const ref = ownerUserId
+			? doc(this.db, "users", ownerUserId, "profiles", profileId.toString())
+			: doc(this.userProfilesRef, profileId.toString());
+		await setDoc(ref, { name: newName, updatedAt: serverTimestamp() }, { merge: true });
 	}
 
 	async updateLastOpened(profileId: string | number): Promise<void> {
