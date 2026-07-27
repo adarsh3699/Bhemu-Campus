@@ -212,17 +212,17 @@ Overall % color: teal if >= threshold, amber if >= 75, red if < 75.
 
 ### Exam Types
 
-**Theory Only** (CA: 25, MTE: 20, ETE: 50)
+**Theory Only** (ATT: 5, CA: 25, MTE: 20, ETE: 50)
 - Pass: `ETE% >= 30 OR (MTE+ETE)% >= 30` AND `Overall% >= 40`
 
-**Theory + Practical** (CA: 30, Theory MTE: 20, Theory ETE: 30, Practical ETE: 20)
+**Theory + Practical** (ATT: 5, CA: 25, Theory MTE: 20, Theory ETE: 25, Practical ETE: 25)
 - Pass: theory criteria AND `Practical ETE% >= 30` AND `Overall% >= 40`
 
-**Practical Only** (CA: 50, ETE: 50)
+**Practical Only** (ATT: 5, CA: 50, ETE: 45)
 - Pass: `ETE% >= 30` AND `Overall% >= 40`
 
 ### Features
-- User can customize max marks per component
+- User can customize max marks per component; sum of all max values must equal exactly 100
 - Shows marks required to pass if currently failing
 - Result states: PASS / FAIL / ATTENTION
 

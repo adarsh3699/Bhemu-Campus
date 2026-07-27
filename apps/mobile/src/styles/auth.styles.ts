@@ -13,7 +13,13 @@ export const AuthStyles = StyleSheet.create({
 
 	form: { gap: 20 },
 	field: { gap: Spacing.sm - 2 },
-	label: { fontSize: 13, fontWeight: FontWeight.medium, color: Colors.textMuted },
+	label: {
+		fontSize: FontSize.xs,
+		fontWeight: FontWeight.bold,
+		color: Colors.textSubtle,
+		textTransform: "uppercase",
+		letterSpacing: 0.8,
+	},
 
 	footer: { flexDirection: "row", justifyContent: "center", marginTop: 28, flexWrap: "wrap" },
 	footerText: { color: Colors.textMuted, fontSize: 13 },

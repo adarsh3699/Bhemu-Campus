@@ -115,7 +115,7 @@ const local = StyleSheet.create({
 	pillText: { fontSize: 10, fontWeight: FontWeight.medium, color: Colors.textMuted },
 	sgpaBlock: { alignItems: "flex-end", gap: 2 },
 	sgpaValue: { fontSize: 32, fontWeight: FontWeight.extrabold, color: Colors.primary, lineHeight: 36 },
-	sgpaLabel: { fontSize: 9, fontWeight: FontWeight.bold, color: Colors.textSubtle, letterSpacing: 1.2, textTransform: "uppercase" },
+	sgpaLabel: { fontSize: 9, fontWeight: FontWeight.semibold, color: Colors.textMuted, letterSpacing: 1.2, textTransform: "uppercase" },
 	subjectList: { gap: Spacing.sm },
 	emptyState: { paddingVertical: Spacing.xxl, alignItems: "center" },
 	emptyText: { fontSize: FontSize.sm, color: Colors.textSubtle, textAlign: "center" },

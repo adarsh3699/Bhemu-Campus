@@ -305,7 +305,7 @@ const badge = StyleSheet.create({
 
 const field = StyleSheet.create({
 	wrap: { flex: 1, gap: 4 },
-	label: { fontSize: 9, fontWeight: FontWeight.bold, color: Colors.textSubtle, letterSpacing: 0.8, textTransform: "uppercase" },
+	label: { fontSize: 9, fontWeight: FontWeight.semibold, color: Colors.textMuted, letterSpacing: 0.8, textTransform: "uppercase" },
 	input: { height: 40, fontSize: FontSize.sm, paddingHorizontal: Spacing.sm },
 });
 

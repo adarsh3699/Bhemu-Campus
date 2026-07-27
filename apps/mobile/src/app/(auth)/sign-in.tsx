@@ -1,8 +1,7 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import {
 	View,
 	Text,
-	TextInput,
 	TouchableOpacity,
 	StyleSheet,
 	KeyboardAvoidingView,
@@ -12,11 +11,11 @@ import {
 	Image,
 } from "react-native";
 import { Link, router } from "expo-router";
-import { Eye, EyeOff } from "lucide-react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMessage } from "@/contexts/MessageContext";
 import { Colors, Spacing, FontSize, FontWeight } from "@/constants/Theme";
-import { Layout, Inputs, Buttons, AuthStyles } from "@/styles";
+import { Layout, Buttons, AuthStyles } from "@/styles";
+import AppInput from "@/components/ui/AppInput";
 
 export default function SignIn() {
 	const { login, signInWithGoogle } = useAuth();
@@ -25,8 +24,6 @@ export default function SignIn() {
 	const [password, setPassword] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [googleLoading, setGoogleLoading] = useState(false);
-	const [showPassword, setShowPassword] = useState(false);
-	const togglePassword = useCallback(() => setShowPassword((v) => !v), []);
 
 	async function handleLogin() {
 		if (!email || !password) {
@@ -82,19 +79,15 @@ export default function SignIn() {
 				</View>
 
 				<View style={AuthStyles.form}>
-					<View style={AuthStyles.field}>
-						<Text style={AuthStyles.label}>Email address</Text>
-						<TextInput
-							style={Inputs.field}
-							value={email}
-							onChangeText={setEmail}
-							placeholder="name@gmail.in"
-							placeholderTextColor={Colors.textSubtle}
-							keyboardType="email-address"
-							autoCapitalize="none"
-							autoComplete="email"
-						/>
-					</View>
+					<AppInput
+						label="Email address"
+						value={email}
+						onChangeText={setEmail}
+						placeholder="name@gmail.in"
+						keyboardType="email-address"
+						autoCapitalize="none"
+						autoComplete="email"
+					/>
 
 					<View style={AuthStyles.field}>
 						<View style={local.labelRow}>
@@ -103,25 +96,14 @@ export default function SignIn() {
 								Forgot password?
 							</Link>
 						</View>
-						<View style={Inputs.row}>
-							<TextInput
-								style={Inputs.rowInner}
-								value={password}
-								onChangeText={setPassword}
-								placeholder="••••••••"
-								placeholderTextColor={Colors.textSubtle}
-								secureTextEntry={!showPassword}
-								autoCapitalize="none"
-								autoComplete="current-password"
-							/>
-							<TouchableOpacity onPress={togglePassword} style={Inputs.iconButton} hitSlop={8}>
-								{showPassword ? (
-									<EyeOff size={20} color={Colors.textMuted} />
-								) : (
-									<Eye size={20} color={Colors.textMuted} />
-								)}
-							</TouchableOpacity>
-						</View>
+						<AppInput
+							value={password}
+							onChangeText={setPassword}
+							placeholder="••••••••"
+							secureTextEntry
+							autoCapitalize="none"
+							autoComplete="current-password"
+						/>
 					</View>
 
 					<TouchableOpacity

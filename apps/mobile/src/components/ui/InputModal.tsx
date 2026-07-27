@@ -1,10 +1,9 @@
 import { useState } from "react";
-import {
-	View, Text, StyleSheet, Modal, TouchableOpacity,
-	TextInput, KeyboardAvoidingView, Platform,
-} from "react-native";
-import { Colors, Spacing, Radius, FontSize, FontWeight } from "@/constants/Theme";
-import { Inputs, Buttons } from "@/styles";
+import { View, Text, StyleSheet, Modal, TouchableOpacity, KeyboardAvoidingView, Platform } from "react-native";
+import { Spacing, Radius, FontSize, FontWeight } from "@/constants/Theme";
+import { Colors } from "@/constants/Colors";
+import { Buttons } from "@/styles";
+import AppInput from "@/components/ui/AppInput";
 
 interface InputModalProps {
 	isOpen: boolean;
@@ -43,18 +42,13 @@ export default function InputModal({
 
 	return (
 		<Modal visible={isOpen} transparent animationType="fade" onRequestClose={handleClose}>
-			<KeyboardAvoidingView
-				style={local.overlay}
-				behavior={Platform.OS === "ios" ? "padding" : undefined}
-			>
+			<KeyboardAvoidingView style={local.overlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
 				<View style={local.card}>
 					<Text style={local.title}>{title}</Text>
-					<TextInput
-						style={[Inputs.field, local.input]}
+					<AppInput
 						value={value}
 						onChangeText={setValue}
 						placeholder={placeholder}
-						placeholderTextColor={Colors.textSubtle}
 						autoFocus
 						onSubmitEditing={handleConfirm}
 						returnKeyType="done"
@@ -99,9 +93,6 @@ const local = StyleSheet.create({
 		fontSize: FontSize.lg,
 		fontWeight: FontWeight.bold,
 		color: Colors.textPrimary,
-	},
-	input: {
-		marginBottom: 0,
 	},
 	buttons: {
 		flexDirection: "row",

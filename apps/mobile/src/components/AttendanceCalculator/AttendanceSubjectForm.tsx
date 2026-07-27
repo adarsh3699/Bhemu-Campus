@@ -1,7 +1,9 @@
 import { useRef, useEffect, useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import type { TextInput } from "react-native";
 import { Plus, ChevronDown } from "lucide-react-native";
 import { Colors, Spacing, Radius, FontSize, FontWeight } from "@/constants/Theme";
+import AppInput from "@/components/ui/AppInput";
 
 export interface AttendanceFormState {
 	id: string;
@@ -81,73 +83,61 @@ export default function AttendanceSubjectForm({ form, editingId, onChange, onSub
 			{open && (
 				<View style={local.card}>
 					{/* Subject name */}
-					<View style={local.fieldWrap}>
-						<Text style={local.label}>
-							Subject Name <Text style={local.req}>*</Text>
-						</Text>
-						<TextInput
-							ref={nameRef}
-							style={[local.input, !nameValid && form.name !== "" && local.inputError]}
-							value={form.name}
-							onChangeText={(v) => onChange("name", v)}
-							placeholder='e.g. "Mathematics"'
-							placeholderTextColor={Colors.textSubtle}
-							returnKeyType="next"
-							onSubmitEditing={() => totalRef.current?.focus()}
-							submitBehavior="submit"
-						/>
-					</View>
+					<AppInput
+						ref={nameRef}
+						label={<>Subject Name <Text style={local.req}>*</Text></>}
+						size="md"
+						error={!nameValid && form.name !== ""}
+						value={form.name}
+						onChangeText={(v) => onChange("name", v)}
+						placeholder='e.g. "Mathematics"'
+						returnKeyType="next"
+						onSubmitEditing={() => totalRef.current?.focus()}
+						submitBehavior="submit"
+					/>
 
 					{/* Numeric row */}
 					<View style={local.numRow}>
-						<View style={[local.fieldWrap, local.numField]}>
-							<Text style={local.label}>
-								Total <Text style={local.req}>*</Text>
-							</Text>
-							<TextInput
-								ref={totalRef}
-								style={[local.input, !totalValid && form.totalClasses !== "" && local.inputError]}
-								value={form.totalClasses}
-								onChangeText={(v) => onChange("totalClasses", v)}
-								placeholder="40"
-								placeholderTextColor={Colors.textSubtle}
-								keyboardType="number-pad"
-								returnKeyType="next"
-								onSubmitEditing={() => attendedRef.current?.focus()}
-								submitBehavior="submit"
-							/>
-						</View>
-						<View style={[local.fieldWrap, local.numField]}>
-							<Text style={local.label}>
-								Attended <Text style={local.req}>*</Text>
-							</Text>
-							<TextInput
-								ref={attendedRef}
-								style={[local.input, !attendedValid && form.attended !== "" && local.inputError]}
-								value={form.attended}
-								onChangeText={(v) => onChange("attended", v)}
-								placeholder="32"
-								placeholderTextColor={Colors.textSubtle}
-								keyboardType="number-pad"
-								returnKeyType="next"
-								onSubmitEditing={() => thresholdRef.current?.focus()}
-								submitBehavior="submit"
-							/>
-						</View>
-						<View style={[local.fieldWrap, local.numField]}>
-							<Text style={local.label}>Threshold %</Text>
-							<TextInput
-								ref={thresholdRef}
-								style={local.input}
-								value={form.threshold}
-								onChangeText={(v) => onChange("threshold", v)}
-								placeholder="Default"
-								placeholderTextColor={Colors.textSubtle}
-								keyboardType="number-pad"
-								returnKeyType="done"
-								onSubmitEditing={handleSubmit}
-							/>
-						</View>
+						<AppInput
+							ref={totalRef}
+							label={<>Total <Text style={local.req}>*</Text></>}
+							size="md"
+							error={!totalValid && form.totalClasses !== ""}
+							containerStyle={local.numField}
+							value={form.totalClasses}
+							onChangeText={(v) => onChange("totalClasses", v)}
+							placeholder="40"
+							keyboardType="number-pad"
+							returnKeyType="next"
+							onSubmitEditing={() => attendedRef.current?.focus()}
+							submitBehavior="submit"
+						/>
+						<AppInput
+							ref={attendedRef}
+							label={<>Attended <Text style={local.req}>*</Text></>}
+							size="md"
+							error={!attendedValid && form.attended !== ""}
+							containerStyle={local.numField}
+							value={form.attended}
+							onChangeText={(v) => onChange("attended", v)}
+							placeholder="32"
+							keyboardType="number-pad"
+							returnKeyType="next"
+							onSubmitEditing={() => thresholdRef.current?.focus()}
+							submitBehavior="submit"
+						/>
+						<AppInput
+							ref={thresholdRef}
+							label="Threshold %"
+							size="md"
+							containerStyle={local.numField}
+							value={form.threshold}
+							onChangeText={(v) => onChange("threshold", v)}
+							placeholder="Default"
+							keyboardType="number-pad"
+							returnKeyType="done"
+							onSubmitEditing={handleSubmit}
+						/>
 					</View>
 
 					{/* Action button */}
@@ -199,30 +189,9 @@ const local = StyleSheet.create({
 		padding: Spacing.lg,
 		gap: Spacing.md,
 	},
-	fieldWrap: { gap: 4 },
 	numRow: { flexDirection: "row", gap: Spacing.sm },
 	numField: { flex: 1 },
-	label: {
-		fontSize: FontSize.xs,
-		fontWeight: FontWeight.bold,
-		color: Colors.textSubtle,
-		textTransform: "uppercase",
-		letterSpacing: 0.8,
-	},
 	req: { color: Colors.textMuted },
-	input: {
-		height: 42,
-		backgroundColor: Colors.surfaceElevated,
-		borderRadius: Radius.md,
-		borderWidth: 1,
-		borderColor: Colors.borderLight,
-		paddingHorizontal: Spacing.md,
-		fontSize: FontSize.base,
-		color: Colors.textPrimary,
-	},
-	inputError: {
-		borderColor: Colors.destructive,
-	},
 	submitBtn: {
 		flex: 1,
 		flexDirection: "row",

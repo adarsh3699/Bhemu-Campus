@@ -1,8 +1,7 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import {
 	View,
 	Text,
-	TextInput,
 	TouchableOpacity,
 	StyleSheet,
 	KeyboardAvoidingView,
@@ -12,11 +11,11 @@ import {
 	Image,
 } from "react-native";
 import { Link, router } from "expo-router";
-import { Eye, EyeOff } from "lucide-react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMessage } from "@/contexts/MessageContext";
 import { Colors } from "@/constants/Colors";
-import { Layout, Inputs, Buttons, AuthStyles } from "@/styles";
+import { Layout, Buttons, AuthStyles } from "@/styles";
+import AppInput from "@/components/ui/AppInput";
 
 export default function SignUp() {
 	const { signup } = useAuth();
@@ -25,8 +24,6 @@ export default function SignUp() {
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [loading, setLoading] = useState(false);
-	const [showPassword, setShowPassword] = useState(false);
-	const togglePassword = useCallback(() => setShowPassword((v) => !v), []);
 
 	async function handleSignUp() {
 		if (!name || !email || !password) {
@@ -73,55 +70,34 @@ export default function SignUp() {
 				</View>
 
 				<View style={AuthStyles.form}>
-					<View style={AuthStyles.field}>
-						<Text style={AuthStyles.label}>Full Name</Text>
-						<TextInput
-							style={Inputs.field}
-							value={name}
-							onChangeText={setName}
-							placeholder="Your name"
-							placeholderTextColor={Colors.textSubtle}
-							autoCapitalize="words"
-							autoComplete="name"
-						/>
-					</View>
+					<AppInput
+						label="Full Name"
+						value={name}
+						onChangeText={setName}
+						placeholder="Your name"
+						autoCapitalize="words"
+						autoComplete="name"
+					/>
 
-					<View style={AuthStyles.field}>
-						<Text style={AuthStyles.label}>Email address</Text>
-						<TextInput
-							style={Inputs.field}
-							value={email}
-							onChangeText={setEmail}
-							placeholder="name@gmail.in"
-							placeholderTextColor={Colors.textSubtle}
-							keyboardType="email-address"
-							autoCapitalize="none"
-							autoComplete="email"
-						/>
-					</View>
+					<AppInput
+						label="Email address"
+						value={email}
+						onChangeText={setEmail}
+						placeholder="name@gmail.in"
+						keyboardType="email-address"
+						autoCapitalize="none"
+						autoComplete="email"
+					/>
 
-					<View style={AuthStyles.field}>
-						<Text style={AuthStyles.label}>Password</Text>
-						<View style={Inputs.row}>
-							<TextInput
-								style={Inputs.rowInner}
-								value={password}
-								onChangeText={setPassword}
-								placeholder="Min. 6 characters"
-								placeholderTextColor={Colors.textSubtle}
-								secureTextEntry={!showPassword}
-								autoCapitalize="none"
-								autoComplete="new-password"
-							/>
-							<TouchableOpacity onPress={togglePassword} style={Inputs.iconButton} hitSlop={8}>
-								{showPassword ? (
-									<EyeOff size={20} color={Colors.textMuted} />
-								) : (
-									<Eye size={20} color={Colors.textMuted} />
-								)}
-							</TouchableOpacity>
-						</View>
-					</View>
+					<AppInput
+						label="Password"
+						value={password}
+						onChangeText={setPassword}
+						placeholder="Min. 6 characters"
+						secureTextEntry
+						autoCapitalize="none"
+						autoComplete="new-password"
+					/>
 
 					<TouchableOpacity
 						style={[Buttons.primary, local.buttonMargin, loading && Buttons.disabled]}
