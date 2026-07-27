@@ -10,8 +10,8 @@ type TabId = "theory" | "hybrid" | "practical";
 
 const TABS: { id: TabId; label: string; icon: typeof BookOpen }[] = [
 	{ id: "theory", label: "Theory", icon: BookOpen },
-	{ id: "practical", label: "Practical", icon: Beaker },
 	{ id: "hybrid", label: "Hybrid", icon: GraduationCap },
+	{ id: "practical", label: "Practical", icon: Beaker },
 ];
 
 // ─── Calculations ──────────────────────────────────────────────────────────────
@@ -109,7 +109,7 @@ function ResultPanel({ result }: { result: ResultType | null }) {
 	if (!result) {
 		return (
 			<View style={panel.empty}>
-				<BarChart3 size={40} color={Colors.textSubtle} style={{ opacity: 0.4 }} />
+				<BarChart3 size={40} color={Colors.textMuted} />
 				<Text style={panel.emptyText}>
 					Enter your marks and tap{"\n"}
 					<Text style={{ color: Colors.textPrimary }}>Calculate</Text> to see the result

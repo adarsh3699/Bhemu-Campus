@@ -1,8 +1,8 @@
 {
-	"name": "bhemu-ums-sync",
-	"displayName": "Bhemu Calculator - UMS Sync",
-	"version": "1.1.2",
-	"description": "Sync your LPU UMS grades, marks, and attendance to Bhemu Calculator with one click.",
+	"name": "bcampus-ums-sync",
+	"displayName": "bCampus - UMS Sync",
+	"version": "1.2.0",
+	"description": "Sync your LPU UMS grades, marks, and attendance to bCampus with one click.",
 	"private": true,
 	"scripts": {
 		"dev": "plasmo dev",

@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:394480746518:android:fec8e2b5d6440d9d7d3537",
+        "mobilesdk_app_id": "1:394480746518:android:d0f7c58c75ea706f7d3537",
         "android_client_info": {
-          "package_name": "in.bhemu.calculator"
+          "package_name": "in.bhemu.campus"
         }
       },
       "oauth_client": [

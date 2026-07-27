@@ -434,7 +434,7 @@ export default function ReappearCalculatorView() {
 
 			{/* Footer */}
 			<footer className="mt-12 pt-6 border-t border-white/5 flex justify-between items-center text-sm text-muted-foreground">
-				<span>© {new Date().getFullYear()} Bhemu Calculator</span>
+				<span>© {new Date().getFullYear()} bCampus</span>
 				<div className="flex gap-4">
 					<a
 						href="https://www.bhemu.in/about"

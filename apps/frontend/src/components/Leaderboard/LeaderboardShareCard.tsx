@@ -279,7 +279,7 @@ function LeaderboardShareCard({ leaderboardData }: LeaderboardShareCardProps) {
 				}}
 			>
 				<span style={{ fontSize: "10px", color: "rgba(255,255,255,0.28)" }}>
-					calc.bhemu.in · Bhemu Calculator
+					campus.bhemu.in · bCampus
 				</span>
 			</div>
 		</div>

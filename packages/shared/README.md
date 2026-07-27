@@ -1,6 +1,6 @@
 # @bhemu/shared
 
-Shared types, constants, utilities, and parsers for the Bhemu Calculator monorepo. Zero runtime dependencies — runs in Next.js, Chrome extension service workers, React Native, and Node.js.
+Shared types, constants, utilities, and parsers for the bCampus monorepo. Zero runtime dependencies — runs in Next.js, Chrome extension service workers, React Native, and Node.js.
 
 ## Usage
 

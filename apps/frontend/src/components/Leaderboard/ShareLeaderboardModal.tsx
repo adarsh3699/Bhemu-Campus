@@ -19,8 +19,8 @@ function buildShareMessage(data: LeaderboardData, withEmoji: boolean): string {
 	if (!userEntry || !userRank) return "";
 	const programLabel = formatProgramLabel(userEntry.programName, userEntry.branch, "my program");
 	const trophy = withEmoji ? " 🏆" : "";
-	const rankUrl = `https://calc.bhemu.in/rank/${userEntry.userId}_${userEntry.profileId}`;
-	return `I'm ranked #${userRank} among ${totalStudents} ${programLabel} students (Batch ${userEntry.batchYear}) with a CGPA of ${userEntry.cgpa.toFixed(2)}!${trophy}\n\nTrack your CGPA, plan your goals, and see where you stand — sync your LPU UMS data with Bhemu Calculator.\n${rankUrl}`;
+	const rankUrl = `https://campus.bhemu.in/rank/${userEntry.userId}_${userEntry.profileId}`;
+	return `I'm ranked #${userRank} among ${totalStudents} ${programLabel} students (Batch ${userEntry.batchYear}) with a CGPA of ${userEntry.cgpa.toFixed(2)}!${trophy}\n\nTrack your CGPA, plan your goals, and see where you stand — sync your LPU UMS data with bCampus.\n${rankUrl}`;
 }
 
 export default function ShareLeaderboardModal({
@@ -33,7 +33,7 @@ export default function ShareLeaderboardModal({
 	const isMobile = typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
 	const { userEntry } = leaderboardData;
-	const shareUrl = userEntry ? `https://calc.bhemu.in/rank/${userEntry.userId}_${userEntry.profileId}` : null;
+	const shareUrl = userEntry ? `https://campus.bhemu.in/rank/${userEntry.userId}_${userEntry.profileId}` : null;
 
 	const handleCopyLink = async () => {
 		if (!shareUrl) return;
@@ -160,7 +160,7 @@ export default function ShareLeaderboardModal({
 							<button
 								onClick={() =>
 									window.open(
-										`https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(shareUrl ?? "https://calc.bhemu.in/")}&text=${encodeURIComponent(shareMessage)}`,
+										`https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(shareUrl ?? "https://campus.bhemu.in/")}&text=${encodeURIComponent(shareMessage)}`,
 										"_blank"
 									)
 								}

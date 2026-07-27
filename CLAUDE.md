@@ -17,7 +17,7 @@ When working on **React components, hooks, contexts, or frontend file structure*
 This is a **pnpm + Turborepo monorepo**. There is no source code at the root — each workspace is self-contained:
 
 ```
-Bhemu-Calculator/
+Bhemu-Campus/
 ├── turbo.json         — Turborepo task pipeline
 ├── packages/
 │   └── shared/        — @bhemu/shared: shared types, utilities, constants (pure TypeScript, zero deps)
@@ -32,6 +32,7 @@ Bhemu-Calculator/
 ## Commands
 
 ### Root workspace (Turborepo)
+
 ```bash
 pnpm dev:web        # Start frontend dev server
 pnpm dev:ext        # Start extension dev server
@@ -46,6 +47,7 @@ pnpm lint           # Lint all workspaces
 ```
 
 ### Frontend (`cd apps/frontend`)
+
 ```bash
 pnpm dev       # Start dev server with Turbopack
 pnpm build     # Production build
@@ -55,6 +57,7 @@ pnpm clean     # Remove .next + node_modules, then reinstall
 ```
 
 ### UMS Extension (`cd apps/ums-extension`)
+
 ```bash
 pnpm dev       # plasmo dev (watch mode)
 pnpm build     # plasmo build
@@ -64,6 +67,7 @@ pnpm lint:fix  # ESLint with auto-fix
 ```
 
 ### Shared package (`cd packages/shared`)
+
 ```bash
 pnpm build     # Build ESM + CJS + type declarations
 pnpm test      # Run Vitest unit tests
@@ -75,6 +79,7 @@ pnpm typecheck # Type-check without emit
 ## Architecture
 
 ### Tech Stack
+
 - **Shared**: Pure TypeScript, tsup (ESM + CJS), Vitest
 - **Frontend**: Next.js 16 (App Router, Turbopack), React 19, TypeScript, Tailwind CSS v4, Firebase 12, Recharts
 - **Extension**: Plasmo 0.90.5, React 19, Firebase 12, linkedom
@@ -83,6 +88,7 @@ pnpm typecheck # Type-check without emit
 ### Shared Package (`@bhemu/shared`)
 
 Zero dependencies. Exports all types and pure utility functions used across workspaces:
+
 - **Types**: `GPASubject`, `GPASemester`, `GPAProfile`, `SubjectMarks`, `AttendanceData`, `LeaderboardEntry`, `ParsedProgram`
 - **Utilities**: `calculateGPA()`, `calculateCGPA()`, `computeGradeFromMarks()`, `computeTotal()`, `parseProgram()`, `gradeToPoint()`
 - **Constants**: `GRADE_TABLE`, `STANDARD_GRADE_TABLE`, `GRADE_TO_POINT`
@@ -94,6 +100,7 @@ Import from `@bhemu/shared` in all workspaces. Never duplicate shared logic loca
 Pure client-side app — no backend API. All reads/writes go directly from the browser to Firestore.
 
 **Provider hierarchy** (in `src/app/layout.tsx`):
+
 ```
 AuthContext → MessageContext → GpaDataContext → AttendanceDataContext → MarksDataContext → AppShell
 ```
@@ -104,15 +111,16 @@ AuthContext → MessageContext → GpaDataContext → AttendanceDataContext → 
 
 React Context + hooks only — no Redux or Zustand.
 
-| Context | File | Responsibility |
-|---|---|---|
-| `AuthContext` | `src/firebase/AuthContext.tsx` | Firebase auth, Google OAuth, account deletion |
-| `MessageContext` | `src/contexts/MessageContext.tsx` | Toast notifications via `useMessage()` |
-| `GpaDataContext` | `src/contexts/GpaDataContext.tsx` | Profiles, semesters — real-time Firestore `onSnapshot` |
-| `AttendanceDataContext` | `src/contexts/AttendanceDataContext.tsx` | Attendance data for the active profile |
-| `MarksDataContext` | `src/contexts/MarksDataContext.tsx` | Derived marks view over GpaDataContext semesters |
+| Context                 | File                                     | Responsibility                                         |
+| ----------------------- | ---------------------------------------- | ------------------------------------------------------ |
+| `AuthContext`           | `src/firebase/AuthContext.tsx`           | Firebase auth, Google OAuth, account deletion          |
+| `MessageContext`        | `src/contexts/MessageContext.tsx`        | Toast notifications via `useMessage()`                 |
+| `GpaDataContext`        | `src/contexts/GpaDataContext.tsx`        | Profiles, semesters — real-time Firestore `onSnapshot` |
+| `AttendanceDataContext` | `src/contexts/AttendanceDataContext.tsx` | Attendance data for the active profile                 |
+| `MarksDataContext`      | `src/contexts/MarksDataContext.tsx`      | Derived marks view over GpaDataContext semesters       |
 
 Key patterns:
+
 - Active profile ID persisted to `localStorage` key `bhemu_activeProfileId`
 - `updateSemesters` uses optimistic updates: local state set immediately before Firestore write
 - Shared profiles with `permission="edit"` write via `saveProfileWithCollaboration` into the owner's subcollection
@@ -131,6 +139,7 @@ Firestore schema: `docs/firestore-schema.md`
 The extension scrapes LPU's UMS portal and writes academic data directly into the same Firebase project as the frontend. It is not a standalone tool — it is a data bridge.
 
 Entry points:
+
 - `src/background/index.ts` — Service worker; orchestrates UMS fetch + Firestore sync
 - `src/contents/authBridge.ts` — Content script; bridges Firebase auth token from the web app to the extension
 - `src/popup/index.tsx` — Extension popup UI
@@ -147,17 +156,19 @@ import { Colors } from "@/constants/Colors";
 import { Spacing, Radius, Shadow } from "@/constants//Theme";
 
 // In StyleSheet.create:
-backgroundColor: Colors.background   // ✅
-backgroundColor: "#0E0E0E"           // ❌ never
+backgroundColor: Colors.background; // ✅
+backgroundColor: "#0E0E0E"; // ❌ never
 ```
 
 Token files:
+
 - `apps/mobile/src/constants/Colors.ts` — all color tokens (brand, backgrounds, text, borders, semantic)
 - `apps/mobile/src/constants/Theme.ts` — spacing, radius, font sizes, font weights, shadows
 - `apps/mobile/src/hooks/useTheme.ts` — thin hook; update ONLY this file when light mode is added
 
 **Shared Styles Rule:**
 Reusable styles live in `apps/mobile/src/styles/`. Two layers:
+
 - `global.ts` — app-wide patterns (Layout, Inputs, Buttons) — import from `@/styles`
 - `<feature>.styles.ts` — feature-specific (e.g. `auth.styles.ts`) — import directly
 

@@ -1,6 +1,6 @@
 # Monorepo Architecture — Professional Reference
 
-> Rules for keeping the Bhemu Calculator monorepo structured, consistent, and maintainable across web, extension, and mobile apps.
+> Rules for keeping the bCampus monorepo structured, consistent, and maintainable across web, extension, and mobile apps.
 
 ### Project context
 
@@ -50,7 +50,7 @@ Three questions before writing any code:
 Turborepo's standard convention: **apps go in `apps/`**, **shared packages go in `packages/`**.
 
 ```
-Bhemu-Calculator/                  ← Monorepo root (no source code here)
+Bhemu-Campus/                  ← Monorepo root (no source code here)
 ├── package.json                   ← Root scripts (uses turbo), engines, shared devDeps
 ├── pnpm-workspace.yaml            ← Workspace definitions
 ├── turbo.json                     ← Turborepo task pipeline
@@ -92,8 +92,8 @@ Bhemu-Calculator/                  ← Monorepo root (no source code here)
 
 ```yaml
 packages:
-  - 'apps/*'
-  - 'packages/*'
+    - "apps/*"
+    - "packages/*"
 ```
 
 Adding a new workspace means adding it under `apps/` — no change to this file needed as long as the new directory is inside `apps/`.
@@ -101,6 +101,7 @@ Adding a new workspace means adding it under `apps/` — no change to this file 
 ### What lives at the root
 
 **Allowed at root:**
+
 - `package.json` — workspace scripts (delegates to `turbo`), `engines`, `packageManager`, devDependencies shared across all workspaces (e.g. `turbo`, `concurrently`)
 - `pnpm-workspace.yaml`
 - `turbo.json`
@@ -109,6 +110,7 @@ Adding a new workspace means adding it under `apps/` — no change to this file 
 - `README.md`, `CLAUDE.md`
 
 **Never at root:**
+
 - Source code files (`.ts`, `.tsx`)
 - Test files
 - Build output
@@ -130,6 +132,7 @@ pnpm add turbo --save-dev -w
 ```
 
 Add to root `.gitignore`:
+
 ```
 .turbo/
 ```
@@ -138,60 +141,61 @@ Add to root `.gitignore`:
 
 ```json
 {
-  "$schema": "https://turbo.build/schema.json",
-  "tasks": {
-    "build": {
-      "dependsOn": ["^build"],
-      "outputs": [".next/**", "!.next/cache/**", "dist/**", ".plasmo/**", "build/**"]
-    },
-    "dev": {
-      "cache": false,
-      "persistent": true
-    },
-    "lint": {
-      "dependsOn": ["^lint"]
-    },
-    "typecheck": {
-      "dependsOn": ["^typecheck"],
-      "outputs": []
-    },
-    "test": {
-      "dependsOn": ["^build"],
-      "outputs": ["coverage/**"]
-    }
-  }
+	"$schema": "https://turbo.build/schema.json",
+	"tasks": {
+		"build": {
+			"dependsOn": ["^build"],
+			"outputs": [".next/**", "!.next/cache/**", "dist/**", ".plasmo/**", "build/**"]
+		},
+		"dev": {
+			"cache": false,
+			"persistent": true
+		},
+		"lint": {
+			"dependsOn": ["^lint"]
+		},
+		"typecheck": {
+			"dependsOn": ["^typecheck"],
+			"outputs": []
+		},
+		"test": {
+			"dependsOn": ["^build"],
+			"outputs": ["coverage/**"]
+		}
+	}
 }
 ```
 
 **Key concepts:**
 
-| Field | Meaning |
-|-------|---------|
-| `"dependsOn": ["^build"]` | Build all workspace dependencies first. `^` means "run in dependency packages before this one." |
-| `"dependsOn": []` (no `^`) | Run this task only after other tasks in the same package complete. |
-| `"cache": false` | Never cache this task (dev servers produce no stable output). |
-| `"persistent": true` | This task runs indefinitely (watch mode, dev server). Turbo won't wait for it to finish before running others. |
-| `"outputs"` | Paths to cache. Only files listed here are restored from cache on a hit. |
+| Field                      | Meaning                                                                                                        |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `"dependsOn": ["^build"]`  | Build all workspace dependencies first. `^` means "run in dependency packages before this one."                |
+| `"dependsOn": []` (no `^`) | Run this task only after other tasks in the same package complete.                                             |
+| `"cache": false`           | Never cache this task (dev servers produce no stable output).                                                  |
+| `"persistent": true`       | This task runs indefinitely (watch mode, dev server). Turbo won't wait for it to finish before running others. |
+| `"outputs"`                | Paths to cache. Only files listed here are restored from cache on a hit.                                       |
 
 ### Root `package.json` scripts
 
 ```json
 {
-  "scripts": {
-    "dev:web": "turbo dev --filter=./apps/frontend",
-    "dev:ext": "turbo dev --filter=./apps/ums-extension",
-    "build": "turbo build",
-    "build:shared": "turbo build --filter=@bhemu/shared",
-    "build:web": "turbo build --filter=./apps/frontend",
-    "build:ext": "turbo build --filter=./apps/ums-extension",
-    "lint": "turbo lint",
-    "typecheck": "turbo typecheck",
-    "test": "turbo test --filter=@bhemu/shared"
-  }
+	"scripts": {
+		"dev:web": "turbo dev --filter=./apps/frontend",
+		"dev:ext": "turbo dev --filter=./apps/ums-extension",
+		"build": "turbo build",
+		"build:shared": "turbo build --filter=@bhemu/shared",
+		"build:web": "turbo build --filter=./apps/frontend",
+		"build:ext": "turbo build --filter=./apps/ums-extension",
+		"lint": "turbo lint",
+		"typecheck": "turbo typecheck",
+		"test": "turbo test --filter=@bhemu/shared"
+	}
 }
 ```
 
 **`--filter` syntax:**
+
 - `--filter=@bhemu/shared` — filter by package name
 - `--filter=./apps/frontend` — filter by path
 - `--filter=./apps/*` — all apps
@@ -200,12 +204,14 @@ Add to root `.gitignore`:
 ### How Turborepo determines build order
 
 Given the dependency graph:
+
 ```
 @bhemu/shared ← apps/frontend
 @bhemu/shared ← apps/ums-extension
 ```
 
 When you run `turbo build`:
+
 1. Turbo reads `package.json` dependencies to find `workspace:*` references
 2. `"dependsOn": ["^build"]` tells it to run `@bhemu/shared#build` before `apps/frontend#build`
 3. `apps/frontend` and `apps/ums-extension` build in parallel after shared is done
@@ -242,35 +248,35 @@ A **pure TypeScript** package with absolutely zero runtime dependencies on React
 
 ### What belongs in `@bhemu/shared`
 
-| Category | Folder | Examples |
-|----------|--------|----------|
-| **Constants** | `constants/` | `GRADE_TABLE`, `STANDARD_GRADE_TABLE`, `GRADE_TO_POINT` |
-| **Types** | `types/` | `GPASubject`, `GPASemester`, `SubjectMarks`, `AttendanceData` |
-| **Utils** | `utils/` | `calculateGPA()`, `calculateCGPA()`, `gradeToPoint()`, `computeGradeFromMarks()` |
-| **Parsers** | `parsers/` | `parseProgram()`, `buildGroupKey()`, `deriveBatchYear()`, `shortenName()` |
+| Category      | Folder       | Examples                                                                         |
+| ------------- | ------------ | -------------------------------------------------------------------------------- |
+| **Constants** | `constants/` | `GRADE_TABLE`, `STANDARD_GRADE_TABLE`, `GRADE_TO_POINT`                          |
+| **Types**     | `types/`     | `GPASubject`, `GPASemester`, `SubjectMarks`, `AttendanceData`                    |
+| **Utils**     | `utils/`     | `calculateGPA()`, `calculateCGPA()`, `gradeToPoint()`, `computeGradeFromMarks()` |
+| **Parsers**   | `parsers/`   | `parseProgram()`, `buildGroupKey()`, `deriveBatchYear()`, `shortenName()`        |
 
 ### What does NOT belong in `@bhemu/shared`
 
-| Category | Why it stays in the workspace |
-|----------|-------------------------------|
-| React components | Platform-specific rendering |
+| Category                                              | Why it stays in the workspace                 |
+| ----------------------------------------------------- | --------------------------------------------- |
+| React components                                      | Platform-specific rendering                   |
 | Firebase services (`GPAService`, `AttendanceService`) | Different persistence strategies per platform |
-| Firebase initialization (`config.ts`) | Different auth flows per platform |
-| UI utilities (canvas, OG image generation) | Browser-only |
-| UMS parsing logic | Extension-only |
-| Context providers | React-specific |
-| Auth flows | Platform-specific |
+| Firebase initialization (`config.ts`)                 | Different auth flows per platform             |
+| UI utilities (canvas, OG image generation)            | Browser-only                                  |
+| UMS parsing logic                                     | Extension-only                                |
+| Context providers                                     | React-specific                                |
+| Auth flows                                            | Platform-specific                             |
 
 ### `@bhemu/shared` internal structure
 
 Four folders, each with a single clear role:
 
-| Folder | Role | Rule |
-|--------|------|------|
-| `constants/` | Raw data tables — no logic, just values | Never contains functions |
-| `types/` | TypeScript interfaces and type definitions only | Never contains values or logic |
-| `utils/` | Pure functions that compute or transform **typed/clean** data | Input and output are typed; no string parsing |
-| `parsers/` | Functions that convert **raw string/external data** into typed objects | Input is messy; output is a typed struct |
+| Folder       | Role                                                                   | Rule                                          |
+| ------------ | ---------------------------------------------------------------------- | --------------------------------------------- |
+| `constants/` | Raw data tables — no logic, just values                                | Never contains functions                      |
+| `types/`     | TypeScript interfaces and type definitions only                        | Never contains values or logic                |
+| `utils/`     | Pure functions that compute or transform **typed/clean** data          | Input and output are typed; no string parsing |
+| `parsers/`   | Functions that convert **raw string/external data** into typed objects | Input is messy; output is a typed struct      |
 
 ```
 packages/shared/src/
@@ -305,6 +311,7 @@ packages/shared/src/
 ```
 
 **The split rule in one sentence per folder:**
+
 - `constants/` — data you look up
 - `types/` — shapes you enforce
 - `utils/` — logic on clean data
@@ -313,6 +320,7 @@ packages/shared/src/
 ### Build requirement
 
 `@bhemu/shared` must always produce **dual output** (ESM + CommonJS):
+
 ```
 dist/
 ├── index.js      ← ESM (for Next.js, Expo)
@@ -376,6 +384,7 @@ frontend     ums-extension     mobile
 ```
 
 **Rules:**
+
 - `@bhemu/shared` → imports **nothing** from any workspace
 - `apps/frontend` → imports from `@bhemu/shared` only (not from extension or mobile)
 - `apps/ums-extension` → imports from `@bhemu/shared` only (not from frontend or mobile)
@@ -400,35 +409,35 @@ Nothing inside `@bhemu/shared` may ever import from React, Firebase, Next.js, or
 
 ### Package names
 
-| Workspace | `name` in package.json |
-|-----------|------------------------|
-| Shared | `@bhemu/shared` |
-| Frontend | `bhemu-calc` |
-| Extension | `bhemu-ums-sync` |
-| Mobile | `bhemu-mobile` (when added) |
+| Workspace | `name` in package.json      |
+| --------- | --------------------------- |
+| Shared    | `@bhemu/shared`             |
+| Frontend  | `bhemu-calc`                |
+| Extension | `bhemu-ums-sync`            |
+| Mobile    | `bhemu-mobile` (when added) |
 
 All packages use **kebab-case**. No exceptions.
 
 ### Adding `@bhemu/shared` to a workspace
 
 1. Add to `package.json` dependencies:
-   ```json
-   "@bhemu/shared": "workspace:*"
-   ```
+    ```json
+    "@bhemu/shared": "workspace:*"
+    ```
 2. Add path alias to `tsconfig.json` — note the path is now **two levels up** because apps live in `apps/`:
-   ```json
-   "paths": {
-     "@bhemu/shared": ["../../packages/shared/src"]
-   }
-   ```
+    ```json
+    "paths": {
+      "@bhemu/shared": ["../../packages/shared/src"]
+    }
+    ```
 3. Run `pnpm install` from the **root** (not from inside the workspace)
 
 ### `pnpm-workspace.yaml` must always include
 
 ```yaml
 packages:
-  - 'apps/*'
-  - 'packages/*'
+    - "apps/*"
+    - "packages/*"
 ```
 
 New workspaces added under `apps/` are automatically picked up. No change to this file needed.
@@ -449,8 +458,8 @@ import type { GPASubject, SubjectMarks } from "@bhemu/shared";
 import { calculateGPA } from "../../some-other-local-file-duplicating-shared-logic";
 
 // ✅ Correct — workspace-specific logic uses its own alias
-import { GPAService } from "@/firebase/gpaService";          // frontend
-import { syncGradesAndMarks } from "~lib/firebaseSync";       // extension
+import { GPAService } from "@/firebase/gpaService"; // frontend
+import { syncGradesAndMarks } from "~lib/firebaseSync"; // extension
 ```
 
 ### In `@bhemu/shared`
@@ -461,9 +470,9 @@ import type { GPASemester } from "../types/gpa";
 import { GRADE_TO_POINT } from "../constants/grades";
 
 // ❌ Wrong — never import platform-specific packages
-import { useState } from "react";                  // NO
+import { useState } from "react"; // NO
 import { getFirestore } from "firebase/firestore"; // NO
-import { Platform } from "react-native";           // NO
+import { Platform } from "react-native"; // NO
 ```
 
 ### Barrel exports
@@ -486,12 +495,12 @@ import { calculateGPA } from "@bhemu/shared/utils/gpa";
 
 **For JS SDK workspaces** (`apps/frontend`, `apps/ums-extension`): must use the **same major version**. Currently: `^12.x`. Upgrade both in the same commit — never let them diverge.
 
-| Workspace | Firebase Package | Version |
-|-----------|-----------------|---------|
-| `@bhemu/shared` | none | — |
-| `apps/frontend` | `firebase` (JS SDK) | `^12.x` |
-| `apps/ums-extension` | `firebase` (JS SDK) | `^12.x` |
-| `apps/mobile` | `@react-native-firebase/*` | independently versioned (currently ~20.x) |
+| Workspace            | Firebase Package           | Version                                   |
+| -------------------- | -------------------------- | ----------------------------------------- |
+| `@bhemu/shared`      | none                       | —                                         |
+| `apps/frontend`      | `firebase` (JS SDK)        | `^12.x`                                   |
+| `apps/ums-extension` | `firebase` (JS SDK)        | `^12.x`                                   |
+| `apps/mobile`        | `@react-native-firebase/*` | independently versioned (currently ~20.x) |
 
 **Mobile is a different case.** `@react-native-firebase` is an entirely separate package family with its own version numbers, unrelated to the JS SDK's `12.x`. The rule that must stay aligned across all three workspaces is not the SDK version — it's the **Firestore data schema and security rules** they all read and write against. If you change a Firestore collection structure or add a new field, update `docs/firestore-schema.md` and verify all three workspaces handle the change correctly.
 
@@ -499,12 +508,12 @@ import { calculateGPA } from "@bhemu/shared/utils/gpa";
 
 React versions may differ between workspaces — this is acceptable because `@bhemu/shared` has zero React dependencies:
 
-| Workspace | React Version | Reason |
-|-----------|--------------|--------|
-| `@bhemu/shared` | **none** | Pure TypeScript |
-| `apps/frontend` | 19.x | Next.js 16 requirement |
-| `apps/ums-extension` | 19.x | `plasmo` has no React peer dep; `@plasmohq/storage` accepts `^19.0.0` |
-| `apps/mobile` | 19.x | Expo SDK 53+ ships React 19 alongside React Native 0.79; SDK 55 (current) includes React 19.2 |
+| Workspace            | React Version | Reason                                                                                        |
+| -------------------- | ------------- | --------------------------------------------------------------------------------------------- |
+| `@bhemu/shared`      | **none**      | Pure TypeScript                                                                               |
+| `apps/frontend`      | 19.x          | Next.js 16 requirement                                                                        |
+| `apps/ums-extension` | 19.x          | `plasmo` has no React peer dep; `@plasmohq/storage` accepts `^19.0.0`                         |
+| `apps/mobile`        | 19.x          | Expo SDK 53+ ships React 19 alongside React Native 0.79; SDK 55 (current) includes React 19.2 |
 
 All app workspaces run React 19. `@bhemu/shared` remains React-free.
 
@@ -525,6 +534,7 @@ The root `package.json` pins the pnpm version via `packageManager`. Use **pnpm 1
 **Do not use pnpm 8 or 9** — both are past end-of-life (pnpm 9 EOL: April 30, 2026) and no longer receive security patches. pnpm 10 and pnpm 11 are the currently supported releases as of mid-2026.
 
 When updating the pnpm version:
+
 1. Update `packageManager` in root `package.json`
 2. Delete `pnpm-lock.yaml`
 3. Run `pnpm install` from root
@@ -573,7 +583,7 @@ When adding any new feature (e.g. "GPA Goal Planner v2"):
 
 When adding a new workspace (e.g. `apps/mobile/`):
 
-```
+````
 □ 1. Create the directory under apps/
 □ 2. pnpm-workspace.yaml already covers 'apps/*' — no change needed
 □ 3. Create package.json with:
@@ -633,7 +643,7 @@ When adding a new workspace (e.g. `apps/mobile/`):
       "build:mobile": "turbo build --filter=./apps/mobile"
 □ 8. Add output paths to turbo.json if the new workspace has non-standard build output
 □ 9. Verify @bhemu/shared imports resolve: import { calculateGPA } from '@bhemu/shared'
-```
+````
 
 ---
 
@@ -641,12 +651,12 @@ When adding a new workspace (e.g. `apps/mobile/`):
 
 Vercel supports pnpm workspaces natively. Three settings to configure in the Vercel project dashboard:
 
-| Setting | Value |
-|---------|-------|
-| **Root Directory** | `apps/frontend` |
-| **Include files outside the Root Directory** | ✅ **must be enabled** |
-| **Build Command** | `pnpm build` (default, no change) |
-| **Install Command** | leave blank (Vercel auto-detects pnpm workspace and runs from repo root) |
+| Setting                                      | Value                                                                    |
+| -------------------------------------------- | ------------------------------------------------------------------------ |
+| **Root Directory**                           | `apps/frontend`                                                          |
+| **Include files outside the Root Directory** | ✅ **must be enabled**                                                   |
+| **Build Command**                            | `pnpm build` (default, no change)                                        |
+| **Install Command**                          | leave blank (Vercel auto-detects pnpm workspace and runs from repo root) |
 
 **The "Include files outside the Root Directory" toggle is not optional.** When Root Directory is set to `apps/frontend`, Vercel scopes the build container to that subfolder only. Without this toggle, `packages/shared/` is not present in the filesystem at build time, and Next.js fails with a `Module not found: @bhemu/shared` error. Enable it in: Project Settings → General → Root Directory → tick "Include files outside the Root Directory in the Build Step."
 
@@ -657,6 +667,7 @@ Next.js resolves `@bhemu/shared` via the `tsconfig.json` path alias (`"@bhemu/sh
 Add all `NEXT_PUBLIC_*` Firebase config vars in the Vercel project dashboard (Settings → Environment Variables). These are not in the repo.
 
 **If you ever add a pre-build step** (e.g. you change tsconfig to use `dist/` instead of `src/`):
+
 ```
 Build Command: pnpm --filter '@bhemu/shared' build && pnpm build
 ```
@@ -665,21 +676,21 @@ Build Command: pnpm --filter '@bhemu/shared' build && pnpm build
 
 ## 13. Anti-Patterns to Avoid
 
-| Anti-Pattern | What it looks like | Fix |
-|--------------|-------------------|-----|
-| **Cross-workspace duplication** | `programUtils.ts` exists in both frontend and extension | Move to `@bhemu/shared`, delete duplicates |
-| **App not in `apps/`** | `frontend/` or `mobile/` at the repo root | Move to `apps/frontend/`, `apps/mobile/` |
-| **Deep imports from shared** | `import x from "@bhemu/shared/utils/gpa"` | Always import from `"@bhemu/shared"` top-level |
-| **React in shared** | `import { useState } from "react"` inside `packages/shared/src/` | Move to workspace-specific file |
-| **Firebase in shared** | `import { getFirestore } from "firebase/firestore"` in shared | Move to workspace-specific firebase service |
-| **Cross-workspace imports** | Frontend importing from `apps/ums-extension/src/` | Extract shared logic to `@bhemu/shared` instead |
-| **Installing from workspace subfolder** | `cd apps/frontend && pnpm install` | Always run `pnpm install` from root |
-| **Root source code** | TypeScript files at repo root | All source code lives inside a workspace |
-| **Unversioned shared changes** | Changing `@bhemu/shared` without rebuilding | `turbo build --filter=@bhemu/shared` rebuilds automatically |
-| **Diverged Firebase JS SDK versions** | `apps/frontend` and `apps/ums-extension` on different major versions | Both must stay on the same major version (currently `^12.x`); mobile uses `@react-native-firebase` which is versioned separately |
-| **No tests for shared logic** | Adding functions to `@bhemu/shared` without tests | Every exported function needs a test |
-| **Platform-specific polyfills in shared** | `typeof window !== 'undefined'` checks in shared | Keep platform detection in workspace code |
-| **Skipping `turbo.json` outputs** | New build artifacts not listed in `outputs` | Add artifact paths to prevent stale cache restores |
+| Anti-Pattern                              | What it looks like                                                   | Fix                                                                                                                              |
+| ----------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| **Cross-workspace duplication**           | `programUtils.ts` exists in both frontend and extension              | Move to `@bhemu/shared`, delete duplicates                                                                                       |
+| **App not in `apps/`**                    | `frontend/` or `mobile/` at the repo root                            | Move to `apps/frontend/`, `apps/mobile/`                                                                                         |
+| **Deep imports from shared**              | `import x from "@bhemu/shared/utils/gpa"`                            | Always import from `"@bhemu/shared"` top-level                                                                                   |
+| **React in shared**                       | `import { useState } from "react"` inside `packages/shared/src/`     | Move to workspace-specific file                                                                                                  |
+| **Firebase in shared**                    | `import { getFirestore } from "firebase/firestore"` in shared        | Move to workspace-specific firebase service                                                                                      |
+| **Cross-workspace imports**               | Frontend importing from `apps/ums-extension/src/`                    | Extract shared logic to `@bhemu/shared` instead                                                                                  |
+| **Installing from workspace subfolder**   | `cd apps/frontend && pnpm install`                                   | Always run `pnpm install` from root                                                                                              |
+| **Root source code**                      | TypeScript files at repo root                                        | All source code lives inside a workspace                                                                                         |
+| **Unversioned shared changes**            | Changing `@bhemu/shared` without rebuilding                          | `turbo build --filter=@bhemu/shared` rebuilds automatically                                                                      |
+| **Diverged Firebase JS SDK versions**     | `apps/frontend` and `apps/ums-extension` on different major versions | Both must stay on the same major version (currently `^12.x`); mobile uses `@react-native-firebase` which is versioned separately |
+| **No tests for shared logic**             | Adding functions to `@bhemu/shared` without tests                    | Every exported function needs a test                                                                                             |
+| **Platform-specific polyfills in shared** | `typeof window !== 'undefined'` checks in shared                     | Keep platform detection in workspace code                                                                                        |
+| **Skipping `turbo.json` outputs**         | New build artifacts not listed in `outputs`                          | Add artifact paths to prevent stale cache restores                                                                               |
 
 ---
 

@@ -1,4 +1,4 @@
-# Firestore Schema — Bhemu Calculator
+# Firestore Schema — bCampus
 
 Last audited & cleaned: 2026-06-28. 124 profiles verified clean.
 Last updated: 2026-07-22 (leaderboard: switched `name` to profile display name, added `realName`).

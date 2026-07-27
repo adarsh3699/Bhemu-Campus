@@ -63,7 +63,7 @@ function renderImage(title: string, description: string, assets: Awaited<ReturnT
 						marginBottom: "22px",
 					}}
 				>
-					calc.bhemu.in
+					campus.bhemu.in
 				</div>
 				<div
 					style={{
@@ -123,7 +123,7 @@ function renderImage(title: string, description: string, assets: Awaited<ReturnT
 							<img src={assets.logoBase64} width={65} height={65} alt="" style={{ borderRadius: "18px" }} />
 						)}
 						<div style={{ display: "flex", fontSize: "35px", fontWeight: 700, color: "#ffffff" }}>
-							Bhemu Calculator
+							bCampus
 						</div>
 					</div>
 					<div style={{ display: "flex", gap: "12px", marginTop: "8px", marginBottom: "40px" }}>
@@ -175,7 +175,7 @@ export async function GET(req: NextRequest) {
 		}
 	}
 
-	if (!title) title = "Bhemu Calculator";
+	if (!title) title = "bCampus";
 	if (!description) description = "Track your academic progress, calculate SGPA & CGPA, plan future GPA goals.";
 
 	let assets: Awaited<ReturnType<typeof loadAssets>> | null = null;

@@ -29,9 +29,9 @@ export function AuthShowcase({ title, subtitle, testimonial = false }: AuthShowc
 			{/* Top Bar: Brand Logo */}
 			<div className="flex items-center gap-3 z-10">
 				<div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center shadow-lg shadow-primary/30 bg-white/5">
-				<Image src="/myLogo.webp" alt="Bhemu Calculator Logo" width={40} height={40} className="object-cover" />
+				<Image src="/myLogo.webp" alt="bCampus Logo" width={40} height={40} className="object-cover" />
 				</div>
-				<span className="text-2xl font-bold tracking-tight text-white">Bhemu Calculator</span>
+				<span className="text-2xl font-bold tracking-tight text-white">bCampus</span>
 			</div>
 
 			{/* Center Section: Premium visual & Title */}
@@ -66,7 +66,7 @@ export function AuthShowcase({ title, subtitle, testimonial = false }: AuthShowc
 							))}
 						</div>
 						<p className="text-gray-300 text-sm italic mb-4 leading-relaxed">
-							&ldquo;Bhemu Calculator revolutionized how I track my grades and calculate my GPA goal. The collaborative features allowed me to work perfectly with my study group!&rdquo;
+							&ldquo;bCampus revolutionized how I track my grades and calculate my GPA goal. The collaborative features allowed me to work perfectly with my study group!&rdquo;
 						</p>
 						<div className="flex items-center gap-3">
 							<div className="w-8 h-8 rounded-full bg-gradient-to-br from-secondary to-primary flex items-center justify-center text-xs font-bold text-white shadow-inner">
@@ -83,9 +83,9 @@ export function AuthShowcase({ title, subtitle, testimonial = false }: AuthShowc
 
 			{/* Footer Info */}
 			<div className="text-xs text-gray-500 z-10 flex justify-between items-center w-full">
-				<span>© 2026 Bhemu Calculator. All rights reserved.</span>
+				<span>© 2026 bCampus. All rights reserved.</span>
 				<div className="flex gap-4">
-					<a href="https://calc.bhemu.in/privacy-policy.html" target="_blank" rel="noreferrer" className="hover:text-gray-300 transition-colors">Privacy</a>
+					<a href="https://campus.bhemu.in/privacy-policy.html" target="_blank" rel="noreferrer" className="hover:text-gray-300 transition-colors">Privacy</a>
 					<Link href="/about" className="hover:text-gray-300 transition-colors">About</Link>
 				</div>
 			</div>

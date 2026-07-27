@@ -1,4 +1,4 @@
-# Bhemu Calculator — Mobile App
+# bCampus — Mobile App
 
 React Native app built with Expo SDK 57, mirroring the web app's features.
 

@@ -1,17 +1,13 @@
-import { View, Text, StyleSheet } from "react-native";
-import { Colors, FontSize, FontWeight, Spacing } from "@/constants/Theme";
+import { SafeAreaView } from "react-native-safe-area-context";
+import ScreenHeader from "@/components/ui/ScreenHeader";
+import LeaderboardView from "@/components/Leaderboard/LeaderboardView";
 import { Layout } from "@/styles";
 
-export default function LeaderboardTab() {
+export default function LeaderboardScreen() {
 	return (
-		<View style={Layout.center}>
-			<Text style={local.title}>Leaderboard</Text>
-			<Text style={local.subtitle}>Coming soon</Text>
-		</View>
+		<SafeAreaView style={Layout.flex} edges={["top"]}>
+			<ScreenHeader title="Leaderboard" />
+			<LeaderboardView />
+		</SafeAreaView>
 	);
 }
-
-const local = StyleSheet.create({
-	title: { fontSize: FontSize.xxl, fontWeight: FontWeight.bold, color: Colors.textPrimary },
-	subtitle: { fontSize: FontSize.base, color: Colors.textMuted, marginTop: Spacing.xs },
-});

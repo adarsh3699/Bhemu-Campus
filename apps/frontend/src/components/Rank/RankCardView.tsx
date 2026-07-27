@@ -104,13 +104,13 @@ export default function RankCardView({
 					>
 						<Image
 							src="/newLogo512.png"
-							alt="Bhemu Calculator"
+							alt="bCampus"
 							width={22}
 							height={22}
 							className="rounded-md"
 						/>
 						<span className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.65)" }}>
-							Bhemu Calculator
+							bCampus
 						</span>
 					</Link>
 
@@ -286,7 +286,7 @@ export default function RankCardView({
 								style={{ opacity: 0.4 }}
 							/>
 							<span className="text-xs" style={{ color: "rgba(255,255,255,0.28)" }}>
-								calc.bhemu.in · Bhemu Calculator
+								campus.bhemu.in · bCampus
 							</span>
 						</div>
 					</div>

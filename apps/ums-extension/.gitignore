@@ -15,6 +15,7 @@ build/
 # Package archives
 *.zip
 *.crx
+*.tgz
 
 # Editor
 .vscode/

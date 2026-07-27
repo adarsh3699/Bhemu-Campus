@@ -1,4 +1,4 @@
-# Bhemu Calculator — Mobile App Plan
+# bCampus — Mobile App Plan
 
 ## Context
 
@@ -227,12 +227,12 @@ apps/mobile/
 - `apps/mobile/tsconfig.json` — `"@/*": ["./src/*"]` + `@bhemu/shared` and `@bhemu/firebase` path aliases
 - `apps/mobile/metro.config.js` — pnpm workspace symlink config + NativeWind
 - `apps/mobile/babel.config.js` — `babel-preset-expo`
-- `apps/mobile/app.json` — Expo project config (name: "Bhemu Calculator", slug: "bhemu-calculator")
+- `apps/mobile/app.json` — Expo project config (name: "bCampus", slug: "bhemu-campus")
 - `apps/mobile/tailwind.config.js` — NativeWind preset + content pointing to `./src/**`
 - `apps/mobile/nativewind-env.d.ts` — NativeWind type reference
 - `apps/mobile/src/global.css` — `@tailwind` directives
 - `apps/mobile/src/app/_layout.tsx` — minimal root layout importing `global.css`
-- `apps/mobile/src/app/index.tsx` — placeholder screen ("Bhemu Calculator Mobile")
+- `apps/mobile/src/app/index.tsx` — placeholder screen ("bCampus Mobile")
 - `apps/mobile/assets/` — placeholder icon and splash images
 - Root `package.json` — add `dev:mobile` and `build:mobile` scripts
 - `turbo.json` — add `.expo/**` to `outputs` array so Expo build artifacts are cached correctly
@@ -462,7 +462,7 @@ import { createGPAService } from "@bhemu/firebase";
     - `ShareLeaderboardModal.tsx`:
         - Rank card preview
         - Share via **React Native Share API** (native sheet: WhatsApp, LinkedIn, X)
-        - Copy link (`https://calc.bhemu.in/rank/{userId}_{profileId}`)
+        - Copy link (`https://campus.bhemu.in/rank/{userId}_{profileId}`)
         - Download PNG via `react-native-view-shot`
         - Download PDF via `expo-print`
 - `src/components/profile/ShareModal.tsx` and `ProfileDrawer.tsx` — already scaffolded in Phase 3; full sharing UI wired in this phase

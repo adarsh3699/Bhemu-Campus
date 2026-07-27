@@ -1,4 +1,4 @@
-# 🎓 Bhemu Calculator — Frontend
+# 🎓 bCampus — Frontend
 
 > Next.js 16 web application for academic GPA tracking, marks analysis, and smart planning tools.
 
@@ -11,7 +11,7 @@
 
 The frontend is a **pure client-side** Next.js application with no backend API. All data flows directly from the browser to Firebase Firestore, with real-time collaboration powered by Firebase `onSnapshot` listeners.
 
-🔗 **Live:** [calc.bhemu.in](https://calc.bhemu.in)
+🔗 **Live:** [campus.bhemu.in](https://campus.bhemu.in)
 
 ---
 

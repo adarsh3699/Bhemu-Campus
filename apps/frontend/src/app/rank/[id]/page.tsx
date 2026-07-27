@@ -16,13 +16,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 	if (!entry) {
 		return {
-			title: "Rank Not Found | Bhemu Calculator",
+			title: "Rank Not Found | bCampus",
 			robots: { index: false, follow: false },
 		};
 	}
 
 	const programLabel = formatProgramLabel(entry.programName, entry.branch);
-	const title = `${entry.name} — Rank #${entry.rank} | Bhemu Calculator`;
+	const title = `${entry.name} — Rank #${entry.rank} | bCampus`;
 	const description = `${entry.name} is ranked #${entry.rank} among ${entry.totalStudents} ${programLabel} students (Batch ${entry.batchYear}) with a CGPA of ${entry.cgpa.toFixed(2)}.`;
 	const ogTitle = `${entry.name} — Rank #${entry.rank}`;
 	const ogImageUrl = `${SITE_CONFIG.url}/api/og?id=${encodeURIComponent(id)}&title=${encodeURIComponent(ogTitle)}&description=${encodeURIComponent(description)}`;

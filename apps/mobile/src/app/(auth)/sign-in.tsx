@@ -75,7 +75,7 @@ export default function SignIn() {
 					<View style={AuthStyles.logoBox}>
 						<Image source={require("../../../assets/app_icon.png")} style={AuthStyles.logoImage} />
 					</View>
-					<Text style={local.appName}>Bhemu Calculator</Text>
+					<Text style={local.appName}>bCampus</Text>
 				</View>
 
 				<View style={AuthStyles.form}>

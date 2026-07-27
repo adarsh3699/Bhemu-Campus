@@ -2,7 +2,7 @@ import { generatePageMetadata } from "@/lib/seo";
 
 export const metadata = generatePageMetadata({
 	title: "Forgot Password",
-	description: "Reset your Bhemu Calculator password.",
+	description: "Reset your bCampus password.",
 	path: "/forgot-password",
 	noIndex: true,
 });

@@ -1,7 +1,7 @@
 {
-	"name": "Bhemu Calculator - GPA Tracker, SGPA & CGPA Planning",
-	"short_name": "Bhemu Calculator",
-	"description": "Track your academic progress, calculate SGPA & CGPA, plan future GPA goals, and collaborate in real-time with Bhemu Calculator.",
+	"name": "bCampus - GPA Tracker, SGPA & CGPA Planning",
+	"short_name": "bCampus",
+	"description": "Track your academic progress, calculate SGPA & CGPA, plan future GPA goals, and collaborate in real-time with bCampus.",
 	"start_url": "/",
 	"display": "standalone",
 	"background_color": "#0e0e0e",

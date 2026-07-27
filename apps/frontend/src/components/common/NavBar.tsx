@@ -153,7 +153,7 @@ export default function NavBar() {
 			>
 				<div>
 					<div className="flex items-center justify-between border-b border-white/5 h-[60px] px-6 text-xl font-bold text-white">
-						<span className="text-gradient-brand">Bhemu Calculator</span>
+						<span className="text-gradient-brand">bCampus</span>
 						<button
 							onClick={() => setIsMenuOpen(false)}
 							className="p-1.5 rounded-lg border border-white/10 hover:border-white/20 transition-all duration-200"
@@ -247,8 +247,8 @@ export default function NavBar() {
 					href="/gpa-calculator"
 					className="text-lg md:text-xl lg:text-2xl font-bold select-none cursor-pointer flex items-center transition-all duration-300 hover:scale-102 hover:brightness-105"
 				>
-					<Image src="/myLogo.webp" alt="Bhemu Calculator Logo" width={24} height={24} className="mr-2 rounded-md object-cover" />
-					<span className="text-gradient-brand font-extrabold tracking-tight">Bhemu Calculator</span>
+					<Image src="/myLogo.webp" alt="bCampus Logo" width={24} height={24} className="mr-2 rounded-md object-cover" />
+					<span className="text-gradient-brand font-extrabold tracking-tight">bCampus</span>
 				</Link>
 
 				{/* Desktop Main Menu items */}
@@ -278,7 +278,7 @@ export default function NavBar() {
 					<Link
 						href="/about"
 						className="p-2 rounded-lg border border-white/10 text-neutral-400 hover:text-white hover:bg-white/5 transition-all duration-200 hidden md:flex"
-						title="About Bhemu Calculator"
+						title="About bCampus"
 					>
 						<Info className="w-5 h-5" />
 					</Link>

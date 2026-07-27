@@ -1,5 +1,14 @@
-import { useState } from "react";
-import { View, Text, StyleSheet, Modal, TouchableOpacity, KeyboardAvoidingView, Platform } from "react-native";
+import { useState, useRef, useEffect } from "react";
+import {
+	View,
+	Text,
+	StyleSheet,
+	Modal,
+	TouchableOpacity,
+	KeyboardAvoidingView,
+	Platform,
+	TextInput,
+} from "react-native";
 import { Spacing, Radius, FontSize, FontWeight } from "@/constants/Theme";
 import { Colors } from "@/constants/Colors";
 import { Buttons } from "@/styles";
@@ -16,57 +25,66 @@ interface InputModalProps {
 	initialValue?: string;
 }
 
-export default function InputModal({
-	isOpen,
-	onClose,
-	onConfirm,
+function InputCard({
+	initialValue,
+	placeholder,
 	title,
-	placeholder = "Enter value",
-	confirmText = "Confirm",
-	cancelText = "Cancel",
-	initialValue = "",
-}: InputModalProps) {
-	const [value, setValue] = useState(initialValue);
+	confirmText,
+	cancelText,
+	onConfirm,
+	onClose,
+}: Omit<InputModalProps, "isOpen">) {
+	const [value, setValue] = useState(initialValue ?? "");
+	const inputRef = useRef<TextInput>(null);
+
+	useEffect(() => {
+		const t = setTimeout(() => inputRef.current?.focus(), 200);
+		return () => clearTimeout(t);
+	}, []);
 
 	const handleConfirm = () => {
 		if (!value.trim()) return;
 		onConfirm(value.trim());
-		setValue("");
-		onClose();
-	};
-
-	const handleClose = () => {
-		setValue("");
 		onClose();
 	};
 
 	return (
-		<Modal visible={isOpen} transparent animationType="fade" onRequestClose={handleClose}>
+		<View style={local.card}>
+			<Text style={local.title}>{title}</Text>
+			<AppInput
+				ref={inputRef}
+				value={value}
+				onChangeText={setValue}
+				placeholder={placeholder}
+				onSubmitEditing={handleConfirm}
+				returnKeyType="done"
+			/>
+			<View style={local.buttons}>
+				<TouchableOpacity style={local.cancelBtn} onPress={onClose} activeOpacity={0.8}>
+					<Text style={local.cancelText}>{cancelText ?? "Cancel"}</Text>
+				</TouchableOpacity>
+				<TouchableOpacity
+					style={[Buttons.primary, local.confirmBtn, !value.trim() && Buttons.disabled]}
+					onPress={handleConfirm}
+					disabled={!value.trim()}
+					activeOpacity={0.8}
+				>
+					<Text style={Buttons.primaryText}>{confirmText ?? "Confirm"}</Text>
+				</TouchableOpacity>
+			</View>
+		</View>
+	);
+}
+
+export default function InputModal(props: InputModalProps) {
+	const { isOpen, onClose } = props;
+
+	return (
+		<Modal visible={isOpen} transparent animationType="none" onRequestClose={onClose}>
 			<KeyboardAvoidingView style={local.overlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-				<View style={local.card}>
-					<Text style={local.title}>{title}</Text>
-					<AppInput
-						value={value}
-						onChangeText={setValue}
-						placeholder={placeholder}
-						autoFocus
-						onSubmitEditing={handleConfirm}
-						returnKeyType="done"
-					/>
-					<View style={local.buttons}>
-						<TouchableOpacity style={local.cancelBtn} onPress={handleClose} activeOpacity={0.8}>
-							<Text style={local.cancelText}>{cancelText}</Text>
-						</TouchableOpacity>
-						<TouchableOpacity
-							style={[Buttons.primary, local.confirmBtn, !value.trim() && Buttons.disabled]}
-							onPress={handleConfirm}
-							disabled={!value.trim()}
-							activeOpacity={0.8}
-						>
-							<Text style={Buttons.primaryText}>{confirmText}</Text>
-						</TouchableOpacity>
-					</View>
-				</View>
+				<TouchableOpacity style={local.backdropTouch} onPress={onClose} activeOpacity={1} />
+				{/* key forces remount on every open — fresh useState + autoFocus fires natively */}
+				{isOpen && <InputCard key={String(isOpen) + String(props.initialValue)} {...props} />}
 			</KeyboardAvoidingView>
 		</Modal>
 	);
@@ -79,6 +97,13 @@ const local = StyleSheet.create({
 		alignItems: "center",
 		justifyContent: "center",
 		padding: Spacing.xl,
+	},
+	backdropTouch: {
+		position: "absolute",
+		top: 0,
+		left: 0,
+		right: 0,
+		bottom: 0,
 	},
 	card: {
 		width: "100%",
@@ -100,7 +125,7 @@ const local = StyleSheet.create({
 	},
 	cancelBtn: {
 		flex: 1,
-		height: 44,
+		height: 48,
 		borderRadius: Radius.md,
 		alignItems: "center",
 		justifyContent: "center",

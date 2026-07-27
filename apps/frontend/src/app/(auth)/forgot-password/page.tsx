@@ -59,10 +59,10 @@ export default function ForgotPasswordPage() {
 							className="w-14 h-14 rounded-xl overflow-hidden flex items-center justify-center mb-4 ring-1 ring-white/20 bg-white/5"
 							style={{ boxShadow: "0 0 25px rgba(3,152,172,0.5)" }}
 						>
-							<Image src="/myLogo.webp" alt="Bhemu Calculator Logo" width={56} height={56} className="object-cover" />
+							<Image src="/myLogo.webp" alt="bCampus Logo" width={56} height={56} className="object-cover" />
 						</div>
 						<h2 className="text-3xl font-bold tracking-tight text-center text-white drop-shadow-lg">
-							Bhemu Calculator
+							bCampus
 						</h2>
 						<p className="text-secondary/80 text-sm mt-1 font-medium tracking-widest uppercase">
 							Academic Workspace
@@ -156,7 +156,7 @@ export default function ForgotPasswordPage() {
 
 					{/* Footer Links */}
 					<div className="mt-8 text-center space-x-6 text-xs text-gray-500 font-medium">
-						<a href="https://calc.bhemu.in/privacy-policy.html" target="_blank" rel="noreferrer" className="hover:text-secondary-dark transition-colors">
+						<a href="https://campus.bhemu.in/privacy-policy.html" target="_blank" rel="noreferrer" className="hover:text-secondary-dark transition-colors">
 							Privacy Policy
 						</a>
 						<span>•</span>

@@ -95,13 +95,13 @@ export default function LoginPage() {
 								<div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center bg-white/5">
 									<Image
 										src="/myLogo.webp"
-										alt="Bhemu Calculator Logo"
+										alt="bCampus Logo"
 										width={32}
 										height={32}
 										className="rounded-lg object-cover"
 									/>
 								</div>
-								<span className="text-xl font-bold text-white">Bhemu Calculator</span>
+								<span className="text-xl font-bold text-white">bCampus</span>
 							</div>
 							<h2 className="text-3xl font-bold text-white mb-2">Welcome back</h2>
 							<p className="text-gray-400">Enter your credentials to access your workspace.</p>
@@ -224,7 +224,7 @@ export default function LoginPage() {
 					{/* Accessibility / Legal */}
 					<div className="mt-12 flex justify-center gap-6 text-xs text-gray-500">
 						<a
-							href="https://calc.bhemu.in/privacy-policy.html"
+							href="https://campus.bhemu.in/privacy-policy.html"
 							target="_blank"
 							rel="noreferrer"
 							className="hover:text-gray-300 transition-colors"

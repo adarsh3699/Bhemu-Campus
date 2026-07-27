@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Bhemu Calculator",
-    "slug": "bhemu-calculator",
+    "name": "bCampus",
+    "slug": "bhemu-campus",
     "owner": "adarsh3699",
     "version": "1.0.0",
     "scheme": "bhemu",
@@ -10,14 +10,14 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "in.bhemu.calculator"
+      "bundleIdentifier": "in.bhemu.campus"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/app_icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "in.bhemu.calculator",
+      "package": "in.bhemu.campus",
       "googleServicesFile": "./google-services.json"
     },
     "web": {
@@ -43,7 +43,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "f7d22cf8-9b1f-437c-8655-d10984dce7b2"
+        "projectId": "9437afb0-7d61-43d4-bb58-c4c2dc4e124f"
       }
     }
   }

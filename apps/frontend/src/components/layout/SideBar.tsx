@@ -120,14 +120,14 @@ export default function SideBar({ isOpen, onClose }: SideBarProps) {
 						<div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center shrink-0 bg-white/5">
 							<Image
 								src="/myLogo.webp"
-								alt="Bhemu Calculator Logo"
+								alt="bCampus Logo"
 								width={32}
 								height={32}
 								className="object-cover"
 							/>
 						</div>
 						<div>
-							<h1 className="text-white font-bold text-sm leading-tight">Bhemu Calculator</h1>
+							<h1 className="text-white font-bold text-sm leading-tight">bCampus</h1>
 						</div>
 					</div>
 					{/* Mobile close button */}
