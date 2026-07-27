@@ -1,4 +1,4 @@
-# Functional Requirements — Bhemu Calculator
+# Functional Requirements — bCampus
 
 ---
 
@@ -318,7 +318,7 @@ requiredSGPA = (targetCGPA × totalSemesters − currentCGPA × completedSemeste
 
 Two sign-in methods:
 
-1. **Continue with Bhemu Calculator** (primary) — reads Firebase auth state from the open Bhemu Calculator tab via a content script bridge. No password needed. If no tab is open, one is opened in the background, read, then closed.
+1. **Continue with bCampus** (primary) — reads Firebase auth state from the open bCampus tab via a content script bridge. No password needed. If no tab is open, one is opened in the background, read, then closed.
 2. **Sign in with email** (fallback) — standard email/password Firebase auth.
 
 Sign-out clears Firebase auth, removes `fb_uid` from extension storage, and resets the last-used profile key.
@@ -508,7 +508,7 @@ Manual close button available.
 - Rank and entry are fetched using the owner's IDs
 
 ### Share & Export
-- **Copy Link**: copies `https://calc.bhemu.in/rank/{userId}_{profileId}` to clipboard
+- **Copy Link**: copies `https://campus.bhemu.in/rank/{userId}_{profileId}` to clipboard
 - **Download Image (PNG)**: renders rank card via Canvas 2D API (`drawLeaderboardCard`)
 - **Download PDF**: same canvas → jsPDF
 - **Share (mobile)**: Web Share API with image file; falls back to `wa.me` text link on HTTP/desktop

@@ -22,7 +22,7 @@ export default function UMSSyncPrompt() {
 				{/* Title */}
 				<Text style={local.title}>See Where You Stand</Text>
 				<Text style={local.subtitle}>
-					Sync your UMS data to see your CGPA rank among your batchmates. Connect with the Bhemu Calculator - UMS Sync extension to get started.
+					Sync your UMS data to see your CGPA rank among your batchmates. Connect with the bCampus - UMS Sync extension to get started.
 				</Text>
 
 				{/* Feature pills */}

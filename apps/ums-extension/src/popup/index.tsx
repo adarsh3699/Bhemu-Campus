@@ -146,14 +146,14 @@ function Popup() {
 			<div className="popup">
 				<div className="brand">
 					<img src={iconUrl} alt="" className="brand-logo" />
-					<span className="brand-name">Bhemu UMS Sync</span>
+					<span className="brand-name">bCampus UMS Sync</span>
 				</div>
 
 				{!showManualLogin ? (
 					<div className="auth-primary">
 						<div className="auth-icon">🔗</div>
 						<h2 className="auth-title">Sign in instantly</h2>
-						<p className="auth-sub">Uses your existing Bhemu Calculator login — no password needed.</p>
+						<p className="auth-sub">Uses your existing bCampus login — no password needed.</p>
 
 						{authError && <p className="error">{authError}</p>}
 
@@ -163,7 +163,7 @@ function Popup() {
 									<span className="btn-spinner" /> Connecting…
 								</>
 							) : (
-								"Continue with Bhemu Calculator"
+								"Continue with bCampus"
 							)}
 						</button>
 
@@ -210,7 +210,7 @@ function Popup() {
 							</button>
 							<button
 								className="btn-link"
-								onClick={() => chrome.tabs.create({ url: "https://calc.bhemu.in/forgot-password" })}
+								onClick={() => chrome.tabs.create({ url: "https://campus.bhemu.in/forgot-password" })}
 							>
 								Forgot password?
 							</button>
@@ -226,7 +226,7 @@ function Popup() {
 		<div className="popup">
 			<div className="brand">
 				<img src={iconUrl} alt="" className="brand-logo" />
-				<span className="brand-name">Bhemu UMS Sync</span>
+				<span className="brand-name">bCampus UMS Sync</span>
 				<button onClick={handleLogout} className="btn-signout" title="Sign Out">
 					↩
 				</button>
@@ -252,9 +252,9 @@ function Popup() {
 							Open{" "}
 							<button
 								className="btn-inline-link"
-								onClick={() => chrome.tabs.create({ url: "https://calc.bhemu.in/dashboard" })}
+								onClick={() => chrome.tabs.create({ url: "https://campus.bhemu.in/dashboard" })}
 							>
-								Bhemu Calculator
+								bCampus
 							</button>{" "}
 							to view your data
 						</p>
@@ -270,7 +270,7 @@ function Popup() {
 				{profilesLoading ? (
 					<p className="loading-small">Loading profiles…</p>
 				) : profiles.length === 0 ? (
-					<p className="error">No profiles found. Create one in Bhemu Calculator first.</p>
+					<p className="error">No profiles found. Create one in bCampus first.</p>
 				) : (
 					<select
 						className="profile-select"
@@ -325,10 +325,10 @@ function Popup() {
 			</div>
 
 			<button
-				onClick={() => chrome.tabs.create({ url: "https://calc.bhemu.in/dashboard" })}
+				onClick={() => chrome.tabs.create({ url: "https://campus.bhemu.in/dashboard" })}
 				className="btn-open-app"
 			>
-				Open Bhemu Calculator
+				Open bCampus
 			</button>
 		</div>
 	);

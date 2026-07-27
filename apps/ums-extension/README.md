@@ -1,6 +1,6 @@
 # 🔄 UMS Data Sync — Chrome Extension
 
-> One-click sync of LPU UMS grades, marks, and attendance to Bhemu Calculator
+> One-click sync of LPU UMS grades, marks, and attendance to bCampus
 
 [![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-blue)](https://chromewebstore.google.com/detail/bfmmcngnpcmnopnjacnebpnfcohhigkp)
 [![Plasmo](https://img.shields.io/badge/Plasmo-0.90.5-blue)](https://www.plasmo.com/)
@@ -10,7 +10,7 @@
 
 ## 📋 Overview
 
-Chrome MV3 extension that auto-imports your academic data from LPU UMS portal directly into Bhemu Calculator. No manual data entry needed — just click "Sync Everything" and you're done.
+Chrome MV3 extension that auto-imports your academic data from LPU UMS portal directly into bCampus. No manual data entry needed — just click "Sync Everything" and you're done.
 
 🔗 **Install:** [Chrome Web Store](https://chromewebstore.google.com/detail/bfmmcngnpcmnopnjacnebpnfcohhigkp)
 
@@ -51,7 +51,7 @@ Chrome MV3 extension that auto-imports your academic data from LPU UMS portal di
 ### First Time Setup
 
 1. **Install Extension** (see above)
-2. **Sign in to Bhemu Calculator** at [calc.bhemu.in](https://calc.bhemu.in)
+2. **Sign in to bCampus** at [campus.bhemu.in](https://campus.bhemu.in)
 3. **Click Extension Icon** in Chrome toolbar
 4. **Authorize** — Grant permission to sync data with your account
 5. **Click "Sync Everything"** — Wait for completion
@@ -63,7 +63,7 @@ Chrome MV3 extension that auto-imports your academic data from LPU UMS portal di
 2. Click the **UMS Sync extension** icon
 3. Click **"Sync Everything"**
 4. Wait for success message
-5. Refresh Bhemu Calculator to see updated data
+5. Refresh bCampus to see updated data
 
 ### What Gets Synced?
 
@@ -195,21 +195,21 @@ The extension requests these permissions:
 
 ### Extension Not Working
 
-1. **Ensure you're logged in** to both UMS and Bhemu Calculator
+1. **Ensure you're logged in** to both UMS and bCampus
 2. **Check Chrome version** (must be 88+)
 3. **Try reload extension** in `chrome://extensions/`
 4. **Check console** for errors (click "background" link on extension card)
 
 ### Sync Failed
 
-- **"Not authenticated"** → Sign in to Bhemu Calculator first, then retry
+- **"Not authenticated"** → Sign in to bCampus first, then retry
 - **"UMS session expired"** → Log out and log back into UMS
 - **"Network error"** → Check internet connection
 - **"Firestore permission denied"** → Contact support (may be Firebase rules issue)
 
 ### Data Not Appearing
 
-1. **Refresh Bhemu Calculator** after sync completes
+1. **Refresh bCampus** after sync completes
 2. **Check active profile** — data syncs to your currently active profile
 3. **Verify UMS data** — ensure marks are actually visible in UMS first
 

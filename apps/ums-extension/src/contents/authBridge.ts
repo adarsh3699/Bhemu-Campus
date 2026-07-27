@@ -1,5 +1,5 @@
 /**
- * Content script running on calc.bhemu.in.
+ * Content script running on campus.bhemu.in.
  * Reads the Firebase auth state JSON from localStorage and forwards it to the
  * extension popup when requested. The extension writes the same JSON into its
  * own localStorage, then reinitializes Firebase Auth to restore the session.
@@ -11,7 +11,7 @@ export const config: PlasmoCSConfig = {
   // Matches both localhost (dev) and production URL
   matches: [
     'http://localhost:3000/*',
-    'https://calc.bhemu.in/*',
+    'https://campus.bhemu.in/*',
   ],
   run_at: 'document_idle',
 };

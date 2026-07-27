@@ -79,10 +79,10 @@ function writeFirebaseAuthToIDB(key: string, value: unknown): Promise<void> {
 }
 
 /**
- * Sign in using the active session on calc.bhemu.in.
+ * Sign in using the active session on campus.bhemu.in.
  *
  * How it works:
- * 1. Check if calc.bhemu.in is already open — otherwise open it.
+ * 1. Check if campus.bhemu.in is already open — otherwise open it.
  * 2. The authBridge content script reads Firebase auth state from the page's localStorage.
  * 3. We write that JSON to the extension popup's own localStorage under the same key.
  * 4. We reinitialize Firebase Auth with browserLocalPersistence — it reads the session.
@@ -136,7 +136,7 @@ export async function signInWithCalcSession(): Promise<User> {
     }
     if (!result) {
       await chrome.tabs.update(tabId, { active: true });
-      throw new Error('Not logged in on Bhemu Calculator. Please log in there, then try again.');
+      throw new Error('Not logged in on bCampus. Please log in there, then try again.');
     }
     authStateJson = result;
   } else {
@@ -147,7 +147,7 @@ export async function signInWithCalcSession(): Promise<User> {
     const result = await retryMsg(tabId, 5);
     if (!result) {
       await chrome.tabs.update(tabId, { url: `${CALC_ORIGIN}/login`, active: true });
-      throw new Error('Not logged in on Bhemu Calculator. Please log in there, then try again.');
+      throw new Error('Not logged in on bCampus. Please log in there, then try again.');
     }
     await chrome.tabs.remove(tabId);
     authStateJson = result;

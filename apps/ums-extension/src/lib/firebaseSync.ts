@@ -17,14 +17,14 @@ function toShared(data: SyncResult): UMSSyncResult {
 export async function syncGradesAndMarks(data: SyncResult, profileId: string): Promise<void> {
   const db = getFirebaseDb();
   const user = await getCurrentUser();
-  if (!user) throw new Error('Not signed in to Bhemu Calculator. Please open the app and sign in first.');
+  if (!user) throw new Error('Not signed in to bCampus. Please open the app and sign in first.');
   await syncGradesAndMarksShared(db, user.uid, toShared(data), profileId);
 }
 
 export async function syncAttendanceOnly(data: Pick<SyncResult, 'attendance'>, profileId: string): Promise<void> {
   const db = getFirebaseDb();
   const user = await getCurrentUser();
-  if (!user) throw new Error('Not signed in to Bhemu Calculator. Please open the app and sign in first.');
+  if (!user) throw new Error('Not signed in to bCampus. Please open the app and sign in first.');
   await syncAttendanceOnlyShared(db, user.uid, { attendance: data.attendance }, profileId);
 }
 

@@ -1,6 +1,6 @@
 # Monorepo Architecture — Professional Reference
 
-> Rules for keeping the Bhemu Calculator monorepo structured, consistent, and maintainable across web, extension, and mobile apps.
+> Rules for keeping the bCampus monorepo structured, consistent, and maintainable across web, extension, and mobile apps.
 
 ### Project context
 

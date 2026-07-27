@@ -114,7 +114,7 @@ export default function LeaderboardShareCard({ leaderboardData }: Props) {
 
 			{/* Footer */}
 			<View style={local.footer}>
-				<Text style={local.footerText}>calc.bhemu.in · Bhemu Calculator</Text>
+				<Text style={local.footerText}>campus.bhemu.in · bCampus</Text>
 			</View>
 		</View>
 	);

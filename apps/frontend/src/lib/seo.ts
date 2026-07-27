@@ -5,14 +5,14 @@ import type { Metadata } from "next";
 // ─── Site-wide constants ────────────────────────────────────────────────────
 
 export const SITE_CONFIG = {
-	name: "Bhemu Calculator",
-	fullName: "Bhemu Calculator - GPA Tracker, SGPA & CGPA Planning",
+	name: "bCampus",
+	fullName: "bCampus - GPA Tracker, SGPA & CGPA Planning",
 	description:
-		"Track your academic progress, calculate SGPA & CGPA, plan future GPA goals, and collaborate in real-time with Bhemu Calculator.",
-	url: "https://calc.bhemu.in", // canonical origin — no trailing slash
+		"Track your academic progress, calculate SGPA & CGPA, plan future GPA goals, and collaborate in real-time with bCampus.",
+	url: "https://campus.bhemu.in", // canonical origin — no trailing slash
 	creator: "Adarsh Suman",
 	keywords: [
-		"Bhemu Calculator",
+		"bCampus",
 		"GPA Calculator",
 		"SGPA Calculator",
 		"CGPA Calculator",
@@ -29,7 +29,7 @@ export const SITE_CONFIG = {
 	openGraph: {
 		type: "website",
 		locale: "en_US",
-		siteName: "Bhemu Calculator",
+		siteName: "bCampus",
 	},
 	twitter: {
 		card: "summary_large_image" as const,

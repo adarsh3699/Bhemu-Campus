@@ -5,7 +5,7 @@ import { generatePageMetadata } from "@/lib/seo";
 export const metadata = generatePageMetadata({
 	title: "Settings",
 	description:
-		"Manage your Bhemu Calculator account — update credentials, sync profile data, and configure workspace preferences.",
+		"Manage your bCampus account — update credentials, sync profile data, and configure workspace preferences.",
 	path: "/settings",
 	noIndex: true, // private user page — don't index
 });

@@ -489,7 +489,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	return <AuthContext.Provider value={value}>{loading ? <AppLoading /> : children}</AuthContext.Provider>;
 }
 
-// Brand-conforming Dark loading component matching Bhemu Calculator styles
+// Brand-conforming Dark loading component matching bCampus styles
 const AppLoading = () => (
 	<div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground relative overflow-hidden bg-grid-pattern bg-hero-glow">
 		<div className="relative z-10 text-center px-4">
@@ -498,7 +498,7 @@ const AppLoading = () => (
 				<div className="absolute inset-2 border-4 border-accent/20 border-b-accent rounded-full animate-spin [animation-direction:reverse]"></div>
 			</div>
 			<h2 className="text-2xl font-bold tracking-tight text-gradient-brand mb-2">
-				Bhemu Calculator
+				bCampus
 			</h2>
 			<p className="text-muted-foreground text-sm max-w-xs mx-auto">
 				Establishing secure session and synchronizing cloud workspace...

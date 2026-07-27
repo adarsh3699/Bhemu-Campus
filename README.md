@@ -1,17 +1,17 @@
-# 🎓 Bhemu Calculator
+# 🎓 bCampus
 
 > Complete academic companion for LPU students — GPA tracking, marks analysis, attendance monitoring, and smart planning tools.
 
-[![Live Demo](https://img.shields.io/badge/Live-calc.bhemu.in-blue)](https://calc.bhemu.in)
+[![Live Demo](https://img.shields.io/badge/Live-campus.bhemu.in-blue)](https://campus.bhemu.in)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)](https://www.typescriptlang.org/)
 [![License](https://img.shields.io/badge/License-Private-red)]()
 
 ## 📋 Overview
 
-Bhemu Calculator is an all-in-one academic toolkit designed specifically for LPU students. Track your GPA/CGPA, analyze marks breakdowns, monitor attendance, plan reappear strategies, and sync data directly from UMS — all in one place, cloud-synced and shareable.
+bCampus is an all-in-one academic toolkit designed specifically for LPU students. Track your GPA/CGPA, analyze marks breakdowns, monitor attendance, plan reappear strategies, and sync data directly from UMS — all in one place, cloud-synced and shareable.
 
-🔗 **Live:** [calc.bhemu.in](https://calc.bhemu.in)
+🔗 **Live:** [campus.bhemu.in](https://campus.bhemu.in)
 
 ---
 
@@ -50,7 +50,7 @@ Bhemu Calculator is an all-in-one academic toolkit designed specifically for LPU
 pnpm workspaces + Turborepo. All apps live under `apps/`, all shared packages under `packages/`.
 
 ```
-Bhemu-Calculator/
+Bhemu-Campus/
 ├── package.json           # Root workspace (turbo scripts, engines)
 ├── pnpm-workspace.yaml    # Workspace definitions
 ├── turbo.json             # Turborepo task pipeline
@@ -168,17 +168,17 @@ See [CLAUDE.md](./CLAUDE.md) for detailed architecture docs.
 
 ### Root (Turborepo — run from repo root)
 
-| Command              | Description                                      |
-| -------------------- | ------------------------------------------------ |
-| `pnpm dev:web`       | Start frontend dev server                        |
-| `pnpm dev:ext`       | Start extension dev server                       |
-| `pnpm build`         | Build all workspaces (correct order via turbo)   |
-| `pnpm build:shared`  | Build `@bhemu/shared` only                       |
-| `pnpm build:web`     | Build frontend (shared builds first)             |
-| `pnpm build:ext`     | Build extension (shared builds first)            |
-| `pnpm typecheck`     | Type-check all workspaces                        |
-| `pnpm lint`          | Lint all workspaces                              |
-| `pnpm test`          | Run `@bhemu/shared` unit tests                   |
+| Command             | Description                                    |
+| ------------------- | ---------------------------------------------- |
+| `pnpm dev:web`      | Start frontend dev server                      |
+| `pnpm dev:ext`      | Start extension dev server                     |
+| `pnpm build`        | Build all workspaces (correct order via turbo) |
+| `pnpm build:shared` | Build `@bhemu/shared` only                     |
+| `pnpm build:web`    | Build frontend (shared builds first)           |
+| `pnpm build:ext`    | Build extension (shared builds first)          |
+| `pnpm typecheck`    | Type-check all workspaces                      |
+| `pnpm lint`         | Lint all workspaces                            |
+| `pnpm test`         | Run `@bhemu/shared` unit tests                 |
 
 ### Frontend (`cd apps/frontend`)
 

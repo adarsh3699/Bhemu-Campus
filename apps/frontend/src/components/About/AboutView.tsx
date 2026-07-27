@@ -46,13 +46,13 @@ export default function AboutView() {
 			<PageHeader
 				icon={Info}
 				title="About"
-				description="Bhemu Calculator — your complete academic companion"
+				description="bCampus — your complete academic companion"
 			/>
 
 			{/* ═══════ About the App ═══════ */}
 			<section className="mb-12">
 				<div className="flex items-center gap-4 mb-6">
-					<h3 className="text-lg font-bold text-white whitespace-nowrap">Bhemu Calculator</h3>
+					<h3 className="text-lg font-bold text-white whitespace-nowrap">bCampus</h3>
 					<div className="h-px flex-1 bg-white/5" />
 				</div>
 
@@ -175,7 +175,7 @@ export default function AboutView() {
 					<div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-0">
 						{[
 							{ step: "1", text: "Install from Chrome Web Store" },
-							{ step: "2", text: "Sign in with your Bhemu account" },
+							{ step: "2", text: "Sign in with your bCampus account" },
 							{ step: "3", text: "Click 'Sync Everything' — done!" },
 						].map(({ step, text }, i) => (
 							<React.Fragment key={step}>
@@ -418,10 +418,10 @@ export default function AboutView() {
 
 			{/* Footer */}
 			<footer className="mt-16 pt-6 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center text-sm text-muted-foreground gap-3">
-				<p>© {new Date().getFullYear()} Bhemu Calculator. Designed with precision.</p>
+				<p>© {new Date().getFullYear()} bCampus. Designed with precision.</p>
 				<div className="flex gap-6">
 					<a
-						href="https://calc.bhemu.in/privacy-policy.html"
+						href="https://campus.bhemu.in/privacy-policy.html"
 						target="_blank"
 						rel="noreferrer"
 						className="hover:text-primary transition-colors"

@@ -35,7 +35,7 @@ export default function RankNotFound() {
 							alignItems: "center",
 						}}
 					>
-						Go to Bhemu Calculator
+						Go to bCampus
 					</Link>
 				</div>
 			</div>

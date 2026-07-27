@@ -17,15 +17,15 @@ function buildShareMessage(data: LeaderboardData): string {
 	const { userEntry, userRank, totalStudents } = data;
 	if (!userEntry || !userRank) return "";
 	const programLabel = formatProgramLabel(userEntry.programName, userEntry.branch, "my program");
-	const rankUrl = `https://calc.bhemu.in/rank/${userEntry.userId}_${userEntry.profileId}`;
-	return `I'm ranked #${userRank} among ${totalStudents} ${programLabel} students (Batch ${userEntry.batchYear}) with a CGPA of ${userEntry.cgpa.toFixed(2)}! 🏆\n\nTrack your CGPA, plan your goals, and see where you stand — sync your LPU UMS data with Bhemu Calculator.\n${rankUrl}`;
+	const rankUrl = `https://campus.bhemu.in/rank/${userEntry.userId}_${userEntry.profileId}`;
+	return `I'm ranked #${userRank} among ${totalStudents} ${programLabel} students (Batch ${userEntry.batchYear}) with a CGPA of ${userEntry.cgpa.toFixed(2)}! 🏆\n\nTrack your CGPA, plan your goals, and see where you stand — sync your LPU UMS data with bCampus.\n${rankUrl}`;
 }
 
 export default function ShareLeaderboardModal({ visible, onClose, leaderboardData }: Props) {
 	const [copied, setCopied] = useState(false);
 
 	const { userEntry } = leaderboardData;
-	const shareUrl = userEntry ? `https://calc.bhemu.in/rank/${userEntry.userId}_${userEntry.profileId}` : null;
+	const shareUrl = userEntry ? `https://campus.bhemu.in/rank/${userEntry.userId}_${userEntry.profileId}` : null;
 	const shareMessage = buildShareMessage(leaderboardData);
 
 	const handleNativeShare = useCallback(async () => {

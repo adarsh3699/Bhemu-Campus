@@ -23,8 +23,8 @@ export default function VerifyEmailPage() {
 				{/* Header */}
 				<header className="flex items-center justify-between px-6 py-8 md:px-20 max-w-7xl mx-auto w-full">
 					<div className="flex items-center gap-3">
-						<Image src="/myLogo.webp" alt="Bhemu Calculator Logo" width={32} height={32} className="rounded-lg object-cover" />
-						<h2 className="text-xl font-bold tracking-tight text-white">Bhemu Calculator</h2>
+						<Image src="/myLogo.webp" alt="bCampus Logo" width={32} height={32} className="rounded-lg object-cover" />
+						<h2 className="text-xl font-bold tracking-tight text-white">bCampus</h2>
 					</div>
 				</header>
 
@@ -111,7 +111,7 @@ export default function VerifyEmailPage() {
 							</Link>
 						</div>
 						<p className="text-muted-foreground text-sm">
-							© 2026 Bhemu Calculator. Empowering students with intelligence.
+							© 2026 bCampus. Empowering students with intelligence.
 						</p>
 					</div>
 				</footer>

@@ -267,7 +267,7 @@ export function drawLeaderboardCard(data: DrawCardData): HTMLCanvasElement {
 	ctx.textBaseline = "top";
 	ctx.font = "10px Arial";
 	ctx.fillStyle = "rgba(255,255,255,0.28)";
-	ctx.fillText("calc.bhemu.in  ·  Bhemu Calculator", W / 2, y);
+	ctx.fillText("campus.bhemu.in  ·  bCampus", W / 2, y);
 
 	return canvas;
 }
