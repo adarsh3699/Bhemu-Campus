@@ -123,7 +123,7 @@ const local = StyleSheet.create({
 		color: "rgba(255,255,255,0.75)",
 	},
 	cgpaTextTop3: {
-		color: "#FBBF24",
+		color: Colors.gold,
 	},
 	cgpaTextCurrent: {
 		color: Colors.primary,

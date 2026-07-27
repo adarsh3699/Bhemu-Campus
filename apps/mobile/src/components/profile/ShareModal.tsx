@@ -315,10 +315,10 @@ const local = StyleSheet.create({
 		color: Colors.textSubtle,
 	},
 	permTextActive: {
-		color: "#60A5FA",
+		color: Colors.blue,
 	},
 	permTextEdit: {
-		color: "#34D399",
+		color: Colors.emerald,
 	},
 	permHint: {
 		fontSize: FontSize.xs,
@@ -412,7 +412,7 @@ const local = StyleSheet.create({
 	shareBadgeReadText: {
 		fontSize: 9,
 		fontWeight: FontWeight.extrabold,
-		color: "#60A5FA",
+		color: Colors.blue,
 	},
 	shareBadgeEdit: {
 		paddingHorizontal: Spacing.sm,
@@ -425,7 +425,7 @@ const local = StyleSheet.create({
 	shareBadgeEditText: {
 		fontSize: 9,
 		fontWeight: FontWeight.extrabold,
-		color: "#34D399",
+		color: Colors.emerald,
 	},
 	shareActions: {
 		flexDirection: "row",
@@ -447,7 +447,7 @@ const local = StyleSheet.create({
 	shareActionText: {
 		fontSize: FontSize.xs,
 		fontWeight: FontWeight.medium,
-		color: "#818CF8",
+		color: Colors.indigo,
 	},
 	shareRemoveBtn: {
 		width: 32,

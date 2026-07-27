@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet } from "react-native";
 import { Trophy, Medal, Star } from "lucide-react-native";
 import { getPercentile, getAchievementLabel, getRankTier } from "@bhemu/shared";
-import { FontWeight } from "@/constants/Theme";
+import { Colors, FontWeight } from "@/constants/Theme";
 import type { LeaderboardData } from "@bhemu/shared";
 
 interface Props {
@@ -37,7 +37,7 @@ const tierColors = {
 		iconBorder: "rgba(249,115,22,0.4)",
 	},
 	default: {
-		stripe: "#0398AC",
+		stripe: Colors.primary,
 		rankColor: "#22D3EE",
 		badgeBg: "rgba(3,152,172,0.1)",
 		badgeBorder: "rgba(3,152,172,0.25)",
@@ -125,7 +125,7 @@ const local = StyleSheet.create({
 		width: 320,
 		borderRadius: 16,
 		overflow: "hidden",
-		backgroundColor: "#111827",
+		backgroundColor: Colors.shareCardBg,
 		borderWidth: 1,
 		borderColor: "rgba(255,255,255,0.08)",
 	},
@@ -161,7 +161,7 @@ const local = StyleSheet.create({
 	headerTitle: {
 		fontSize: 10,
 		fontWeight: FontWeight.bold,
-		color: "#FFFFFF",
+		color: Colors.textPrimary,
 		letterSpacing: 1.5,
 	},
 	headerProgram: {
@@ -227,7 +227,7 @@ const local = StyleSheet.create({
 	statValue: {
 		fontSize: 20,
 		fontWeight: FontWeight.extrabold,
-		color: "#FFFFFF",
+		color: Colors.textPrimary,
 	},
 	achievementBadge: {
 		flexDirection: "row",
@@ -248,7 +248,7 @@ const local = StyleSheet.create({
 		textAlign: "center",
 		fontSize: 15,
 		fontWeight: FontWeight.extrabold,
-		color: "#FFFFFF",
+		color: Colors.textPrimary,
 	},
 	footer: {
 		paddingVertical: 8,

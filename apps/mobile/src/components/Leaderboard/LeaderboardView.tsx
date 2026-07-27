@@ -113,9 +113,9 @@ export default function LeaderboardView() {
 								<Text style={local.rankBadgeLabel}>Your Rank</Text>
 								<Text style={local.rankBadgeValue}>#{userRank}</Text>
 							</View>
-							{rankPercentile !== null && rankPercentile > 0 && (
+							{rankPercentile !== null && rankPercentile > 0 && rankPercentile < 100 && (
 								<View style={local.percentBadge}>
-									<TrendingUp size={12} color="#34D399" />
+									<TrendingUp size={12} color={Colors.successLight} />
 									<Text style={local.percentText}>Top {100 - rankPercentile}%</Text>
 								</View>
 							)}
@@ -126,7 +126,7 @@ export default function LeaderboardView() {
 				{/* Table */}
 				<LeaderboardTable
 					data={leaderboardData}
-					currentUserId={entryUserId ?? currentUser!.uid}
+					currentUserId={entryUserId ?? currentUser?.uid ?? ""}
 					currentProfileId={userEntry?.profileId ?? ""}
 				/>
 			</ScrollView>
@@ -262,7 +262,7 @@ const local = StyleSheet.create({
 	percentText: {
 		fontSize: FontSize.xs,
 		fontWeight: FontWeight.medium,
-		color: "#34D399",
+		color: Colors.successLight,
 	},
 
 	// Opted out

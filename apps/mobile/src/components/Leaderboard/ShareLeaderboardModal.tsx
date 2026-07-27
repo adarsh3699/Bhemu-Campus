@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Share, Clipboard, Modal } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Share, Modal } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import { MessageCircle, Link2, Check, X } from "lucide-react-native";
 import { Colors, Spacing, Radius, FontSize, FontWeight } from "@/constants/Theme";
 import { formatProgramLabel } from "@bhemu/shared";
@@ -35,9 +36,9 @@ export default function ShareLeaderboardModal({ visible, onClose, leaderboardDat
 		}
 	}, [shareMessage, shareUrl]);
 
-	const handleCopyLink = useCallback(() => {
+	const handleCopyLink = useCallback(async () => {
 		if (!shareUrl) return;
-		Clipboard.setString(shareUrl);
+		await Clipboard.setStringAsync(shareUrl);
 		setCopied(true);
 		setTimeout(() => setCopied(false), 2000);
 	}, [shareUrl]);

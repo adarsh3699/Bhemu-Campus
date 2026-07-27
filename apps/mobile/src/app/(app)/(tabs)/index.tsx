@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Trophy, TrendingUp, RotateCcw, ChevronDown, Share2 } from "lucide-react-native";
+import { Trophy, TrendingUp, RotateCcw, ChevronDown } from "lucide-react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGpaData } from "@/contexts/GpaDataContext";
 import { Colors, Spacing, Radius, FontSize, FontWeight } from "@/constants/Theme";

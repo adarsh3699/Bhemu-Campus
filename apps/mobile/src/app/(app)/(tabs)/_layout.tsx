@@ -15,7 +15,15 @@ const LAST_SYNC_KEY = "ums_last_sync";
 
 type SyncState = "idle" | "syncing" | "login_needed" | "success" | "error";
 
-function SyncButton({ onPress, syncState }: { onPress: () => void; syncState: SyncState }) {
+function SyncButton({
+	onPress,
+	syncState,
+	disabled,
+}: {
+	onPress: () => void;
+	syncState: SyncState;
+	disabled?: boolean;
+}) {
 	const spinAnim = useRef(new Animated.Value(0)).current;
 	const loopRef = useRef<Animated.CompositeAnimation | null>(null);
 	const prevState = useRef<SyncState>("idle");
@@ -34,12 +42,18 @@ function SyncButton({ onPress, syncState }: { onPress: () => void; syncState: Sy
 	}
 
 	const rotate = spinAnim.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
-	const btnColor = syncState === "success" ? Colors.success : syncState === "error" ? Colors.destructive : Colors.primary;
+	const btnColor = disabled
+		? Colors.textSubtle
+		: syncState === "success"
+			? Colors.success
+			: syncState === "error"
+				? Colors.destructive
+				: Colors.primary;
 
 	return (
 		<TouchableOpacity
-			onPress={syncState === "syncing" ? undefined : onPress}
-			activeOpacity={syncState === "syncing" ? 1 : 0.7}
+			onPress={disabled || syncState === "syncing" ? undefined : onPress}
+			activeOpacity={disabled || syncState === "syncing" ? 1 : 0.7}
 			style={local.syncBtnOuter}
 		>
 			<View style={[local.syncBtn, { backgroundColor: btnColor }]}>
@@ -53,7 +67,8 @@ function SyncButton({ onPress, syncState }: { onPress: () => void; syncState: Sy
 
 export default function TabsLayout() {
 	const { currentUser } = useAuth();
-	const { activeProfile } = useGpaData();
+	const { activeProfile, currentProfile } = useGpaData();
+	const isSharedProfile = !!currentProfile?.isShared;
 	const webViewRef = useRef<UMSWebViewHandle>(null);
 
 	const [syncState, setSyncState] = useState<SyncState>("idle");
@@ -66,23 +81,29 @@ export default function TabsLayout() {
 		setEngineActive(true);
 	}, []);
 
-	const handleSyncData = useCallback(async (data: UMSSyncResult) => {
-		setEngineActive(false);
-		if (!currentUser || !activeProfile) {
-			setSyncState("error");
-			setTimeout(() => setSyncState("idle"), 3000);
-			return;
-		}
-		try {
-			await writeToFirestore(data, activeProfile, db, currentUser.uid);
-			await AsyncStorage.setItem(LAST_SYNC_KEY, new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
-			setSyncState("success");
-			setTimeout(() => setSyncState("idle"), 2500);
-		} catch {
-			setSyncState("error");
-			setTimeout(() => setSyncState("idle"), 3000);
-		}
-	}, [currentUser, activeProfile]);
+	const handleSyncData = useCallback(
+		async (data: UMSSyncResult) => {
+			setEngineActive(false);
+			if (!currentUser || !activeProfile) {
+				setSyncState("error");
+				setTimeout(() => setSyncState("idle"), 3000);
+				return;
+			}
+			try {
+				await writeToFirestore(data, activeProfile, db, currentUser.uid);
+				await AsyncStorage.setItem(
+					LAST_SYNC_KEY,
+					new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+				);
+				setSyncState("success");
+				setTimeout(() => setSyncState("idle"), 2500);
+			} catch {
+				setSyncState("error");
+				setTimeout(() => setSyncState("idle"), 3000);
+			}
+		},
+		[currentUser, activeProfile]
+	);
 
 	const handleNeedsLogin = useCallback(() => {
 		setSyncState("login_needed");
@@ -107,8 +128,7 @@ export default function TabsLayout() {
 	}, []);
 
 	return (
-		<>
-			<View style={local.container}>
+		<View style={local.container}>
 				{engineActive && (
 					<View style={loginVisible ? local.browserFull : local.browserHidden}>
 						<UMSWebView
@@ -141,28 +161,43 @@ export default function TabsLayout() {
 					>
 						<Tabs.Screen
 							name="index"
-							options={{ title: "Home", tabBarIcon: ({ color, size }) => <Home size={size} color={color} /> }}
+							options={{
+								title: "Home",
+								tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
+							}}
 						/>
 						<Tabs.Screen
 							name="gpa"
-							options={{ title: "GPA", tabBarIcon: ({ color, size }) => <Calculator size={size} color={color} /> }}
+							options={{
+								title: "GPA",
+								tabBarIcon: ({ color, size }) => <Calculator size={size} color={color} />,
+							}}
 						/>
 						<Tabs.Screen
 							name="sync"
-							options={{ tabBarButton: () => <SyncButton onPress={startSync} syncState={syncState} /> }}
+							options={{
+								tabBarButton: () => (
+									<SyncButton onPress={startSync} syncState={syncState} disabled={isSharedProfile} />
+								),
+							}}
 						/>
 						<Tabs.Screen
 							name="attendance"
-							options={{ title: "Attendance", tabBarIcon: ({ color, size }) => <CalendarCheck size={size} color={color} /> }}
+							options={{
+								title: "Attendance",
+								tabBarIcon: ({ color, size }) => <CalendarCheck size={size} color={color} />,
+							}}
 						/>
 						<Tabs.Screen
 							name="settings"
-							options={{ title: "Settings", tabBarIcon: ({ color, size }) => <Settings size={size} color={color} /> }}
+							options={{
+								title: "Settings",
+								tabBarIcon: ({ color, size }) => <Settings size={size} color={color} />,
+							}}
 						/>
-						</Tabs>
+					</Tabs>
 				</View>
-			</View>
-		</>
+		</View>
 	);
 }
 
@@ -171,33 +206,36 @@ const local = StyleSheet.create({
 	tabsContainer: { flex: 1 },
 	browserFull: {
 		position: "absolute",
-		top: 0, left: 0, right: 0, bottom: 0,
+		top: 0,
+		left: 0,
+		right: 0,
+		bottom: 0,
 		zIndex: 100,
 		backgroundColor: Colors.background,
 	},
 	browserHidden: {
 		position: "absolute",
-		width: 0, height: 0,
+		width: 0,
+		height: 0,
 		overflow: "hidden",
 		opacity: 0,
 	},
 	syncBtnOuter: {
-		position: "relative",
-		top: -12,
+		top: -18,
 		alignItems: "center",
 		justifyContent: "center",
-		width: 60,
+		width: 64,
 	},
 	syncBtn: {
-		width: 50,
-		height: 50,
-		borderRadius: 25,
+		width: 58,
+		height: 58,
+		borderRadius: 29,
 		alignItems: "center",
 		justifyContent: "center",
 		shadowColor: Colors.primary,
-		shadowOffset: { width: 0, height: 4 },
+		shadowOffset: { width: 0, height: 6 },
 		shadowOpacity: 0.5,
-		shadowRadius: 10,
-		elevation: 8,
+		shadowRadius: 14,
+		elevation: 10,
 	},
 });

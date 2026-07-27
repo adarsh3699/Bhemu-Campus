@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { gpaService as createGPAService, LeaderboardService } from "@/firebase/services";
 import { STORAGE_KEYS, sortSemesters } from "@bhemu/shared";
@@ -19,6 +20,8 @@ interface GpaDataContextValue {
 	currentProfile: GPAProfile | undefined;
 	semesters: GPASemester[];
 	isReadOnlyProfile: boolean;
+	/** profileId (string) → incoming shareId — use this to copy a shared profile */
+	sharedWithMeShareIds: Record<string, string>;
 
 	updateActiveProfile: (profileId: string | number) => void;
 	createProfile: (name: string) => Promise<void>;
@@ -52,6 +55,7 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 	const [saving, setSaving] = useState(false);
 	const [sharedWithMeProfiles, setSharedWithMeProfiles] = useState<GPAProfile[]>([]);
 	const [mySharedProfiles, setMySharedProfiles] = useState<ShareData[]>([]);
+	const [sharedWithMeShareIds, setSharedWithMeShareIds] = useState<Record<string, string>>({});
 
 	const activeListeners = useRef<Record<string, () => void>>({});
 	const isInitializingRef = useRef(false);
@@ -150,7 +154,7 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 				await gpaService.deleteProfile(profileId);
 				if (activeProfile === profileId) {
 					const remaining = sortedProfiles.filter((p) => p.id !== profileId);
-					updateActiveProfile(remaining[0].id);
+					if (remaining.length > 0) updateActiveProfile(remaining[0].id);
 				}
 				showMessage("Profile deleted successfully", "success");
 			}
@@ -183,7 +187,7 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 						if (mySharedResult.success) setMySharedProfiles(mySharedResult.sharedProfiles);
 					} else {
 						showMessage(result.error || "Error updating permission", "error");
-						throw new Error(result.error);
+						throw Object.assign(new Error(result.error), { handled: true });
 					}
 					return;
 				}
@@ -194,9 +198,10 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 					if (mySharedResult.success) setMySharedProfiles(mySharedResult.sharedProfiles);
 				} else {
 					showMessage(result.error || "Error sharing profile", "error");
-					throw new Error(result.error);
+					throw Object.assign(new Error(result.error), { handled: true });
 				}
 			} catch (error) {
+				if (error && typeof error === "object" && "handled" in error) throw error;
 				console.error("Error in share operation:", error);
 				showMessage("Error sharing profile. Please try again.", "error");
 				throw error;
@@ -281,6 +286,25 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 				]);
 				if (sharedWithMeResult.success) setSharedWithMeProfiles(sharedWithMeResult.sharedProfiles);
 				if (mySharedResult.success) setMySharedProfiles(mySharedResult.sharedProfiles);
+
+				// Build profileId → shareId map from incoming share docs
+				// _buildSharedProfile doesn't expose shareId on the profile, so we read it here
+				if (currentUser) {
+					try {
+						const incomingRef = collection(db, "userShares", currentUser.uid, "incoming");
+						const snap = await getDocs(query(incomingRef, where("isActive", "==", true)));
+						const map: Record<string, string> = {};
+						snap.docs.forEach((d) => {
+							const data = d.data() as { profileId?: string | number; shareId?: string };
+							if (data.profileId != null && data.shareId) {
+								map[String(data.profileId)] = data.shareId;
+							}
+						});
+						setSharedWithMeShareIds(map);
+					} catch (e) {
+						console.error("Error loading share IDs:", e);
+					}
+				}
 			} catch (error) {
 				console.error("Error loading shared profiles:", error);
 			}
@@ -338,6 +362,17 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 					gpaService.getSharedWithMeProfiles().then((res) => {
 						if (res.success) setSharedWithMeProfiles(res.sharedProfiles);
 					});
+					if (currentUser) {
+						const incomingRef = collection(db, "userShares", currentUser.uid, "incoming");
+						getDocs(query(incomingRef, where("isActive", "==", true))).then((snap) => {
+							const map: Record<string, string> = {};
+							snap.docs.forEach((d) => {
+								const data = d.data() as { profileId?: string | number; shareId?: string };
+								if (data.profileId != null && data.shareId) map[String(data.profileId)] = data.shareId;
+							});
+							setSharedWithMeShareIds(map);
+						}).catch(() => {});
+					}
 				}
 			});
 			return () => { incomingSharesUnsubscribe?.(); };
@@ -385,6 +420,7 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 			setSaving(false);
 			setSharedWithMeProfiles([]);
 			setMySharedProfiles([]);
+			setSharedWithMeShareIds({});
 			hasInitializedRef.current = false;
 			isInitializingRef.current = false;
 			initializedUserIdRef.current = null;
@@ -447,6 +483,7 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 			profiles, activeProfile, loading, saving,
 			sharedWithMeProfiles, mySharedProfiles, allProfiles,
 			currentProfile, semesters, isReadOnlyProfile,
+			sharedWithMeShareIds,
 			updateActiveProfile, createProfile, deleteProfile, updateSemesters,
 			shareProfileWithUser, copySharedProfile, renameProfile,
 		}),
@@ -454,6 +491,7 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 			profiles, activeProfile, loading, saving,
 			sharedWithMeProfiles, mySharedProfiles, allProfiles,
 			currentProfile, semesters, isReadOnlyProfile,
+			sharedWithMeShareIds,
 			updateActiveProfile, createProfile, deleteProfile, updateSemesters,
 			shareProfileWithUser, copySharedProfile, renameProfile,
 		]

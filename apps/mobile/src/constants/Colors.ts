@@ -28,8 +28,16 @@ export const Colors = {
 
 	// ── Semantic ───────────────────────────────────────────────────────────
 	success:         "#10B981",   // Success states, confirmations
+	successLight:    "#34D399",   // Success emphasis, percentile badges
 	warning:         "#F59E0B",   // Warning states
+	gold:            "#FBBF24",   // Top-3 rank badges, gold highlights
 	destructive:     "#EF4444",   // Errors, delete actions
+
+	// ── UI specific ────────────────────────────────────────────────────────
+	indigo:          "#818CF8",   // Shared/profile badge accents
+	emerald:         "#34D399",   // Edit access badges (same as successLight)
+	blue:            "#60A5FA",   // Read-only badges, info accents
+	shareCardBg:     "#111827",   // Leaderboard share card background
 } as const;
 
 // Useful for exhaustive checks or mapping over all tokens
