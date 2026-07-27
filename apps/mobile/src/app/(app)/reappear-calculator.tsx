@@ -1,7 +1,13 @@
-import { RotateCcw } from "lucide-react-native";
-import { Colors } from "@/constants/Theme";
-import PlaceholderScreen from "@/components/ui/PlaceholderScreen";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Layout } from "@/styles";
+import ScreenHeader from "@/components/ui/ScreenHeader";
+import ReappearCalculatorView from "@/components/ReappearCalculator/ReappearCalculatorView";
 
 export default function ReappearCalculatorScreen() {
-	return <PlaceholderScreen title="Reappear Calculator" icon={<RotateCcw size={32} color={Colors.destructive} />} />;
+	return (
+		<SafeAreaView style={Layout.flex} edges={["top"]}>
+			<ScreenHeader title="Reappear Calculator" />
+			<ReappearCalculatorView />
+		</SafeAreaView>
+	);
 }

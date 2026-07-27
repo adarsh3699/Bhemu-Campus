@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-nati
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
-	Calculator, CalendarCheck, Trophy, TrendingUp, RotateCcw,
+	Trophy, TrendingUp, RotateCcw,
 } from "lucide-react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGpaData } from "@/contexts/GpaDataContext";
@@ -29,20 +29,6 @@ export default function HomeTab() {
 
 	const quickActions = useMemo<QuickAction[]>(() => [
 		{
-			title: "GPA Calculator",
-			subtitle: `${semesters.length} semesters · ${totalSubjects} subjects`,
-			icon: <Calculator size={22} color={Colors.primary} />,
-			tab: "/gpa",
-			color: Colors.primary,
-		},
-		{
-			title: "Attendance",
-			subtitle: "Track your attendance",
-			icon: <CalendarCheck size={22} color={Colors.success} />,
-			tab: "/attendance",
-			color: Colors.success,
-		},
-		{
 			title: "Leaderboard",
 			subtitle: "Compare with peers",
 			icon: <Trophy size={22} color={Colors.warning} />,
@@ -63,7 +49,7 @@ export default function HomeTab() {
 			route: "/reappear-calculator",
 			color: Colors.destructive,
 		},
-	], [semesters.length, totalSubjects]);
+	], []);
 
 	const handlePress = (action: QuickAction) => {
 		if (action.tab) {

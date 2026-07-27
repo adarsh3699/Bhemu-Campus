@@ -15,7 +15,11 @@ export default function MarkInput({ label, value, onChange, fullWidth }: MarkInp
 				<input
 					type="number"
 					value={value.obt}
-					onChange={(e) => onChange({ ...value, obt: e.target.value })}
+					onChange={(e) => {
+						const num = parseFloat(e.target.value);
+						const clamped = !isNaN(num) && num > value.max ? String(value.max) : e.target.value;
+						onChange({ ...value, obt: clamped });
+					}}
 					placeholder="Obtained"
 					min="0"
 					max={value.max}

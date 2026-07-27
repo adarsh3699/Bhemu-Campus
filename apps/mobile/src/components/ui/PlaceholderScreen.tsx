@@ -1,9 +1,8 @@
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { useRouter } from "expo-router";
+import { View, Text, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ArrowLeft } from "lucide-react-native";
 import { Colors, Spacing, FontSize, FontWeight, Radius } from "@/constants/Theme";
 import { Layout } from "@/styles";
+import ScreenHeader from "./ScreenHeader";
 
 interface Props {
 	title: string;
@@ -11,18 +10,9 @@ interface Props {
 }
 
 export default function PlaceholderScreen({ title, icon }: Props) {
-	const router = useRouter();
-
 	return (
 		<SafeAreaView style={Layout.flex} edges={["top"]}>
-			<View style={local.header}>
-				<TouchableOpacity onPress={() => router.back()} hitSlop={8}>
-					<ArrowLeft size={22} color={Colors.textPrimary} />
-				</TouchableOpacity>
-				<Text style={local.headerTitle}>{title}</Text>
-				<View style={{ width: 22 }} />
-			</View>
-
+			<ScreenHeader title={title} />
 			<View style={[Layout.flex, local.center]}>
 				<View style={local.iconBox}>{icon}</View>
 				<Text style={local.title}>{title}</Text>
@@ -33,16 +23,6 @@ export default function PlaceholderScreen({ title, icon }: Props) {
 }
 
 const local = StyleSheet.create({
-	header: {
-		flexDirection: "row",
-		alignItems: "center",
-		justifyContent: "space-between",
-		paddingHorizontal: Spacing.lg,
-		paddingVertical: Spacing.md,
-		borderBottomWidth: 1,
-		borderBottomColor: Colors.border,
-	},
-	headerTitle: { fontSize: FontSize.lg, fontWeight: FontWeight.semibold, color: Colors.textPrimary },
 	center: { alignItems: "center", justifyContent: "center", gap: Spacing.md },
 	iconBox: {
 		width: 64,

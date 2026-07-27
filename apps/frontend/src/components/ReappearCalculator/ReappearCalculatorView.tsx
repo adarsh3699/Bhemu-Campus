@@ -20,12 +20,17 @@ const TheorySection = ({
 	setResult: React.Dispatch<React.SetStateAction<ResultType | null>>;
 	onReset: () => void;
 }) => {
+	const totalMaxWeight = marks.att.max + marks.ca.max + marks.mte.max + marks.ete.max;
+	const maxExceeded = totalMaxWeight !== 100;
+
 	const calculate = () => {
+		if (maxExceeded) return;
+		const attObt = parseFloat(marks.att.obt) || 0;
 		const caObt = parseFloat(marks.ca.obt) || 0;
 		const mteObt = parseFloat(marks.mte.obt) || 0;
 		const eteObt = parseFloat(marks.ete.obt) || 0;
-		const totalObt = caObt + mteObt + eteObt;
-		const totalMax = marks.ca.max + marks.mte.max + marks.ete.max;
+		const totalObt = attObt + caObt + mteObt + eteObt;
+		const totalMax = marks.att.max + marks.ca.max + marks.mte.max + marks.ete.max;
 		const eteP = (eteObt / marks.ete.max) * 100;
 		const combinedP = ((mteObt + eteObt) / (marks.mte.max + marks.ete.max)) * 100;
 		const overallP = (totalObt / totalMax) * 100;
@@ -43,12 +48,11 @@ const TheorySection = ({
 			if (!cond1) msgs.push("Minimum 30% in ETE or combined (MTE + ETE) required");
 			if (!cond2) msgs.push(`Overall ${overallP.toFixed(1)}% is below the 40% passing threshold`);
 
-			// Calculate minimum ETE needed to pass all conditions
 			const eteForCond1 = Math.min(
 				Math.ceil(marks.ete.max * 0.3),
 				Math.ceil((marks.mte.max + marks.ete.max) * 0.3 - mteObt)
 			);
-			const eteForCond2 = Math.ceil(totalMax * 0.4 - caObt - mteObt);
+			const eteForCond2 = Math.ceil(totalMax * 0.4 - attObt - caObt - mteObt);
 			const eteNeeded = Math.max(eteForCond1, eteForCond2);
 			const moreNeeded = Math.max(0, eteNeeded - eteObt);
 
@@ -63,6 +67,12 @@ const TheorySection = ({
 	return (
 		<div className="space-y-5">
 			<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+				<MarkInput
+					label="Attendance"
+					value={marks.att}
+					onChange={(v) => setMarks({ ...marks, att: v })}
+					fullWidth
+				/>
 				<MarkInput
 					label="Continuous Assessment (CA)"
 					value={marks.ca}
@@ -80,10 +90,16 @@ const TheorySection = ({
 					fullWidth
 				/>
 			</div>
+			{maxExceeded && (
+				<p className="text-xs text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded-lg px-3 py-2">
+					Total max marks must equal 100 (currently {totalMaxWeight}) — adjust the max values above
+				</p>
+			)}
 			<div className="flex gap-3">
 				<button
 					onClick={calculate}
-					className="flex-1 py-3.5 bg-gradient-to-r from-primary-dark to-primary text-white font-bold rounded-xl transition-all hover:-translate-y-0.5 active:translate-y-0 hover:shadow-glow text-sm"
+					disabled={maxExceeded}
+					className="flex-1 py-3.5 bg-gradient-to-r from-primary-dark to-primary text-white font-bold rounded-xl transition-all hover:-translate-y-0.5 active:translate-y-0 hover:shadow-glow text-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none"
 				>
 					Calculate Result
 				</button>
@@ -111,7 +127,12 @@ const HybridSection = ({
 	setResult: React.Dispatch<React.SetStateAction<ResultType | null>>;
 	onReset: () => void;
 }) => {
+	const totalMaxWeight = marks.att.max + marks.ca.max + marks.theoryMte.max + marks.theoryEte.max + marks.practicalEte.max;
+	const maxExceeded = totalMaxWeight !== 100;
+
 	const calculate = () => {
+		if (maxExceeded) return;
+		const attObt = parseFloat(marks.att.obt) || 0;
 		const caObt = parseFloat(marks.ca.obt) || 0;
 		const tMteObt = parseFloat(marks.theoryMte.obt) || 0;
 		const tEteObt = parseFloat(marks.theoryEte.obt) || 0;
@@ -119,8 +140,8 @@ const HybridSection = ({
 		const tEteP = (tEteObt / marks.theoryEte.max) * 100;
 		const tCombP = ((tMteObt + tEteObt) / (marks.theoryMte.max + marks.theoryEte.max)) * 100;
 		const pEteP = (pEteObt / marks.practicalEte.max) * 100;
-		const totalObt = caObt + tMteObt + tEteObt + pEteObt;
-		const totalMax = marks.ca.max + marks.theoryMte.max + marks.theoryEte.max + marks.practicalEte.max;
+		const totalObt = attObt + caObt + tMteObt + tEteObt + pEteObt;
+		const totalMax = marks.att.max + marks.ca.max + marks.theoryMte.max + marks.theoryEte.max + marks.practicalEte.max;
 		const overallP = (totalObt / totalMax) * 100;
 		const cond1 = tEteP >= 30 || tCombP >= 30;
 		const cond2 = pEteP >= 30;
@@ -144,6 +165,12 @@ const HybridSection = ({
 		<div className="space-y-5">
 			<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 				<MarkInput
+					label="Attendance"
+					value={marks.att}
+					onChange={(v) => setMarks({ ...marks, att: v })}
+					fullWidth
+				/>
+				<MarkInput
 					label="Continuous Assessment (CA)"
 					value={marks.ca}
 					onChange={(v) => setMarks({ ...marks, ca: v })}
@@ -164,10 +191,16 @@ const HybridSection = ({
 					onChange={(v) => setMarks({ ...marks, practicalEte: v })}
 				/>
 			</div>
+			{maxExceeded && (
+				<p className="text-xs text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded-lg px-3 py-2">
+					Total max marks must equal 100 (currently {totalMaxWeight}) — adjust the max values above
+				</p>
+			)}
 			<div className="flex gap-3">
 				<button
 					onClick={calculate}
-					className="flex-1 py-3.5 bg-gradient-to-r from-primary-dark to-primary text-white font-bold rounded-xl transition-all hover:-translate-y-0.5 active:translate-y-0 hover:shadow-glow text-sm"
+					disabled={maxExceeded}
+					className="flex-1 py-3.5 bg-gradient-to-r from-primary-dark to-primary text-white font-bold rounded-xl transition-all hover:-translate-y-0.5 active:translate-y-0 hover:shadow-glow text-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none"
 				>
 					Calculate Result
 				</button>
@@ -195,12 +228,17 @@ const PracticalSection = ({
 	setResult: React.Dispatch<React.SetStateAction<ResultType | null>>;
 	onReset: () => void;
 }) => {
+	const totalMaxWeight = marks.att.max + marks.ca.max + marks.ete.max;
+	const maxExceeded = totalMaxWeight !== 100;
+
 	const calculate = () => {
+		if (maxExceeded) return;
+		const attObt = parseFloat(marks.att.obt) || 0;
 		const caObt = parseFloat(marks.ca.obt) || 0;
 		const eteObt = parseFloat(marks.ete.obt) || 0;
 		const eteP = (eteObt / marks.ete.max) * 100;
-		const totalObt = caObt + eteObt;
-		const totalMax = marks.ca.max + marks.ete.max;
+		const totalObt = attObt + caObt + eteObt;
+		const totalMax = marks.att.max + marks.ca.max + marks.ete.max;
 		const overallP = (totalObt / totalMax) * 100;
 		const cond1 = eteP >= 30;
 		const cond2 = overallP >= 40;
@@ -221,6 +259,12 @@ const PracticalSection = ({
 	return (
 		<div className="space-y-5">
 			<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+				<MarkInput
+					label="Attendance"
+					value={marks.att}
+					onChange={(v) => setMarks({ ...marks, att: v })}
+					fullWidth
+				/>
 				<MarkInput label="Practical CA" value={marks.ca} onChange={(v) => setMarks({ ...marks, ca: v })} />
 				<MarkInput
 					label="End Term Practical Exam"
@@ -228,10 +272,16 @@ const PracticalSection = ({
 					onChange={(v) => setMarks({ ...marks, ete: v })}
 				/>
 			</div>
+			{maxExceeded && (
+				<p className="text-xs text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded-lg px-3 py-2">
+					Total max marks must equal 100 (currently {totalMaxWeight}) — adjust the max values above
+				</p>
+			)}
 			<div className="flex gap-3">
 				<button
 					onClick={calculate}
-					className="flex-1 py-3.5 bg-gradient-to-r from-primary-dark to-primary text-white font-bold rounded-xl transition-all hover:-translate-y-0.5 active:translate-y-0 hover:shadow-glow text-sm"
+					disabled={maxExceeded}
+					className="flex-1 py-3.5 bg-gradient-to-r from-primary-dark to-primary text-white font-bold rounded-xl transition-all hover:-translate-y-0.5 active:translate-y-0 hover:shadow-glow text-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none"
 				>
 					Calculate Result
 				</button>
@@ -251,38 +301,42 @@ export default function ReappearCalculatorView() {
 	const [activeTab, setActiveTab] = useState<"theory" | "hybrid" | "practical">("theory");
 
 	const [theoryMarks, setTheoryMarks] = useState<TheoryMarks>({
+		att: { obt: "", max: 5 },
 		ca: { obt: "", max: 25 },
 		mte: { obt: "", max: 20 },
 		ete: { obt: "", max: 50 },
 	});
 	const [theoryResult, setTheoryResult] = useState<ResultType | null>(null);
 	const [hybridMarks, setHybridMarks] = useState<HybridMarks>({
-		ca: { obt: "", max: 30 },
+		att: { obt: "", max: 5 },
+		ca: { obt: "", max: 25 },
 		theoryMte: { obt: "", max: 20 },
-		theoryEte: { obt: "", max: 30 },
-		practicalEte: { obt: "", max: 20 },
+		theoryEte: { obt: "", max: 25 },
+		practicalEte: { obt: "", max: 25 },
 	});
 	const [hybridResult, setHybridResult] = useState<ResultType | null>(null);
 	const [practicalMarks, setPracticalMarks] = useState<PracticalMarks>({
+		att: { obt: "", max: 5 },
 		ca: { obt: "", max: 50 },
-		ete: { obt: "", max: 50 },
+		ete: { obt: "", max: 45 },
 	});
 	const [practicalResult, setPracticalResult] = useState<ResultType | null>(null);
 
 	const reset = () => {
 		if (activeTab === "theory") {
-			setTheoryMarks({ ca: { obt: "", max: 25 }, mte: { obt: "", max: 20 }, ete: { obt: "", max: 50 } });
+			setTheoryMarks({ att: { obt: "", max: 5 }, ca: { obt: "", max: 25 }, mte: { obt: "", max: 20 }, ete: { obt: "", max: 50 } });
 			setTheoryResult(null);
 		} else if (activeTab === "hybrid") {
 			setHybridMarks({
-				ca: { obt: "", max: 30 },
+				att: { obt: "", max: 5 },
+				ca: { obt: "", max: 25 },
 				theoryMte: { obt: "", max: 20 },
-				theoryEte: { obt: "", max: 30 },
-				practicalEte: { obt: "", max: 20 },
+				theoryEte: { obt: "", max: 25 },
+				practicalEte: { obt: "", max: 25 },
 			});
 			setHybridResult(null);
 		} else {
-			setPracticalMarks({ ca: { obt: "", max: 50 }, ete: { obt: "", max: 50 } });
+			setPracticalMarks({ att: { obt: "", max: 5 }, ca: { obt: "", max: 50 }, ete: { obt: "", max: 45 } });
 			setPracticalResult(null);
 		}
 	};
@@ -292,8 +346,8 @@ export default function ReappearCalculatorView() {
 
 	const TABS = [
 		{ id: "theory" as const, label: "Theory Only", icon: BookOpen },
-		{ id: "hybrid" as const, label: "Theory + Practical", icon: GraduationCap },
 		{ id: "practical" as const, label: "Practical Only", icon: Beaker },
+		{ id: "hybrid" as const, label: "Theory + Practical", icon: GraduationCap },
 	];
 
 	return (

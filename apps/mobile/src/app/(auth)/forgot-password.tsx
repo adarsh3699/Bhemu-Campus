@@ -2,7 +2,6 @@ import { useState } from "react";
 import {
 	View,
 	Text,
-	TextInput,
 	TouchableOpacity,
 	StyleSheet,
 	KeyboardAvoidingView,
@@ -15,8 +14,9 @@ import { Link } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMessage } from "@/contexts/MessageContext";
 import { Colors, Radius, FontSize, Spacing } from "@/constants/Theme";
-import { Layout, Inputs, Buttons } from "@/styles";
+import { Layout, Buttons } from "@/styles";
 import { AuthStyles } from "@/styles/auth.styles";
+import AppInput from "@/components/ui/AppInput";
 
 export default function ForgotPassword() {
 	const { resetPassword } = useAuth();
@@ -67,19 +67,15 @@ export default function ForgotPassword() {
 
 				{!sent ? (
 					<View style={AuthStyles.form}>
-						<View style={AuthStyles.field}>
-							<Text style={AuthStyles.label}>Email address</Text>
-							<TextInput
-								style={Inputs.field}
-								value={email}
-								onChangeText={setEmail}
-								placeholder="name@gmail.in"
-								placeholderTextColor={Colors.textSubtle}
-								keyboardType="email-address"
-								autoCapitalize="none"
-								autoComplete="email"
-							/>
-						</View>
+						<AppInput
+							label="Email address"
+							value={email}
+							onChangeText={setEmail}
+							placeholder="name@gmail.in"
+							keyboardType="email-address"
+							autoCapitalize="none"
+							autoComplete="email"
+						/>
 
 						<TouchableOpacity
 							style={[Buttons.primary, loading && Buttons.disabled]}

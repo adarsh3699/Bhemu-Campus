@@ -25,7 +25,7 @@ export interface PracticalMarks {
 }
 
 export interface ResultType {
-	status: "PASS" | "FAIL" | "ATTENTION";
+	status: "PASS" | "FAIL";
 	message: string;
 	score?: string;
 	required?: string;

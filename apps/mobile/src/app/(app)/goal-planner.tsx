@@ -1,7 +1,13 @@
-import { TrendingUp } from "lucide-react-native";
-import { Colors } from "@/constants/Theme";
-import PlaceholderScreen from "@/components/ui/PlaceholderScreen";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Layout } from "@/styles";
+import ScreenHeader from "@/components/ui/ScreenHeader";
+import GpaGoalPlannerView from "@/components/GpaGoalPlanner/GpaGoalPlannerView";
 
 export default function GoalPlannerScreen() {
-	return <PlaceholderScreen title="Goal Planner" icon={<TrendingUp size={32} color={Colors.accent} />} />;
+	return (
+		<SafeAreaView style={Layout.flex} edges={["top"]}>
+			<ScreenHeader title="Goal Planner" />
+			<GpaGoalPlannerView />
+		</SafeAreaView>
+	);
 }
