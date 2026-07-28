@@ -14,10 +14,10 @@ body,
 .popup {
 	width: 320px;
 	min-height: 200px;
-	padding: 18px 20px 20px;
-	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+	padding: 16px 18px 18px;
+	font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
 	background: #ffffff;
-	color: #1a1a1a;
+	color: #111827;
 }
 
 /* ── Brand header ── */
@@ -25,42 +25,39 @@ body,
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	margin-bottom: 18px;
+	margin-bottom: 16px;
 }
 .brand-logo {
 	width: 22px;
 	height: 22px;
-	border-radius: 4px;
+	border-radius: 5px;
 	flex-shrink: 0;
 }
 .brand-name {
-	font-size: 15px;
+	font-size: 14px;
 	font-weight: 700;
-	color: #1a1a1a;
+	color: #111827;
 	letter-spacing: -0.2px;
 	flex: 1;
 }
 .btn-signout {
 	background: none;
-	border: 1px solid #bbb;
-	border-radius: 6px;
-	color: #555;
-	font-size: 13px;
-	width: 26px;
-	height: 26px;
+	border: 1px solid #e5e7eb;
+	border-radius: 7px;
+	color: #6b7280;
+	width: 28px;
+	height: 28px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	cursor: pointer;
-	transition:
-		color 0.15s,
-		border-color 0.15s;
+	transition: color 0.15s, border-color 0.15s, background 0.15s;
 	flex-shrink: 0;
-	line-height: 1;
 }
 .btn-signout:hover {
 	color: #ef4444;
-	border-color: #fca5a5;
+	border-color: #fecaca;
+	background: #fff5f5;
 }
 
 /* ── Loading screen ── */
@@ -71,14 +68,14 @@ body,
 	justify-content: center;
 	gap: 10px;
 	padding: 40px 0;
-	color: #999;
+	color: #6b7280;
 	font-size: 13px;
 }
 .spinner {
 	width: 22px;
 	height: 22px;
-	border: 2.5px solid #e5e5e5;
-	border-top-color: #f97316;
+	border: 2.5px solid #e5e7eb;
+	border-top-color: #0398ac;
 	border-radius: 50%;
 	animation: spin 0.7s linear infinite;
 }
@@ -87,15 +84,14 @@ body,
 		transform: rotate(360deg);
 	}
 }
-
 .loading-small {
 	font-size: 12px;
-	color: #999;
+	color: #6b7280;
 	text-align: center;
 	padding: 6px 0;
 }
 
-/* ── Auth: primary (Bhemu session) ── */
+/* ── Auth: primary ── */
 .auth-primary {
 	display: flex;
 	flex-direction: column;
@@ -105,18 +101,25 @@ body,
 	padding: 8px 0;
 }
 .auth-icon {
-	font-size: 32px;
-	line-height: 1;
+	width: 44px;
+	height: 44px;
+	background: rgba(3, 152, 172, 0.08);
+	border: 1px solid rgba(3, 152, 172, 0.2);
+	border-radius: 12px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: #0398ac;
 }
 .auth-title {
-	font-size: 17px;
+	font-size: 16px;
 	font-weight: 700;
-	color: #1a1a1a;
+	color: #111827;
 	margin: 0;
 }
 .auth-sub {
 	font-size: 13px;
-	color: #666;
+	color: #6b7280;
 	line-height: 1.5;
 	max-width: 230px;
 }
@@ -130,16 +133,20 @@ body,
 .btn-back {
 	background: none;
 	border: none;
-	color: #f97316;
+	color: #0398ac;
 	font-size: 13px;
 	font-weight: 600;
 	cursor: pointer;
 	padding: 0;
 	text-align: left;
 	width: fit-content;
+	transition: color 0.15s;
+	display: flex;
+	align-items: center;
+	gap: 4px;
 }
 .btn-back:hover {
-	text-decoration: underline;
+	color: #0398ac;
 }
 
 /* ── Form ── */
@@ -151,15 +158,23 @@ body,
 }
 .form input {
 	padding: 10px 12px;
-	border: 1.5px solid #e5e5e5;
+	border: 1.5px solid #e5e7eb;
 	border-radius: 8px;
 	font-size: 14px;
+	background: #ffffff;
+	color: #111827;
 	outline: none;
-	transition: border-color 0.15s;
+	transition: border-color 0.15s, box-shadow 0.15s;
 	width: 100%;
 }
+.form input:focus-visible {
+	box-shadow: 0 0 0 3px rgba(2, 122, 140, 0.2);
+}
+.form input::placeholder {
+	color: #9ca3af;
+}
 .form input:focus {
-	border-color: #f97316;
+	border-color: #0398ac;
 }
 
 /* ── Buttons ── */
@@ -169,28 +184,26 @@ body,
 	align-items: center;
 	justify-content: center;
 	gap: 8px;
-	padding: 13px 16px;
-	background: #f97316;
+	padding: 12px 16px;
+	background: #0398ac;
 	color: #fff;
 	border: none;
-	border-radius: 10px;
+	border-radius: 9px;
 	font-size: 14px;
-	font-weight: 700;
+	font-weight: 600;
 	cursor: pointer;
-	transition:
-		background 0.15s,
-		transform 0.1s;
+	transition: background 0.15s, transform 0.1s;
 	letter-spacing: 0.1px;
 }
 .btn-calc-session:hover:not(:disabled) {
-	background: #ea580c;
+	background: #027a8c;
 	transform: translateY(-1px);
 }
 .btn-calc-session:active:not(:disabled) {
 	transform: translateY(0);
 }
 .btn-calc-session:disabled {
-	opacity: 0.55;
+	opacity: 0.5;
 	cursor: not-allowed;
 }
 
@@ -198,7 +211,7 @@ body,
 	display: inline-block;
 	width: 14px;
 	height: 14px;
-	border: 2px solid rgba(255, 255, 255, 0.4);
+	border: 2px solid rgba(255, 255, 255, 0.35);
 	border-top-color: #fff;
 	border-radius: 50%;
 	animation: spin 0.7s linear infinite;
@@ -208,34 +221,40 @@ body,
 .btn-link {
 	background: none;
 	border: none;
-	color: #999;
+	color: #6b7280;
 	font-size: 12px;
 	cursor: pointer;
 	padding: 2px 0;
 	text-decoration: underline;
 	text-underline-offset: 2px;
+	transition: color 0.15s;
 }
 .btn-link:hover {
-	color: #555;
+	color: #4b5563;
 }
 
 .btn-primary {
 	width: 100%;
 	padding: 12px;
-	background: #f97316;
+	background: #0398ac;
 	color: #fff;
 	border: none;
 	border-radius: 8px;
 	font-size: 14px;
 	font-weight: 600;
 	cursor: pointer;
-	transition: background 0.15s;
+	transition: background 0.15s, transform 0.1s;
+	letter-spacing: 0.1px;
 }
 .btn-primary:hover:not(:disabled) {
-	background: #ea580c;
+	background: #027a8c;
+	transform: translateY(-1px);
+}
+.btn-primary:active:not(:disabled) {
+	transform: translateY(0);
 }
 .btn-primary:disabled {
-	background: #ccc;
+	opacity: 0.5;
 	cursor: not-allowed;
 }
 
@@ -243,22 +262,20 @@ body,
 	width: 100%;
 	padding: 10px;
 	background: transparent;
-	color: #555;
-	border: 1.5px solid #e5e5e5;
+	color: #374151;
+	border: 1.5px solid #e5e7eb;
 	border-radius: 8px;
 	font-size: 13px;
 	font-weight: 500;
 	cursor: pointer;
-	transition:
-		background 0.15s,
-		border-color 0.15s;
+	transition: background 0.15s, border-color 0.15s;
 }
 .btn-secondary:hover:not(:disabled) {
-	background: #f9f9f9;
-	border-color: #ccc;
+	background: #f9fafb;
+	border-color: #d1d5db;
 }
 .btn-secondary:disabled {
-	opacity: 0.5;
+	opacity: 0.45;
 	cursor: not-allowed;
 }
 
@@ -268,19 +285,19 @@ body,
 	align-items: center;
 	gap: 12px;
 	padding: 12px 14px;
-	background: #f9f9f9;
-	border: 1.5px solid #ebebeb;
+	background: #f9fafb;
+	border: 1px solid #f3f4f6;
 	border-radius: 10px;
 	margin-bottom: 14px;
 }
 .status-indicator {
-	width: 10px;
-	height: 10px;
+	width: 8px;
+	height: 8px;
 	border-radius: 50%;
 	flex-shrink: 0;
 }
 .status-indicator.idle {
-	background: #d1d5db;
+	background: #6b7280;
 }
 .status-indicator.syncing {
 	background: #3b82f6;
@@ -313,11 +330,11 @@ body,
 .status-label {
 	font-size: 13px;
 	font-weight: 600;
-	color: #1a1a1a;
+	color: #111827;
 }
 .status-message {
 	font-size: 11px;
-	color: #888;
+	color: #6b7280;
 	margin-top: 2px;
 	white-space: nowrap;
 	overflow: hidden;
@@ -327,19 +344,19 @@ body,
 	white-space: normal;
 	overflow: visible;
 	text-overflow: unset;
-	color: #f87171;
+	color: #dc2626;
 	font-size: 11px;
 	margin-top: 4px;
 	word-break: break-word;
 }
 .status-time {
 	font-size: 10px;
-	color: #bbb;
+	color: #6b7280;
 	margin-top: 3px;
 }
 .status-open-hint {
 	font-size: 11px;
-	color: #888;
+	color: #6b7280;
 	margin-top: 4px;
 }
 .btn-inline-link {
@@ -348,7 +365,7 @@ body,
 	padding: 0;
 	font-size: 11px;
 	font-weight: 600;
-	color: #e86c2c;
+	color: #0398ac;
 	cursor: pointer;
 	text-decoration: underline;
 	text-underline-offset: 2px;
@@ -360,27 +377,30 @@ body,
 }
 .profile-label {
 	display: block;
-	font-size: 11px;
+	font-size: 10px;
 	font-weight: 700;
-	color: #999;
+	color: #6b7280;
 	text-transform: uppercase;
-	letter-spacing: 0.06em;
+	letter-spacing: 0.08em;
 	margin-bottom: 6px;
 }
 .profile-select {
 	width: 100%;
 	padding: 9px 12px;
-	border: 1.5px solid #e5e5e5;
+	border: 1.5px solid #e5e7eb;
 	border-radius: 8px;
 	font-size: 14px;
-	background: #fff;
-	color: #1a1a1a;
+	background: #ffffff;
+	color: #111827;
 	outline: none;
 	cursor: pointer;
-	transition: border-color 0.15s;
+	transition: border-color 0.15s, box-shadow 0.15s;
 }
 .profile-select:focus {
-	border-color: #f97316;
+	border-color: #0398ac;
+}
+.profile-select:focus-visible {
+	box-shadow: 0 0 0 3px rgba(2, 122, 140, 0.2);
 }
 
 /* ── Actions ── */
@@ -393,28 +413,34 @@ body,
 /* ── Open App ── */
 .btn-open-app {
 	width: 100%;
-	margin-top: 14px;
+	margin-top: 12px;
 	padding: 9px;
 	background: transparent;
-	color: #f97316;
-	border: 1.5px solid #fed7aa;
+	color: #0398ac;
+	border: 1.5px solid rgba(3, 152, 172, 0.3);
 	border-radius: 8px;
 	font-size: 13px;
 	font-weight: 600;
 	cursor: pointer;
-	transition:
-		background 0.15s,
-		border-color 0.15s;
+	transition: background 0.15s, border-color 0.15s;
 }
 .btn-open-app:hover {
-	background: #fff7ed;
-	border-color: #f97316;
+	background: rgba(3, 152, 172, 0.06);
+	border-color: #0398ac;
 }
 
-/* ── Misc ── */
+/* ── Error ── */
 .error {
 	font-size: 12px;
-	color: #ef4444;
+	color: #dc2626;
 	line-height: 1.4;
 	text-align: center;
+}
+
+/* ── Motion ── */
+@media (prefers-reduced-motion: reduce) {
+	*, *::before, *::after {
+		animation-duration: 0.01ms !important;
+		transition-duration: 0.01ms !important;
+	}
 }

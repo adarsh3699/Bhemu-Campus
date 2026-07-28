@@ -151,7 +151,12 @@ function Popup() {
 
 				{!showManualLogin ? (
 					<div className="auth-primary">
-						<div className="auth-icon">🔗</div>
+						<div className="auth-icon">
+						<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+							<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+							<path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+						</svg>
+					</div>
 						<h2 className="auth-title">Sign in instantly</h2>
 						<p className="auth-sub">Uses your existing bCampus login — no password needed.</p>
 
@@ -186,7 +191,10 @@ function Popup() {
 								setShowManualLogin(false);
 							}}
 						>
-							← Back
+							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{display:'inline',verticalAlign:'middle',marginRight:4}}>
+								<polyline points="15 18 9 12 15 6" />
+							</svg>
+							Back
 						</button>
 						<h2 className="auth-title">Sign in with email</h2>
 						<div className="form">
@@ -228,7 +236,11 @@ function Popup() {
 				<img src={iconUrl} alt="" className="brand-logo" />
 				<span className="brand-name">bCampus UMS Sync</span>
 				<button onClick={handleLogout} className="btn-signout" title="Sign Out">
-					↩
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+						<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+						<polyline points="16 17 21 12 16 7" />
+						<line x1="21" y1="12" x2="9" y2="12" />
+					</svg>
 				</button>
 			</div>
 
