@@ -15,11 +15,8 @@ import type {
 const DASHBOARD_BASE = `${UMS_BASE_URL}/lpuums/StudentDashboard.aspx`;
 const TIMETABLE_BASE = `${UMS_BASE_URL}/lpuums/frmMyCurrentTimeTable.aspx`;
 
-// Used by data-viewer to display announcement category labels
-export const CATEGORY_NAME: Record<string, string> = {
-  AC: 'Academic', AM: 'Administrative/Misc', CU: 'Co-curricular/Sports/Cultural',
-  EX: 'Examination', PL: 'Placement', RE: 'Research',
-};
+// Re-export for data-viewer (canonical source is @bhemu/shared)
+export { UMS_ANNOUNCEMENT_CATEGORIES as CATEGORY_NAME } from '@bhemu/shared';
 
 async function postApi<T>(endpoint: string, body: Record<string, string> = {}): Promise<T | null> {
   try {

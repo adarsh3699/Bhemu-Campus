@@ -9,7 +9,9 @@ import { useGpaData } from "@/contexts/GpaDataContext";
 import { db } from "@/firebase/config";
 import UMSWebView, { type UMSWebViewHandle } from "@/features/sync/UMSWebView";
 import { writeToFirestore } from "@/features/sync/syncCoordinator";
+import { saveUmsData } from "@/features/ums-data/storage";
 import type { UMSSyncResult } from "@bhemu/firebase";
+import type { UMSLocalData } from "@bhemu/shared";
 
 const LAST_SYNC_KEY = "ums_last_sync";
 
@@ -121,6 +123,10 @@ export default function TabsLayout() {
 		setSyncState("idle");
 	}, []);
 
+	const handleUmsLocalData = useCallback(async (data: UMSLocalData) => {
+		await saveUmsData({ ...data, lastSyncedAt: new Date().toISOString() });
+	}, []);
+
 	const handleError = useCallback(() => {
 		setEngineActive(false);
 		setSyncState("error");
@@ -135,6 +141,7 @@ export default function TabsLayout() {
 							ref={webViewRef}
 							loginVisible={loginVisible}
 							onSyncData={handleSyncData}
+							onUmsLocalData={handleUmsLocalData}
 							onProgress={() => {}}
 							onNeedsLogin={handleNeedsLogin}
 							onLoginDone={handleLoginDone}

@@ -72,7 +72,9 @@ export default function AddSubjectForm({
 		try {
 			await onSubmit();
 			setShowForm(false);
-		} catch {}
+		} catch {
+			// submit errors are surfaced by the parent via onSubmit
+		}
 	};
 
 	return (

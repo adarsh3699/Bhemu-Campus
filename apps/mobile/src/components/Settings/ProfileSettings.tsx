@@ -58,7 +58,7 @@ export default function ProfileSettings() {
 		return () => {
 			cancelled = true;
 		};
-	}, [currentUser, currentProfile?.id, isEligible]);
+	}, [currentUser, currentProfile, isEligible]);
 
 	const handleRename = async (newName: string) => {
 		if (!currentProfile) return;

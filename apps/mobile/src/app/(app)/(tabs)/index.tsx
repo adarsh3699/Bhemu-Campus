@@ -1,14 +1,15 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Trophy, TrendingUp, RotateCcw, ChevronDown } from "lucide-react-native";
+import { Trophy, TrendingUp, RotateCcw, ChevronDown, Bell, Megaphone, MapPin, Clock } from "lucide-react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGpaData } from "@/contexts/GpaDataContext";
 import { Colors, Spacing, Radius, FontSize, FontWeight } from "@/constants/Theme";
 import { Layout } from "@/styles";
 import ProfileDrawer from "@/components/profile/ProfileDrawer";
 import ShareModal from "@/components/profile/ShareModal";
+import { getUmsData, getMessagesLastSeenCount } from "@/features/ums-data/storage";
 
 interface QuickAction {
 	title: string;
@@ -26,65 +27,114 @@ export default function HomeTab() {
 
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const [shareProfileId, setShareProfileId] = useState<string | number | null>(null);
+	const [unreadCount, setUnreadCount] = useState(0);
+
+	useEffect(() => {
+		Promise.all([getUmsData(), getMessagesLastSeenCount()]).then(([data, lastSeen]) => {
+			const total = data?.messages?.length ?? 0;
+			setUnreadCount(Math.max(0, total - lastSeen));
+		});
+	}, []);
 
 	const totalSubjects = useMemo(() => semesters.reduce((acc, s) => acc + s.subjects.length, 0), [semesters]);
-	const totalCredits = useMemo(() => semesters.reduce((acc, s) => acc + s.subjects.reduce((a, sub) => a + sub.credit, 0), 0), [semesters]);
+	const totalCredits = useMemo(
+		() => semesters.reduce((acc, s) => acc + s.subjects.reduce((a, sub) => a + sub.credit, 0), 0),
+		[semesters]
+	);
 
-	const quickActions = useMemo<QuickAction[]>(() => [
-		{
-			title: "Leaderboard",
-			subtitle: "Compare with peers",
-			icon: <Trophy size={22} color={Colors.warning} />,
-			tab: "/leaderboard",
-			color: Colors.warning,
-		},
-		{
-			title: "Goal Planner",
-			subtitle: "Set target GPA goals",
-			icon: <TrendingUp size={22} color={Colors.accent} />,
-			route: "/goal-planner",
-			color: Colors.accent,
-		},
-		{
-			title: "Reappear Calculator",
-			subtitle: "Calculate reappear marks",
-			icon: <RotateCcw size={22} color={Colors.destructive} />,
-			route: "/reappear-calculator",
-			color: Colors.destructive,
-		},
-	], []);
+	const quickActions = useMemo<QuickAction[]>(
+		() => [
+			{
+				title: "Timetable",
+				subtitle: "Weekly class schedule",
+				icon: <Clock size={22} color={Colors.secondary} />,
+				route: "/timetable",
+				color: Colors.secondary,
+			},
+			{
+				title: "Leaderboard",
+				subtitle: "Compare with peers",
+				icon: <Trophy size={22} color={Colors.warning} />,
+				tab: "/leaderboard",
+				color: Colors.warning,
+			},
+			{
+				title: "Goal Planner",
+				subtitle: "Set target GPA goals",
+				icon: <TrendingUp size={22} color={Colors.accent} />,
+				route: "/goal-planner",
+				color: Colors.accent,
+			},
+			{
+				title: "Reappear Calculator",
+				subtitle: "Calculate reappear marks",
+				icon: <RotateCcw size={22} color={Colors.destructive} />,
+				route: "/reappear-calculator",
+				color: Colors.destructive,
+			},
+			{
+				title: "Announcements",
+				subtitle: "University announcements",
+				icon: <Megaphone size={22} color={Colors.primary} />,
+				route: "/announcements",
+				color: Colors.primary,
+			},
+			{
+				title: "Seating Plan",
+				subtitle: "Exam room & seat details",
+				icon: <MapPin size={22} color={Colors.success} />,
+				route: "/seating-plan",
+				color: Colors.success,
+			},
+		],
+		[]
+	);
 
 	const handlePress = (action: QuickAction) => {
 		if (action.tab) router.push(action.tab as never);
 		else if (action.route) router.push(action.route as never);
 	};
 
-	const profileForShare = shareProfileId != null
-		? profiles.find(p => p.id === shareProfileId)
-		: undefined;
+	const profileForShare = shareProfileId != null ? profiles.find((p) => p.id === shareProfileId) : undefined;
 
-	const currentSharesForProfile = (mySharedProfiles as Array<{ profileId: string | number; shareId: string; targetUserEmail: string; permission: "read" | "edit"; isActive: boolean }>)
-		.filter(s => s.profileId === shareProfileId && s.isActive);
+	const currentSharesForProfile = (
+		mySharedProfiles as Array<{
+			profileId: string | number;
+			shareId: string;
+			targetUserEmail: string;
+			permission: "read" | "edit";
+			isActive: boolean;
+		}>
+	).filter((s) => s.profileId === shareProfileId && s.isActive);
 
 	return (
 		<SafeAreaView style={Layout.flex} edges={["top"]}>
 			<ScrollView contentContainerStyle={local.scroll} showsVerticalScrollIndicator={false}>
-
 				{/* Greeting + profile chip */}
 				<View style={local.greetingSection}>
-					<Text style={local.greeting}>
-						Hello, {currentUser?.displayName?.split(" ")[0] || "Student"}
-					</Text>
+					<View style={local.greetingRow}>
+						<Text style={local.greeting}>
+							Hello, {currentUser?.displayName?.split(" ")[0] || "Student"}
+						</Text>
+						<TouchableOpacity
+							style={local.bellBtn}
+							onPress={() => router.push("/messages" as never)}
+							activeOpacity={0.7}
+						>
+							<Bell size={22} color={Colors.textMuted} />
+							{unreadCount > 0 && (
+								<View style={local.badge}>
+									<Text style={local.badgeText}>{unreadCount > 99 ? "99+" : unreadCount}</Text>
+								</View>
+							)}
+						</TouchableOpacity>
+					</View>
 					<Text style={local.greetingSub}>
 						{totalCredits} credits across {semesters.length} semesters
 					</Text>
 
 					{/* Profile switcher chip */}
-					<TouchableOpacity
-						style={local.profileChip}
-						onPress={() => setDrawerOpen(true)}
-						activeOpacity={0.7}
-					>
+					<TouchableOpacity style={local.profileChip} onPress={() => setDrawerOpen(true)} activeOpacity={0.7}>
 						<View style={local.profileDot} />
 						<Text style={local.profileChipName} numberOfLines={1}>
 							{currentProfile?.name ?? "Select Profile"}
@@ -124,15 +174,12 @@ export default function HomeTab() {
 							onPress={() => handlePress(action)}
 							activeOpacity={0.7}
 						>
-							<View style={[local.actionIcon, { borderColor: action.color + "40" }]}>
-								{action.icon}
-							</View>
+							<View style={[local.actionIcon, { borderColor: action.color + "40" }]}>{action.icon}</View>
 							<Text style={local.actionTitle}>{action.title}</Text>
 							<Text style={local.actionSubtitle}>{action.subtitle}</Text>
 						</TouchableOpacity>
 					))}
 				</View>
-
 			</ScrollView>
 
 			{/* Profile Drawer */}
@@ -153,7 +200,12 @@ export default function HomeTab() {
 					profileName={profileForShare.name}
 					currentShares={currentSharesForProfile}
 					onShareWithUser={async (emailOrId, permissionOrAction, actionType) => {
-						await shareProfileWithUser(profileForShare, emailOrId, permissionOrAction as "read" | "edit" | "unshare", actionType);
+						await shareProfileWithUser(
+							profileForShare,
+							emailOrId,
+							permissionOrAction as "read" | "edit" | "unshare",
+							actionType
+						);
 					}}
 				/>
 			)}
@@ -165,7 +217,22 @@ const local = StyleSheet.create({
 	scroll: { padding: Spacing.lg, paddingBottom: Spacing.xxxl, gap: Spacing.xl },
 
 	greetingSection: { paddingTop: Spacing.sm, gap: Spacing.sm },
-	greeting: { fontSize: FontSize.xxxl, fontWeight: FontWeight.bold, color: Colors.textPrimary },
+	greetingRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+	greeting: { fontSize: FontSize.xxxl, fontWeight: FontWeight.bold, color: Colors.textPrimary, flex: 1 },
+	bellBtn: { position: "relative", padding: Spacing.sm },
+	badge: {
+		position: "absolute",
+		top: 4,
+		right: 4,
+		backgroundColor: Colors.destructive,
+		borderRadius: 10,
+		minWidth: 18,
+		height: 18,
+		alignItems: "center",
+		justifyContent: "center",
+		paddingHorizontal: 4,
+	},
+	badgeText: { fontSize: 10, fontWeight: FontWeight.bold, color: Colors.textPrimary },
 	greetingSub: { fontSize: FontSize.base, color: Colors.textMuted },
 
 	profileChip: {
