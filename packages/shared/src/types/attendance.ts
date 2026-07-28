@@ -4,6 +4,7 @@ export interface AttendanceSubject {
 	totalClasses: number;
 	attended: number;
 	threshold: number;
+	createdAt?: number;
 }
 
 export interface AttendanceData {

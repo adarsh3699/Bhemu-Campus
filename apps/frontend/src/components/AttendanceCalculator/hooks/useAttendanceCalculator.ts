@@ -68,6 +68,7 @@ export function useAttendanceCalculator() {
 				totalClasses,
 				attended,
 				threshold,
+				createdAt: Date.now(),
 			};
 
 			await attendanceCtx.addOrUpdateSubject(subject);
@@ -107,6 +108,7 @@ export function useAttendanceCalculator() {
 
 	const subjects = attendanceCtx.attendanceData
 		? Object.values(attendanceCtx.attendanceData.subjects)
+			.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
 		: [];
 
 	const defaultThreshold = attendanceCtx.attendanceData?.defaultThreshold ?? 75;

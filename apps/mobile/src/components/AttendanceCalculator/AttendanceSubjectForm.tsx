@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from "react-native";
 import type { TextInput } from "react-native";
 import { Plus, ChevronDown } from "lucide-react-native";
 import { Colors, Spacing, Radius, FontSize, FontWeight } from "@/constants/Theme";
@@ -16,13 +16,14 @@ export interface AttendanceFormState {
 interface Props {
 	form: AttendanceFormState;
 	editingId: string | null;
+	saving?: boolean;
 	onChange: (name: string, value: string) => void;
 	onSubmit: () => void;
 	onCancel: () => void;
 	focusField?: "name" | "total";
 }
 
-export default function AttendanceSubjectForm({ form, editingId, onChange, onSubmit, onCancel, focusField }: Props) {
+export default function AttendanceSubjectForm({ form, editingId, saving = false, onChange, onSubmit, onCancel, focusField }: Props) {
 	const [open, setOpen] = useState(false);
 	const nameRef = useRef<TextInput>(null);
 	const totalRef = useRef<TextInput>(null);
@@ -141,9 +142,13 @@ export default function AttendanceSubjectForm({ form, editingId, onChange, onSub
 					</View>
 
 					{/* Action button */}
-					<TouchableOpacity style={local.submitBtn} onPress={handleSubmit} activeOpacity={0.8}>
-						<Plus size={16} color={Colors.textPrimary} />
-						<Text style={local.submitText}>{editingId ? "Update" : "Add"}</Text>
+					<TouchableOpacity style={[local.submitBtn, saving && local.submitBtnDisabled]} onPress={handleSubmit} activeOpacity={0.8} disabled={saving}>
+						{saving ? (
+							<ActivityIndicator size="small" color={Colors.textPrimary} />
+						) : (
+							<Plus size={16} color={Colors.textPrimary} />
+						)}
+						<Text style={local.submitText}>{saving ? (editingId ? "Updating…" : "Adding…") : (editingId ? "Update" : "Add")}</Text>
 					</TouchableOpacity>
 				</View>
 			)}
@@ -201,6 +206,9 @@ const local = StyleSheet.create({
 		height: 48,
 		backgroundColor: Colors.primary,
 		borderRadius: Radius.lg,
+	},
+	submitBtnDisabled: {
+		opacity: 0.6,
 	},
 	submitText: {
 		fontSize: FontSize.sm,

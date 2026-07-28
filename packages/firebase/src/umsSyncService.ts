@@ -5,6 +5,8 @@ import {
 	writeBatch,
 	collection,
 	getDocs,
+	updateDoc,
+	setDoc,
 	type Firestore,
 } from "firebase/firestore";
 import {
@@ -322,18 +324,6 @@ export async function syncAttendanceOnly(
 	data: Pick<UMSSyncResult, "attendance">,
 	profileId: string
 ): Promise<void> {
-	const subjects: Record<string, unknown> = {};
-	for (const record of data.attendance) {
-		const id = `att_${record.courseCode}`;
-		subjects[id] = {
-			id,
-			name: record.courseName,
-			totalClasses: record.totalLectures,
-			attended: record.attendedLectures,
-			threshold: 75,
-		};
-	}
-
 	const mainRef = doc(
 		db,
 		"users",
@@ -343,11 +333,37 @@ export async function syncAttendanceOnly(
 		"attendanceData",
 		"main"
 	);
-	const batch = writeBatch(db);
-	batch.set(
-		mainRef,
-		{ subjects, defaultThreshold: 75, updatedAt: serverTimestamp() },
-		{ merge: true }
-	);
-	await batch.commit();
+
+	// Write only attendance counters via dot-notation — threshold fields are
+	// intentionally omitted so user-set values are never overwritten
+	const dotUpdate: Record<string, unknown> = { updatedAt: serverTimestamp() };
+	for (const record of data.attendance) {
+		const id = `att_${record.courseCode}`;
+		dotUpdate[`subjects.${id}.id`] = id;
+		dotUpdate[`subjects.${id}.name`] = record.courseName;
+		dotUpdate[`subjects.${id}.totalClasses`] = record.totalLectures;
+		dotUpdate[`subjects.${id}.attended`] = record.attendedLectures;
+	}
+
+	try {
+		await updateDoc(mainRef, dotUpdate);
+	} catch (e: unknown) {
+		if ((e as { code?: string })?.code === "not-found") {
+			// First sync — create doc with counters only; no threshold fields
+			// UI falls back to defaultThreshold until the user sets their own
+			const subjects: Record<string, unknown> = {};
+			for (const record of data.attendance) {
+				const id = `att_${record.courseCode}`;
+				subjects[id] = {
+					id,
+					name: record.courseName,
+					totalClasses: record.totalLectures,
+					attended: record.attendedLectures,
+				};
+			}
+			await setDoc(mainRef, { subjects, updatedAt: serverTimestamp() });
+		} else {
+			throw e;
+		}
+	}
 }

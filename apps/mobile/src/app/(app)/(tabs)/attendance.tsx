@@ -7,7 +7,7 @@ import AttendanceSummaryCard from "@/components/AttendanceCalculator/AttendanceS
 import AttendanceSubjectForm, { type AttendanceFormState } from "@/components/AttendanceCalculator/AttendanceSubjectForm";
 import AttendanceSubjectList from "@/components/AttendanceCalculator/AttendanceSubjectList";
 import ConfirmModal from "@/components/ui/ConfirmModal";
-import { Colors, Spacing, Radius, FontSize, FontWeight } from "@/constants/Theme";
+import { Colors, Spacing, FontSize, FontWeight } from "@/constants/Theme";
 import { Layout } from "@/styles";
 import type { AttendanceSubject } from "@bhemu/shared";
 
@@ -26,7 +26,10 @@ export default function AttendanceScreen() {
 	});
 
 	const subjects = useMemo(
-		() => (attendanceData ? Object.values(attendanceData.subjects) : []),
+		() =>
+			attendanceData
+				? Object.values(attendanceData.subjects).sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
+				: [],
 		[attendanceData]
 	);
 	const defaultThreshold = attendanceData?.defaultThreshold ?? 75;
@@ -63,6 +66,7 @@ export default function AttendanceScreen() {
 			totalClasses,
 			attended,
 			threshold: thresholdVal,
+			createdAt: Date.now(),
 		};
 		await addOrUpdateSubject(subject);
 		setForm(EMPTY_FORM);
@@ -116,12 +120,6 @@ export default function AttendanceScreen() {
 			>
 				<View style={local.toolbar}>
 					<Text style={local.toolbarTitle}>Attendance</Text>
-					{saving && (
-						<View style={local.savingBadge}>
-							<ActivityIndicator size="small" color={Colors.primary} />
-							<Text style={local.savingText}>Saving...</Text>
-						</View>
-					)}
 				</View>
 
 				<AttendanceSummaryCard
@@ -135,6 +133,7 @@ export default function AttendanceScreen() {
 				<AttendanceSubjectForm
 					form={form}
 					editingId={editingId}
+					saving={saving}
 					onChange={handleChange}
 					onSubmit={handleSubmit}
 					onCancel={cancelEdit}
@@ -179,21 +178,5 @@ const local = StyleSheet.create({
 		fontSize: FontSize.xl,
 		fontWeight: FontWeight.bold,
 		color: Colors.textPrimary,
-	},
-	savingBadge: {
-		flexDirection: "row",
-		alignItems: "center",
-		gap: Spacing.xs,
-		backgroundColor: Colors.surfaceElevated,
-		borderRadius: Radius.full,
-		paddingHorizontal: Spacing.md,
-		paddingVertical: Spacing.xs,
-		borderWidth: 1,
-		borderColor: Colors.border,
-	},
-	savingText: {
-		fontSize: FontSize.xs,
-		color: Colors.primary,
-		fontWeight: FontWeight.medium,
 	},
 });

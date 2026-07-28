@@ -148,7 +148,9 @@ export default function AttendanceCalculatorView() {
 												onChange={(e) => setThresholdInput(e.target.value)}
 												className="h-9 w-20 pl-3 pr-6 border border-white/10 rounded-xl bg-white/5 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/20 transition-all duration-200 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
 											/>
-											<span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-neutral-400 pointer-events-none">%</span>
+											<span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-neutral-400 pointer-events-none">
+												%
+											</span>
 										</div>
 										<button
 											type="submit"
@@ -183,20 +185,11 @@ export default function AttendanceCalculatorView() {
 					</div>
 				</div>
 
-				{/* Save Status */}
-				{saving && (
-					<div className="w-full max-w-4xl mb-5 flex justify-center animate-in fade-in">
-						<div className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-primary/10 border border-primary/30 text-primary">
-							<div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-							<span>Saving...</span>
-						</div>
-					</div>
-				)}
-
 				{/* Add / Edit Form */}
 				<AttendanceSubjectForm
 					form={form}
 					editingId={editingId}
+					saving={saving}
 					onChange={handleFormChange}
 					onSubmit={handleSubmit}
 					onCancel={cancelEdit}

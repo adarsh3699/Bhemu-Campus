@@ -7,6 +7,7 @@ import type { AttendanceFormState } from "./hooks/useAttendanceCalculator";
 interface AttendanceSubjectFormProps {
 	form: AttendanceFormState;
 	editingId: string | null;
+	saving?: boolean;
 	onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 	onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
 	onCancel: () => void;
@@ -20,6 +21,7 @@ const labelClass = "text-[10px] font-bold text-neutral-400 uppercase tracking-wi
 export default function AttendanceSubjectForm({
 	form,
 	editingId,
+	saving = false,
 	onChange,
 	onSubmit,
 	onCancel,
@@ -48,7 +50,7 @@ export default function AttendanceSubjectForm({
 
 						{/* Numeric fields: 3-col grid on mobile, inline on desktop */}
 						<div className="grid grid-cols-3 sm:flex gap-3 sm:items-end">
-							<div className="sm:w-[80px]">
+							<div className="sm:w-20">
 								<label className={labelClass}>
 									Total <span className="text-red-400/80">*</span>
 								</label>
@@ -64,7 +66,7 @@ export default function AttendanceSubjectForm({
 								/>
 							</div>
 
-							<div className="sm:w-[80px]">
+							<div className="sm:w-20">
 								<label className={labelClass}>
 									Attended <span className="text-red-400/80">*</span>
 								</label>
@@ -81,7 +83,7 @@ export default function AttendanceSubjectForm({
 								/>
 							</div>
 
-							<div className="sm:w-[90px]">
+							<div className="sm:w-22.5">
 								<label className={labelClass}>Threshold %</label>
 								<input
 									type="number"
@@ -100,10 +102,15 @@ export default function AttendanceSubjectForm({
 						<div className="flex gap-2 sm:items-end">
 							<button
 								type="submit"
-								className="flex items-center justify-center gap-1.5 flex-1 sm:flex-none h-10 px-5 bg-gradient-to-r from-teal-400 to-blue-500 hover:from-teal-500 hover:to-blue-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] whitespace-nowrap"
+								disabled={saving}
+								className="flex items-center justify-center gap-1.5 flex-1 sm:flex-none h-10 px-5 bg-gradient-to-r from-teal-400 to-blue-500 hover:from-teal-500 hover:to-blue-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100"
 							>
-								<Plus className="w-3.5 h-3.5" />
-								{editingId ? "Update" : "Add"}
+								{saving ? (
+									<div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+								) : (
+									<Plus className="w-3.5 h-3.5" />
+								)}
+								{saving ? (editingId ? "Updating…" : "Adding…") : editingId ? "Update" : "Add"}
 							</button>
 							{editingId && (
 								<button
