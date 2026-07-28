@@ -152,35 +152,20 @@ function parseSeatingHtml(html: string): UMSSeatingPlan[] {
 function parseMessagesHtml(html: string): UMSMessage[] {
   const doc = htmlDoc(html);
   const results: UMSMessage[] = [];
-  doc.querySelectorAll('.mycoursesdiv').forEach(div => {
-    const headerEl = div.querySelector('.right-arrow, .font-weight-medium');
-    const bodyEl = div.querySelector('p.text-small, p.text-muted, .text-muted');
+  doc.querySelectorAll('div.d-flex.flex-row.border-bottom').forEach(div => {
+    const subjectEl = div.querySelector('p.font-weight-bold');
+    const Subject = subjectEl?.textContent?.trim() ?? '';
+    if (!Subject) return;
 
-    const headerText = headerEl?.textContent?.trim() ?? '';
+    const textParas = Array.from(div.querySelectorAll('p.text-dark'));
+    const datePara = textParas.find(p => p.textContent?.trim().startsWith('Date :'));
+    const Date = datePara?.textContent?.replace('Date :', '').trim() ?? '';
+
+    const bodyEl = textParas.find(p => !p.textContent?.trim().startsWith('Date :')) ?? null;
     const Body = bodyEl?.textContent?.trim() ?? '';
-    // Preserve inner HTML so links (<a href>) remain clickable in the viewer
     const BodyHtml = bodyEl?.innerHTML?.trim() ?? '';
 
-    // Format: "Subject - By SenderName (Date)"
-    const byIdx = headerText.lastIndexOf(' - By ');
-    let Subject = headerText;
-    let SenderName = '';
-    let Date = '';
-
-    if (byIdx !== -1) {
-      Subject = headerText.slice(0, byIdx).trim();
-      const senderPart = headerText.slice(byIdx + 6).trim(); // after " - By "
-      const parenIdx = senderPart.lastIndexOf('(');
-      if (parenIdx !== -1) {
-        SenderName = senderPart.slice(0, parenIdx).trim();
-        Date = senderPart.slice(parenIdx + 1).replace(')', '').trim();
-      } else {
-        SenderName = senderPart;
-      }
-    }
-
-    if (!Subject) return;
-    results.push({ Subject, SenderName, Date, Body, BodyHtml });
+    results.push({ Subject, SenderName: '', Date, Body, BodyHtml });
   });
   return results;
 }
@@ -332,7 +317,7 @@ export async function fetchSyncData(): Promise<UMSApiData> {
         postApi<string>('GetStudentCourses'),
         postApi<unknown>('AnnouncementDetails', { LoginId: 'Reg', Type: 'S' }),
         postApi<string>('GetSeatingPlan'),
-        postApi<string>('GetStudentMessages'),
+        postApi<string>('ViewAllMessages'),
         postApi<string>('GetHeads'),
       ]);
   }
@@ -395,7 +380,7 @@ export async function fetchSyncData(): Promise<UMSApiData> {
         ? (typeof rawAnnouncementsStr === 'string' ? rawAnnouncementsStr : JSON.stringify(rawAnnouncementsStr)).slice(0, 5000)
         : '',
       seating: typeof rawSeatingHtml === 'string' ? rawSeatingHtml.slice(0, 5000) : '',
-      messages: typeof rawMessagesHtml === 'string' ? rawMessagesHtml.slice(0, 5000) : '',
+      messages: typeof rawMessagesHtml === 'string' ? rawMessagesHtml.slice(0, 20000) : '',
       heads: typeof rawHeadsHtml === 'string' ? rawHeadsHtml.slice(0, 20000) : '',
     };
   }
