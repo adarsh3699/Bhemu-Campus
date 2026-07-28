@@ -6,7 +6,7 @@ function htmlToDoc(html: string): Document {
   const { document } = parseHTML(html);
   return document as unknown as Document;
 }
-import { fetchSyncData } from '~lib/ums-api';
+import { fetchSyncData, fetchTimetable } from '~lib/ums-api';
 import type { SyncResult, Course, ExamMark, CourseAssessment } from '~lib/types';
 
 function mapAttendance(apiData: Awaited<ReturnType<typeof fetchSyncData>>): SyncResult['attendance'] {
@@ -71,9 +71,11 @@ export async function fetchAllData(): Promise<SyncResult | { error: string }> {
   // Fetch HTML pages + JSON APIs in parallel
   // Timetable (frmStudentTimeTable.aspx) uses SSRS ReportViewer — JS-rendered, not scrapable via fetch.
   // Attendance now comes from JSON API (StudentAttendanceSummary), not HTML scraping
-  const [resultsHtml, apiData] = await Promise.all([
+  const umsDataViewer = process.env.PLASMO_PUBLIC_UMS_DATA_VIEWER === 'true';
+  const [resultsHtml, apiData, timetableResult] = await Promise.all([
     fetchPage(UMS_RESULTS_URL),
     fetchSyncData(),
+    umsDataViewer ? fetchTimetable() : Promise.resolve({ entries: [] as import('~lib/types').TimetableEntry[], rawHtml: undefined }),
   ]);
 
   // Parse initial results page
@@ -124,8 +126,11 @@ export async function fetchAllData(): Promise<SyncResult | { error: string }> {
 
   const attendance = mapAttendance(apiData);
 
-  // Timetable (frmStudentTimeTable.aspx) uses SSRS ReportViewer — JS-rendered, not fetchable.
-  const timetable: SyncResult['timetable'] = [];
+  const timetable = timetableResult.entries;
+  if (umsDataViewer && timetableResult.rawHtml) {
+    if (!apiData._rawHtml) apiData._rawHtml = {};
+    apiData._rawHtml.timetable = timetableResult.rawHtml;
+  }
 
   // Prefer API student info (cleaner) over HTML-parsed, fallback to HTML
   const studentInfo = apiData.studentInfo

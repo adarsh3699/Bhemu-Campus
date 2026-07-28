@@ -1,7 +1,7 @@
 export const UMS_BASE_URL = "https://ums.lpu.in";
 export const UMS_DASHBOARD_URL = `${UMS_BASE_URL}/lpuums/StudentDashboard.aspx`;
 export const UMS_RESULTS_URL = `${UMS_BASE_URL}/lpuums/frmStudentResult.aspx`;
-// UMS_TIMETABLE_URL intentionally omitted — timetable uses SSRS ReportViewer (JS-rendered, not fetchable)
+// Timetable data comes from frmMyCurrentTimeTable.aspx JSON APIs (GetTimeRange + GetWeeklyTimeTable)
 
 // bCampus web app URL — read from env, falls back to production
 export const CALC_URL = process.env.PLASMO_PUBLIC_CALC_URL ?? "https://campus.bhemu.in";

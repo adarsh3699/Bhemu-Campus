@@ -54,6 +54,8 @@ export interface TimetableEntry {
   courseName: string;
   room: string;
   faculty: string;
+  startTime: string;
+  endTime: string;
 }
 
 export interface StudentInfo {
@@ -135,10 +137,7 @@ export interface UMSMessage {
   SenderName: string;
   Date: string;
   Body: string;
-}
-
-export interface UMSHead {
-  [key: string]: unknown;
+  BodyHtml: string;
 }
 
 // Parsed from HTML <tr> rows (StudentAttendanceSummary returns HTML, not JSON)
@@ -159,8 +158,10 @@ export interface UMSApiData {
   announcementCategories?: UMSAnnouncementCategory[];
   seatingPlan?: UMSSeatingPlan[];
   messages?: UMSMessage[];
-  heads?: UMSHead[];
+  headsHtml?: string;
   attendance?: UMSAttendanceSummary[];
+  // Raw HTML snippets stored for parser verification in dev mode
+  _rawHtml?: Record<string, string>;
 }
 
 export interface SyncResult {
