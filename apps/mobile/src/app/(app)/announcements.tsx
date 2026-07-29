@@ -168,7 +168,7 @@ const local = StyleSheet.create({
 	chipTextActive: {
 		color: Colors.primary,
 	},
-	list: { padding: Spacing.lg, gap: Spacing.sm, paddingBottom: Spacing.xxxl },
+	list: { paddingHorizontal: Spacing.lg, gap: Spacing.sm, paddingBottom: Spacing.xxxl },
 	empty: { alignItems: "center", paddingTop: Spacing.xxxl, paddingHorizontal: Spacing.xl, gap: Spacing.sm },
 	emptyTitle: {
 		fontSize: FontSize.base,
