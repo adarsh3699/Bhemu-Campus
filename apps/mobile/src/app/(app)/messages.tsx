@@ -4,12 +4,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Search, Inbox, SearchX } from "lucide-react-native";
 import ScreenHeader from "@/components/ui/ScreenHeader";
 import MessageCard from "@/components/UmsData/MessageCard";
+import { useGpaData } from "@/contexts/GpaDataContext";
 import { useUmsData } from "@/features/ums-data/useUmsData";
 import { setMessagesLastSeenCount } from "@/features/ums-data/storage";
 import { Layout } from "@/styles";
 import { Colors, Spacing, FontSize, FontWeight, Radius } from "@/constants/Theme";
 
 export default function MessagesScreen() {
+	const { activeProfile } = useGpaData();
 	const { data, loading } = useUmsData();
 	const messages = data?.messages ?? [];
 	const [search, setSearch] = useState("");
@@ -27,10 +29,10 @@ export default function MessagesScreen() {
 	}, [messages, search]);
 
 	useEffect(() => {
-		if (messages.length > 0) {
-			setMessagesLastSeenCount(messages.length);
+		if (messages.length > 0 && activeProfile) {
+			setMessagesLastSeenCount(messages.length, activeProfile);
 		}
-	}, [messages.length]);
+	}, [messages.length, activeProfile]);
 
 	return (
 		<SafeAreaView style={Layout.flex} edges={["top"]}>

@@ -124,8 +124,9 @@ export default function TabsLayout() {
 	}, []);
 
 	const handleUmsLocalData = useCallback(async (data: UMSLocalData) => {
-		await saveUmsData({ ...data, lastSyncedAt: new Date().toISOString() });
-	}, []);
+		if (!activeProfile) return;
+		await saveUmsData({ ...data, lastSyncedAt: new Date().toISOString() }, activeProfile);
+	}, [activeProfile]);
 
 	const handleError = useCallback(() => {
 		setEngineActive(false);

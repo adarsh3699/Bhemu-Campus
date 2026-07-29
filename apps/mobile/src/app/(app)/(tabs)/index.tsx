@@ -2,14 +2,54 @@ import { useMemo, useState, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Trophy, TrendingUp, RotateCcw, ChevronDown, Bell, Megaphone, ClipboardList, CalendarClock } from "lucide-react-native";
+import {
+	Trophy,
+	TrendingUp,
+	RotateCcw,
+	ChevronDown,
+	Bell,
+	Megaphone,
+	ClipboardList,
+	CalendarClock,
+} from "lucide-react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGpaData } from "@/contexts/GpaDataContext";
 import { Colors, Spacing, Radius, FontSize, FontWeight } from "@/constants/Theme";
 import { Layout } from "@/styles";
 import ProfileDrawer from "@/components/profile/ProfileDrawer";
 import ShareModal from "@/components/profile/ShareModal";
-import { getUmsData, getMessagesLastSeenCount } from "@/features/ums-data/storage";
+import { getMessagesLastSeenCount } from "@/features/ums-data/storage";
+import { useUmsData } from "@/features/ums-data/useUmsData";
+
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const MONTH_MAP: Record<string, number> = {
+	Jan: 0,
+	Feb: 1,
+	Mar: 2,
+	Apr: 3,
+	May: 4,
+	Jun: 5,
+	Jul: 6,
+	Aug: 7,
+	Sep: 8,
+	Oct: 9,
+	Nov: 10,
+	Dec: 11,
+};
+
+// LPU format: "Wed, Jul 29, 2026"
+function isTodayStr(dateStr: string): boolean {
+	if (!dateStr) return false;
+	// Split: ["Wed", "Jul 29", "2026"]
+	const parts = dateStr.split(", ");
+	if (parts.length < 3) return false;
+	const [mon, day] = parts[1].split(" ");
+	const year = parseInt(parts[2], 10);
+	const month = MONTH_MAP[mon];
+	if (month === undefined || !day || !year) return false;
+	const now = new Date();
+	return parseInt(day, 10) === now.getDate() && month === now.getMonth() && year === now.getFullYear();
+}
 
 interface QuickAction {
 	title: string;
@@ -18,23 +58,38 @@ interface QuickAction {
 	route?: string;
 	tab?: string;
 	color: string;
+	badge?: number;
 }
 
 export default function HomeTab() {
 	const router = useRouter();
 	const { currentUser } = useAuth();
-	const { semesters, currentProfile, profiles, shareProfileWithUser, mySharedProfiles } = useGpaData();
+	const { semesters, currentProfile, activeProfile, profiles, shareProfileWithUser, mySharedProfiles } = useGpaData();
+	const isSharedProfile = !!currentProfile?.isShared;
+	const { data: umsData } = useUmsData();
+
+	const todayName = DAY_NAMES[new Date().getDay()];
+	const todayClassCount = isSharedProfile
+		? 0
+		: (umsData?.timetable?.filter((e) => e.dayOfWeek === todayName).length ?? 0);
+	const announcementCount = isSharedProfile
+		? 0
+		: (umsData?.announcements?.filter((a) => isTodayStr(a.date)).length ?? 0);
+	const examCount = isSharedProfile ? 0 : (umsData?.seatingPlan?.length ?? 0);
 
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const [shareProfileId, setShareProfileId] = useState<string | number | null>(null);
-	const [unreadCount, setUnreadCount] = useState(0);
+	const [lastSeenCount, setLastSeenCount] = useState(0);
 
 	useEffect(() => {
-		Promise.all([getUmsData(), getMessagesLastSeenCount()]).then(([data, lastSeen]) => {
-			const total = data?.messages?.length ?? 0;
-			setUnreadCount(Math.max(0, total - lastSeen));
-		});
-	}, []);
+		if (!activeProfile || isSharedProfile) {
+			setLastSeenCount(0);
+			return;
+		}
+		getMessagesLastSeenCount(activeProfile).then(setLastSeenCount);
+	}, [activeProfile, isSharedProfile]);
+
+	const unreadCount = isSharedProfile ? 0 : Math.max(0, (umsData?.messages?.length ?? 0) - lastSeenCount);
 
 	const totalSubjects = useMemo(() => semesters.reduce((acc, s) => acc + s.subjects.length, 0), [semesters]);
 	const totalCredits = useMemo(
@@ -42,14 +97,15 @@ export default function HomeTab() {
 		[semesters]
 	);
 
-	const quickActions = useMemo<QuickAction[]>(
-		() => [
+	const quickActions = useMemo<QuickAction[]>(() => {
+		const all: QuickAction[] = [
 			{
 				title: "Timetable",
 				subtitle: "Weekly class schedule",
 				icon: <CalendarClock size={22} color={Colors.secondary} />,
 				route: "/timetable",
 				color: Colors.secondary,
+				badge: todayClassCount,
 			},
 			{
 				title: "Leaderboard",
@@ -78,6 +134,7 @@ export default function HomeTab() {
 				icon: <Megaphone size={22} color={Colors.primary} />,
 				route: "/announcements",
 				color: Colors.primary,
+				badge: announcementCount,
 			},
 			{
 				title: "Seating Plan",
@@ -85,10 +142,12 @@ export default function HomeTab() {
 				icon: <ClipboardList size={22} color={Colors.success} />,
 				route: "/seating-plan",
 				color: Colors.success,
+				badge: examCount,
 			},
-		],
-		[]
-	);
+		];
+		const UMS_ACTIONS = ["Timetable", "Announcements", "Seating Plan"];
+		return isSharedProfile ? all.filter((a) => !UMS_ACTIONS.includes(a.title)) : all;
+	}, [isSharedProfile, todayClassCount, announcementCount, examCount]);
 
 	const handlePress = (action: QuickAction) => {
 		if (action.tab) router.push(action.tab as never);
@@ -116,18 +175,24 @@ export default function HomeTab() {
 						<Text style={local.greeting}>
 							Hello, {currentUser?.displayName?.split(" ")[0] || "Student"}
 						</Text>
-						<TouchableOpacity
-							style={local.bellBtn}
-							onPress={() => router.push("/messages" as never)}
-							activeOpacity={0.7}
-						>
-							<Bell size={22} color={Colors.textMuted} />
-							{unreadCount > 0 && (
-								<View style={local.badge}>
-									<Text style={local.badgeText}>{unreadCount > 99 ? "99+" : unreadCount}</Text>
+						{!isSharedProfile && (
+							<TouchableOpacity
+								style={local.bellBtn}
+								onPress={() => router.push("/messages" as never)}
+								activeOpacity={0.7}
+							>
+								<View style={local.bellWrap}>
+									<Bell size={22} color={Colors.textPrimary} />
+									{unreadCount > 0 && (
+										<View style={local.badge}>
+											<Text style={local.badgeText}>
+												{unreadCount > 99 ? "99+" : unreadCount}
+											</Text>
+										</View>
+									)}
 								</View>
-							)}
-						</TouchableOpacity>
+							</TouchableOpacity>
+						)}
 					</View>
 					<Text style={local.greetingSub}>
 						{totalCredits} credits across {semesters.length} semesters
@@ -174,7 +239,18 @@ export default function HomeTab() {
 							onPress={() => handlePress(action)}
 							activeOpacity={0.7}
 						>
-							<View style={[local.actionIcon, { borderColor: action.color + "40" }]}>{action.icon}</View>
+							<View style={local.actionIconWrap}>
+								<View style={[local.actionIcon, { borderColor: action.color + "40" }]}>
+									{action.icon}
+								</View>
+								{!!action.badge && (
+									<View style={[local.actionBadge, { backgroundColor: action.color }]}>
+										<Text style={local.actionBadgeText}>
+											{action.badge > 99 ? "99+" : action.badge}
+										</Text>
+									</View>
+								)}
+							</View>
 							<Text style={local.actionTitle}>{action.title}</Text>
 							<Text style={local.actionSubtitle}>{action.subtitle}</Text>
 						</TouchableOpacity>
@@ -219,11 +295,12 @@ const local = StyleSheet.create({
 	greetingSection: { paddingTop: Spacing.sm, gap: Spacing.sm },
 	greetingRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
 	greeting: { fontSize: FontSize.xxxl, fontWeight: FontWeight.bold, color: Colors.textPrimary, flex: 1 },
-	bellBtn: { position: "relative", padding: Spacing.sm },
+	bellBtn: { padding: Spacing.sm },
+	bellWrap: { position: "relative", width: 22, height: 22 },
 	badge: {
 		position: "absolute",
-		top: 4,
-		right: 4,
+		top: -6,
+		right: -8,
 		backgroundColor: Colors.destructive,
 		borderRadius: 10,
 		minWidth: 18,
@@ -288,6 +365,7 @@ const local = StyleSheet.create({
 		padding: Spacing.lg,
 		gap: Spacing.sm,
 	},
+	actionIconWrap: { position: "relative", alignSelf: "flex-start" },
 	actionIcon: {
 		width: 42,
 		height: 42,
@@ -297,6 +375,18 @@ const local = StyleSheet.create({
 		alignItems: "center",
 		justifyContent: "center",
 	},
+	actionBadge: {
+		position: "absolute",
+		top: -6,
+		right: -8,
+		borderRadius: 10,
+		minWidth: 18,
+		height: 18,
+		alignItems: "center",
+		justifyContent: "center",
+		paddingHorizontal: 4,
+	},
+	actionBadgeText: { fontSize: 10, fontWeight: FontWeight.bold, color: Colors.textPrimary },
 	actionTitle: { fontSize: FontSize.sm, fontWeight: FontWeight.bold, color: Colors.textPrimary },
 	actionSubtitle: { fontSize: FontSize.xs, color: Colors.textMuted },
 });

@@ -20,7 +20,7 @@ export default function MessageCard({ message }: Props) {
 	const hasOverflow = bodyHtml.length > 200 || message.Subject.length > 60;
 
 	const combined = `${message.Subject} ${bodyHtml}`;
-	const isMandatory = hasKeyword(combined, "mandatory");
+	const isMandatory = hasKeyword(message.Subject, "mandatory");
 	const isUrgent = hasKeyword(combined, "urgent");
 
 	return (
