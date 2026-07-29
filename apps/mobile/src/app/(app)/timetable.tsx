@@ -1,11 +1,12 @@
 import { useMemo } from "react";
 import { ScrollView, Text, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { CalendarX2, Loader } from "lucide-react-native";
 import ScreenHeader from "@/components/ui/ScreenHeader";
 import TimetableDay from "@/components/UmsData/TimetableDay";
 import { useUmsData } from "@/features/ums-data/useUmsData";
 import { Layout } from "@/styles";
-import { Colors, Spacing, FontSize } from "@/constants/Theme";
+import { Colors, Spacing, FontSize, FontWeight } from "@/constants/Theme";
 import type { TimetableEntry } from "@bhemu/shared";
 
 const DAY_ORDER = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -32,9 +33,19 @@ export default function TimetableScreen() {
 			<ScrollView contentContainerStyle={local.scroll} showsVerticalScrollIndicator={false}>
 				{grouped.length === 0 ? (
 					<View style={local.empty}>
-						<Text style={local.emptyText}>
-							{loading ? "Loading..." : "No timetable data. Tap sync to fetch from UMS."}
-						</Text>
+						{loading ? (
+							<>
+								<Loader size={40} color={Colors.textMuted} />
+								<Text style={local.emptyTitle}>Fetching timetable...</Text>
+								<Text style={local.emptyText}>Please wait a moment</Text>
+							</>
+						) : (
+							<>
+								<CalendarX2 size={40} color={Colors.textMuted} />
+								<Text style={local.emptyTitle}>No timetable yet</Text>
+								<Text style={local.emptyText}>Go to Home and tap the sync button to fetch your timetable</Text>
+							</>
+						)}
 					</View>
 				) : (
 					grouped.map(({ day, entries }) => (
@@ -48,6 +59,7 @@ export default function TimetableScreen() {
 
 const local = StyleSheet.create({
 	scroll: { padding: Spacing.lg, gap: Spacing.xl, paddingBottom: Spacing.xxxl },
-	empty: { alignItems: "center", paddingTop: Spacing.xxxl },
-	emptyText: { fontSize: FontSize.base, color: Colors.textMuted, textAlign: "center" },
+	empty: { alignItems: "center", paddingTop: Spacing.xxxl, paddingHorizontal: Spacing.xl, gap: Spacing.sm },
+	emptyTitle: { fontSize: FontSize.base, fontWeight: FontWeight.semibold, color: Colors.textPrimary, textAlign: "center", marginTop: Spacing.sm },
+	emptyText: { fontSize: FontSize.sm, color: Colors.textMuted, textAlign: "center", lineHeight: 20 },
 });

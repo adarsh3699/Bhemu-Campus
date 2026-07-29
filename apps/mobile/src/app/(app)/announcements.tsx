@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import { FlatList, Text, StyleSheet, View, ScrollView, TouchableOpacity } from "react-native";
+import { FlatList, Text, StyleSheet, View, ScrollView, TouchableOpacity, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Search, Inbox, SearchX } from "lucide-react-native";
 import ScreenHeader from "@/components/ui/ScreenHeader";
 import AnnouncementCard from "@/components/UmsData/AnnouncementCard";
 import { useUmsData } from "@/features/ums-data/useUmsData";
@@ -14,6 +15,7 @@ export default function AnnouncementsScreen() {
 	const { data, loading } = useUmsData();
 	const announcements = data?.announcements ?? [];
 	const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
+	const [search, setSearch] = useState("");
 
 	const availableCategories = useMemo(() => {
 		const cats = new Set(announcements.map((ann) => ann.categorycode || "AM"));
@@ -21,37 +23,60 @@ export default function AnnouncementsScreen() {
 	}, [announcements]);
 
 	const filteredAnnouncements = useMemo(() => {
-		if (selectedCategory === "ALL") return announcements;
-		return announcements.filter((ann) => ann.categorycode === selectedCategory);
-	}, [announcements, selectedCategory]);
+		let result =
+			selectedCategory === "ALL"
+				? announcements
+				: announcements.filter((ann) => ann.categorycode === selectedCategory);
+		if (!search.trim()) return result;
+		const q = search.toLowerCase();
+		const subjectMatches = result.filter((a) => a.subject?.toLowerCase().includes(q));
+		const bodyMatches = result.filter(
+			(a) => !a.subject?.toLowerCase().includes(q) && a.announcement?.toLowerCase().includes(q)
+		);
+		return [...subjectMatches, ...bodyMatches];
+	}, [announcements, selectedCategory, search]);
 
 	return (
 		<SafeAreaView style={Layout.flex} edges={["top"]}>
 			<ScreenHeader title="Announcements" />
-			<ScrollView
-				horizontal
-				showsHorizontalScrollIndicator={false}
-				contentContainerStyle={local.filters}
-				style={local.filtersScroll}
-			>
-				<TouchableOpacity
-					style={[local.chip, selectedCategory === "ALL" && local.chipActive]}
-					onPress={() => setSelectedCategory("ALL")}
+			<View style={local.searchWrap}>
+				<Search size={16} color={Colors.textBody} />
+				<TextInput
+					style={local.searchInput}
+					placeholder="Search announcements"
+					placeholderTextColor={Colors.textSubtle}
+					value={search}
+					onChangeText={setSearch}
+					returnKeyType="search"
+					clearButtonMode="while-editing"
+				/>
+			</View>
+			{availableCategories.length > 0 && (
+				<ScrollView
+					horizontal
+					showsHorizontalScrollIndicator={false}
+					contentContainerStyle={local.filters}
+					style={local.filtersScroll}
 				>
-					<Text style={[local.chipText, selectedCategory === "ALL" && local.chipTextActive]}>ALL</Text>
-				</TouchableOpacity>
-				{availableCategories.map((cat) => (
 					<TouchableOpacity
-						key={cat}
-						style={[local.chip, selectedCategory === cat && local.chipActive]}
-						onPress={() => setSelectedCategory(cat)}
+						style={[local.chip, selectedCategory === "ALL" && local.chipActive]}
+						onPress={() => setSelectedCategory("ALL")}
 					>
-						<Text style={[local.chipText, selectedCategory === cat && local.chipTextActive]}>
-							{UMS_ANNOUNCEMENT_CATEGORIES[cat]}
-						</Text>
+						<Text style={[local.chipText, selectedCategory === "ALL" && local.chipTextActive]}>ALL</Text>
 					</TouchableOpacity>
-				))}
-			</ScrollView>
+					{availableCategories.map((cat) => (
+						<TouchableOpacity
+							key={cat}
+							style={[local.chip, selectedCategory === cat && local.chipActive]}
+							onPress={() => setSelectedCategory(cat)}
+						>
+							<Text style={[local.chipText, selectedCategory === cat && local.chipTextActive]}>
+								{UMS_ANNOUNCEMENT_CATEGORIES[cat]}
+							</Text>
+						</TouchableOpacity>
+					))}
+				</ScrollView>
+			)}
 			<FlatList
 				data={filteredAnnouncements}
 				keyExtractor={(item, i) => `${item.announcementid}-${i}`}
@@ -63,9 +88,27 @@ export default function AnnouncementsScreen() {
 				windowSize={11}
 				ListEmptyComponent={
 					<View style={local.empty}>
-						<Text style={local.emptyText}>
-							{loading ? "Loading..." : "No announcements. Tap sync to fetch from UMS."}
-						</Text>
+						{search.trim() ? (
+							<>
+								<SearchX size={40} color={Colors.textMuted} />
+								<Text style={local.emptyTitle}>No results found</Text>
+								<Text style={local.emptyText}>No announcements match "{search.trim()}"</Text>
+							</>
+						) : loading ? (
+							<>
+								<Inbox size={40} color={Colors.textMuted} />
+								<Text style={local.emptyTitle}>Fetching announcements...</Text>
+								<Text style={local.emptyText}>Please wait a moment</Text>
+							</>
+						) : (
+							<>
+								<Inbox size={40} color={Colors.textMuted} />
+								<Text style={local.emptyTitle}>No announcements yet</Text>
+								<Text style={local.emptyText}>
+									Go to Home and tap the sync button to fetch your announcements
+								</Text>
+							</>
+						)}
 					</View>
 				}
 			/>
@@ -74,6 +117,24 @@ export default function AnnouncementsScreen() {
 }
 
 const local = StyleSheet.create({
+	searchWrap: {
+		flexDirection: "row",
+		alignItems: "center",
+		backgroundColor: Colors.surfaceElevated,
+		borderWidth: 1,
+		borderColor: Colors.borderLight,
+		borderRadius: Radius.md,
+		marginHorizontal: Spacing.lg,
+		marginBottom: Spacing.md,
+		paddingHorizontal: Spacing.md,
+		height: 40,
+		gap: Spacing.sm,
+	},
+	searchInput: {
+		flex: 1,
+		fontSize: FontSize.base,
+		color: Colors.textPrimary,
+	},
 	flatList: {
 		flex: 1,
 	},
@@ -108,6 +169,13 @@ const local = StyleSheet.create({
 		color: Colors.primary,
 	},
 	list: { padding: Spacing.lg, gap: Spacing.sm, paddingBottom: Spacing.xxxl },
-	empty: { alignItems: "center", paddingTop: Spacing.xxxl },
-	emptyText: { fontSize: FontSize.base, color: Colors.textMuted, textAlign: "center" },
+	empty: { alignItems: "center", paddingTop: Spacing.xxxl, paddingHorizontal: Spacing.xl, gap: Spacing.sm },
+	emptyTitle: {
+		fontSize: FontSize.base,
+		fontWeight: FontWeight.semibold,
+		color: Colors.textPrimary,
+		textAlign: "center",
+		marginTop: Spacing.sm,
+	},
+	emptyText: { fontSize: FontSize.sm, color: Colors.textMuted, textAlign: "center", lineHeight: 20 },
 });

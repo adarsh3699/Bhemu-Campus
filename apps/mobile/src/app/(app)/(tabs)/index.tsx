@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Trophy, TrendingUp, RotateCcw, ChevronDown, Bell, Megaphone, MapPin, Clock } from "lucide-react-native";
+import { Trophy, TrendingUp, RotateCcw, ChevronDown, Bell, Megaphone, ClipboardList, CalendarClock } from "lucide-react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGpaData } from "@/contexts/GpaDataContext";
 import { Colors, Spacing, Radius, FontSize, FontWeight } from "@/constants/Theme";
@@ -47,7 +47,7 @@ export default function HomeTab() {
 			{
 				title: "Timetable",
 				subtitle: "Weekly class schedule",
-				icon: <Clock size={22} color={Colors.secondary} />,
+				icon: <CalendarClock size={22} color={Colors.secondary} />,
 				route: "/timetable",
 				color: Colors.secondary,
 			},
@@ -82,7 +82,7 @@ export default function HomeTab() {
 			{
 				title: "Seating Plan",
 				subtitle: "Exam room & seat details",
-				icon: <MapPin size={22} color={Colors.success} />,
+				icon: <ClipboardList size={22} color={Colors.success} />,
 				route: "/seating-plan",
 				color: Colors.success,
 			},

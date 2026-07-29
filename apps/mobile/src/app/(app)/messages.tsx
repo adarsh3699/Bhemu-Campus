@@ -1,16 +1,30 @@
-import { useEffect } from "react";
-import { FlatList, Text, StyleSheet, View } from "react-native";
+import { useEffect, useState, useMemo } from "react";
+import { FlatList, Text, StyleSheet, View, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Search, Inbox, SearchX } from "lucide-react-native";
 import ScreenHeader from "@/components/ui/ScreenHeader";
 import MessageCard from "@/components/UmsData/MessageCard";
 import { useUmsData } from "@/features/ums-data/useUmsData";
 import { setMessagesLastSeenCount } from "@/features/ums-data/storage";
 import { Layout } from "@/styles";
-import { Colors, Spacing, FontSize } from "@/constants/Theme";
+import { Colors, Spacing, FontSize, FontWeight, Radius } from "@/constants/Theme";
 
 export default function MessagesScreen() {
 	const { data, loading } = useUmsData();
 	const messages = data?.messages ?? [];
+	const [search, setSearch] = useState("");
+
+	const filteredMessages = useMemo(() => {
+		if (!search.trim()) return messages;
+		const q = search.toLowerCase();
+		const subjectMatches = messages.filter((m) => m.Subject?.toLowerCase().includes(q));
+		const bodyMatches = messages.filter(
+			(m) =>
+				!m.Subject?.toLowerCase().includes(q) &&
+				(m.BodyHtml?.toLowerCase().includes(q) || m.Body?.toLowerCase().includes(q))
+		);
+		return [...subjectMatches, ...bodyMatches];
+	}, [messages, search]);
 
 	useEffect(() => {
 		if (messages.length > 0) {
@@ -21,8 +35,20 @@ export default function MessagesScreen() {
 	return (
 		<SafeAreaView style={Layout.flex} edges={["top"]}>
 			<ScreenHeader title="Messages" />
+			<View style={local.searchWrap}>
+				<Search size={16} color={Colors.textBody} />
+				<TextInput
+					style={local.searchInput}
+					placeholder="Search messages"
+					placeholderTextColor={Colors.textSubtle}
+					value={search}
+					onChangeText={setSearch}
+					returnKeyType="search"
+					clearButtonMode="while-editing"
+				/>
+			</View>
 			<FlatList
-				data={messages}
+				data={filteredMessages}
 				keyExtractor={(_, i) => String(i)}
 				renderItem={({ item }) => <MessageCard message={item} />}
 				contentContainerStyle={local.list}
@@ -31,9 +57,25 @@ export default function MessagesScreen() {
 				windowSize={11}
 				ListEmptyComponent={
 					<View style={local.empty}>
-						<Text style={local.emptyText}>
-							{loading ? "Loading..." : "No messages yet. Tap sync to fetch from UMS."}
-						</Text>
+						{search.trim() ? (
+							<>
+								<SearchX size={40} color={Colors.textMuted} />
+								<Text style={local.emptyTitle}>No results found</Text>
+								<Text style={local.emptyText}>No messages match "{search.trim()}"</Text>
+							</>
+						) : loading ? (
+							<>
+								<Inbox size={40} color={Colors.textMuted} />
+								<Text style={local.emptyTitle}>Fetching messages...</Text>
+								<Text style={local.emptyText}>Please wait a moment</Text>
+							</>
+						) : (
+							<>
+								<Inbox size={40} color={Colors.textMuted} />
+								<Text style={local.emptyTitle}>No messages yet</Text>
+								<Text style={local.emptyText}>Go to Home and tap the sync button to fetch your messages</Text>
+							</>
+						)}
 					</View>
 				}
 			/>
@@ -42,7 +84,26 @@ export default function MessagesScreen() {
 }
 
 const local = StyleSheet.create({
+	searchWrap: {
+		flexDirection: "row",
+		alignItems: "center",
+		backgroundColor: Colors.surfaceElevated,
+		borderWidth: 1,
+		borderColor: Colors.borderLight,
+		borderRadius: Radius.md,
+		marginHorizontal: Spacing.lg,
+		marginBottom: Spacing.md,
+		paddingHorizontal: Spacing.md,
+		height: 40,
+		gap: Spacing.sm,
+	},
+	searchInput: {
+		flex: 1,
+		fontSize: FontSize.base,
+		color: Colors.textPrimary,
+	},
 	list: { padding: Spacing.lg, gap: Spacing.sm, paddingBottom: Spacing.xxxl },
-	empty: { alignItems: "center", paddingTop: Spacing.xxxl },
-	emptyText: { fontSize: FontSize.base, color: Colors.textMuted, textAlign: "center" },
+	empty: { alignItems: "center", paddingTop: Spacing.xxxl, paddingHorizontal: Spacing.xl, gap: Spacing.sm },
+	emptyTitle: { fontSize: FontSize.base, fontWeight: FontWeight.semibold, color: Colors.textPrimary, textAlign: "center", marginTop: Spacing.sm },
+	emptyText: { fontSize: FontSize.sm, color: Colors.textMuted, textAlign: "center", lineHeight: 20 },
 });
