@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Linking } from "react-native";
+import { ChevronDown } from "lucide-react-native";
 import { Colors, Spacing, Radius, FontSize, FontWeight } from "@/constants/Theme";
 import { UMS_ANNOUNCEMENT_CATEGORIES } from "@bhemu/shared";
 import { HtmlText } from "@/features/ums-data/htmlParser";
@@ -9,10 +10,11 @@ interface Props {
 	announcement: UMSAnnouncement;
 }
 
-export default function AnnouncementCard({ announcement }: Props) {
+function AnnouncementCard({ announcement }: Props) {
 	const [expanded, setExpanded] = useState(false);
 
 	const categoryLabel = UMS_ANNOUNCEMENT_CATEGORIES[announcement.categorycode] || announcement.categorycode;
+	const hasOverflow = (announcement.announcement && announcement.announcement.length > 200) || announcement.subject.length > 80;
 
 	return (
 		<TouchableOpacity style={local.card} activeOpacity={0.8} onPress={() => setExpanded(!expanded)}>
@@ -47,6 +49,12 @@ export default function AnnouncementCard({ announcement }: Props) {
 							<Text style={local.fileLink}>{f.FileName}</Text>
 						</TouchableOpacity>
 					))}
+				</View>
+			)}
+
+			{!expanded && hasOverflow && (
+				<View style={local.chevron}>
+					<ChevronDown size={16} color={Colors.textMuted} />
 				</View>
 			)}
 		</TouchableOpacity>
@@ -107,4 +115,11 @@ const local = StyleSheet.create({
 		color: Colors.secondary,
 		textDecorationLine: "underline",
 	},
+	chevron: {
+		position: "absolute",
+		bottom: Spacing.sm,
+		right: Spacing.sm,
+	},
 });
+
+export default memo(AnnouncementCard);

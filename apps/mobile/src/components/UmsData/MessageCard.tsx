@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Text, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { ChevronDown } from "lucide-react-native";
 import { Colors, Spacing, Radius, FontSize, FontWeight } from "@/constants/Theme";
 import { HtmlText } from "@/features/ums-data/htmlParser";
 import type { UMSMessage } from "@bhemu/shared";
@@ -12,6 +13,7 @@ export default function MessageCard({ message }: Props) {
 	const [expanded, setExpanded] = useState(false);
 
 	const bodyHtml = message.BodyHtml || message.Body || "";
+	const hasOverflow = bodyHtml.length > 200 || message.Subject.length > 60;
 
 	return (
 		<TouchableOpacity style={local.card} activeOpacity={0.8} onPress={() => setExpanded(!expanded)}>
@@ -20,6 +22,12 @@ export default function MessageCard({ message }: Props) {
 			</Text>
 			{bodyHtml ? <HtmlText html={bodyHtml} style={local.body} numberOfLines={expanded ? undefined : 4} /> : null}
 			{message.Date ? <Text style={local.date}>{message.Date}</Text> : null}
+
+			{!expanded && hasOverflow && (
+				<View style={local.chevron}>
+					<ChevronDown size={16} color={Colors.textMuted} />
+				</View>
+			)}
 		</TouchableOpacity>
 	);
 }
@@ -47,5 +55,10 @@ const local = StyleSheet.create({
 		fontSize: FontSize.xs,
 		color: Colors.textSubtle,
 		marginTop: Spacing.xs,
+	},
+	chevron: {
+		position: "absolute",
+		bottom: Spacing.sm,
+		right: Spacing.sm,
 	},
 });

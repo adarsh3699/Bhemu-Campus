@@ -26,6 +26,9 @@ export default function MessagesScreen() {
 				keyExtractor={(_, i) => String(i)}
 				renderItem={({ item }) => <MessageCard message={item} />}
 				contentContainerStyle={local.list}
+				initialNumToRender={5}
+				maxToRenderPerBatch={10}
+				windowSize={11}
 				ListEmptyComponent={
 					<View style={local.empty}>
 						<Text style={local.emptyText}>
