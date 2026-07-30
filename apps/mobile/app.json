@@ -17,6 +17,7 @@
         "foregroundImage": "./assets/app_icon.png",
         "backgroundColor": "#ffffff"
       },
+      "permissions": ["SCHEDULE_EXACT_ALARM"],
       "package": "in.bhemu.campus",
       "googleServicesFile": "./google-services.json"
     },
@@ -27,6 +28,7 @@
     "plugins": [
       "expo-router",
       "expo-font",
+      "expo-notifications",
       [
         "expo-splash-screen",
         {

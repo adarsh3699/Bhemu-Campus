@@ -1,5 +1,5 @@
-import { useMemo, useState, useRef, useEffect } from "react";
-import { ScrollView, Text, StyleSheet, View, TouchableOpacity } from "react-native";
+import { useMemo, useState, useRef, useEffect, useCallback } from "react";
+import { RefreshControl, ScrollView, Text, StyleSheet, View, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CalendarX2, Loader } from "lucide-react-native";
 import ScreenHeader from "@/components/ui/ScreenHeader";
@@ -12,9 +12,21 @@ import type { TimetableEntry } from "@bhemu/shared";
 const DAY_ORDER = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 export default function TimetableScreen() {
-	const { data, loading } = useUmsData();
+	const { data, loading, refresh } = useUmsData();
 	const tabScrollRef = useRef<ScrollView>(null);
-	const todayName = useMemo(() => DAY_ORDER[(new Date().getDay() + 6) % 7], []);
+	const [refreshing, setRefreshing] = useState(false);
+	const now = new Date();
+	const todayName = DAY_ORDER[(now.getDay() + 6) % 7];
+	const currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
+
+	const handleRefresh = useCallback(async () => {
+		setRefreshing(true);
+		try {
+			await refresh();
+		} finally {
+			setRefreshing(false);
+		}
+	}, [refresh]);
 
 	const grouped = useMemo(() => {
 		const timetable = data?.timetable ?? [];
@@ -82,7 +94,19 @@ export default function TimetableScreen() {
 				</ScrollView>
 			)}
 
-			<ScrollView contentContainerStyle={local.scroll} showsVerticalScrollIndicator={false}>
+			<ScrollView
+				contentContainerStyle={local.scroll}
+				showsVerticalScrollIndicator={false}
+				alwaysBounceVertical
+				refreshControl={
+					<RefreshControl
+						refreshing={refreshing}
+						onRefresh={handleRefresh}
+						tintColor={Colors.primary}
+						colors={[Colors.primary]}
+					/>
+				}
+			>
 				{grouped.length === 0 ? (
 					<View style={local.empty}>
 						{loading ? (
@@ -102,7 +126,13 @@ export default function TimetableScreen() {
 						)}
 					</View>
 				) : (
-					<TimetableDay day={activeDay} entries={selectedEntries} showLabel={false} />
+					<TimetableDay
+						day={activeDay}
+						entries={selectedEntries}
+						showLabel={false}
+						currentDay={todayName}
+						currentTimeMinutes={currentTimeMinutes}
+					/>
 				)}
 			</ScrollView>
 		</SafeAreaView>

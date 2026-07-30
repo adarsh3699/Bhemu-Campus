@@ -5,8 +5,28 @@ import type { UMSLocalData } from "@bhemu/shared";
 const dataKey = (profileId: string | number) => `${STORAGE_KEYS.umsLocalData}_${profileId}`;
 const seenKey = (profileId: string | number) => `${STORAGE_KEYS.umsMessagesLastSeen}_${profileId}`;
 
+type UmsDataListener = (data: UMSLocalData) => void;
+const listenersByProfile = new Map<string, Set<UmsDataListener>>();
+
+export function subscribeToUmsData(profileId: string | number, listener: UmsDataListener): () => void {
+	const key = dataKey(profileId);
+	const listeners = listenersByProfile.get(key) ?? new Set<UmsDataListener>();
+	listeners.add(listener);
+	listenersByProfile.set(key, listeners);
+
+	return () => {
+		listeners.delete(listener);
+		if (listeners.size === 0) listenersByProfile.delete(key);
+	};
+}
+
 export async function saveUmsData(data: UMSLocalData, profileId: string | number): Promise<void> {
-	await AsyncStorage.setItem(dataKey(profileId), JSON.stringify(data)).catch(() => {});
+	try {
+		await AsyncStorage.setItem(dataKey(profileId), JSON.stringify(data));
+		listenersByProfile.get(dataKey(profileId))?.forEach((listener) => listener(data));
+	} catch {
+		// Keep storage failures non-fatal for the sync flow.
+	}
 }
 
 export async function getUmsData(profileId: string | number): Promise<UMSLocalData | null> {

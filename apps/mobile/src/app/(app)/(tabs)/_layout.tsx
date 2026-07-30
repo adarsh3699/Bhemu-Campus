@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { View, StyleSheet, TouchableOpacity, Animated, Easing } from "react-native";
 import { Tabs } from "expo-router";
 import { Home, Calculator, RefreshCw, CalendarCheck, Settings } from "lucide-react-native";
@@ -10,6 +10,8 @@ import { db } from "@/firebase/config";
 import UMSWebView, { type UMSWebViewHandle } from "@/features/sync/UMSWebView";
 import { writeToFirestore } from "@/features/sync/syncCoordinator";
 import { saveUmsData } from "@/features/ums-data/storage";
+import { rescheduleUmsNotifications } from "@/features/notifications/notificationService";
+import { useUmsData } from "@/features/ums-data/useUmsData";
 import type { UMSSyncResult } from "@bhemu/firebase";
 import type { UMSLocalData } from "@bhemu/shared";
 
@@ -70,12 +72,18 @@ function SyncButton({
 export default function TabsLayout() {
 	const { currentUser } = useAuth();
 	const { activeProfile, currentProfile } = useGpaData();
+	const { data: umsData } = useUmsData();
 	const isSharedProfile = !!currentProfile?.isShared;
 	const webViewRef = useRef<UMSWebViewHandle>(null);
 
 	const [syncState, setSyncState] = useState<SyncState>("idle");
 	const [engineActive, setEngineActive] = useState(false);
 	const [loginVisible, setLoginVisible] = useState(false);
+
+	useEffect(() => {
+		if (!activeProfile) return;
+		void rescheduleUmsNotifications(umsData);
+	}, [activeProfile, umsData]);
 
 	const startSync = useCallback(() => {
 		setSyncState("syncing");

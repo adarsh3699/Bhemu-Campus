@@ -185,9 +185,7 @@ export default function HomeTab() {
 									<Bell size={22} color={Colors.textPrimary} />
 									{unreadCount > 0 && (
 										<View style={local.badge}>
-											<Text style={local.badgeText}>
-												{unreadCount > 99 ? "99+" : unreadCount}
-											</Text>
+											<Text style={local.badgeText}>{unreadCount > 99 ? "99" : unreadCount}</Text>
 										</View>
 									)}
 								</View>
@@ -299,7 +297,7 @@ const local = StyleSheet.create({
 	bellWrap: { position: "relative", width: 22, height: 22 },
 	badge: {
 		position: "absolute",
-		top: -6,
+		top: -8,
 		right: -8,
 		backgroundColor: Colors.destructive,
 		borderRadius: 10,
@@ -309,7 +307,7 @@ const local = StyleSheet.create({
 		justifyContent: "center",
 		paddingHorizontal: 4,
 	},
-	badgeText: { fontSize: 10, fontWeight: FontWeight.bold, color: Colors.textPrimary },
+	badgeText: { fontSize: 10, fontWeight: FontWeight.semibold, color: Colors.textPrimary },
 	greetingSub: { fontSize: FontSize.base, color: Colors.textMuted },
 
 	profileChip: {
