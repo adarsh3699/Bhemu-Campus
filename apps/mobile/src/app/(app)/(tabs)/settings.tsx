@@ -8,6 +8,7 @@ import AccountInfo from "@/components/Settings/AccountInfo";
 import SecuritySection from "@/components/Settings/SecuritySection";
 import ProfileSettings from "@/components/Settings/ProfileSettings";
 import DangerZone from "@/components/Settings/DangerZone";
+import NotificationSettings from "@/components/Settings/NotificationSettings";
 
 export default function SettingsTab() {
 	const router = useRouter();
@@ -25,6 +26,7 @@ export default function SettingsTab() {
 
 				<AccountInfo />
 				<ProfileSettings />
+				<NotificationSettings />
 
 				<TouchableOpacity
 					style={local.dataViewerBtn}

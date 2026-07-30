@@ -12,6 +12,7 @@ import { writeToFirestore } from "@/features/sync/syncCoordinator";
 import { saveUmsData } from "@/features/ums-data/storage";
 import { rescheduleUmsNotifications } from "@/features/notifications/notificationService";
 import { useUmsData } from "@/features/ums-data/useUmsData";
+import { useNotificationSettings } from "@/features/notifications/useNotificationSettings";
 import type { UMSSyncResult } from "@bhemu/firebase";
 import type { UMSLocalData } from "@bhemu/shared";
 
@@ -73,6 +74,11 @@ export default function TabsLayout() {
 	const { currentUser } = useAuth();
 	const { activeProfile, currentProfile } = useGpaData();
 	const { data: umsData } = useUmsData();
+	const {
+		settings: notificationSettings,
+		loading: notificationSettingsLoading,
+		permissionStatus: notificationPermissionStatus,
+	} = useNotificationSettings();
 	const isSharedProfile = !!currentProfile?.isShared;
 	const webViewRef = useRef<UMSWebViewHandle>(null);
 
@@ -81,9 +87,15 @@ export default function TabsLayout() {
 	const [loginVisible, setLoginVisible] = useState(false);
 
 	useEffect(() => {
-		if (!activeProfile) return;
-		void rescheduleUmsNotifications(umsData);
-	}, [activeProfile, umsData]);
+		if (notificationSettingsLoading || notificationPermissionStatus === "unknown") return;
+		void rescheduleUmsNotifications(activeProfile ? umsData : null, notificationSettings);
+	}, [
+		activeProfile,
+		umsData,
+		notificationSettings,
+		notificationSettingsLoading,
+		notificationPermissionStatus,
+	]);
 
 	const startSync = useCallback(() => {
 		setSyncState("syncing");

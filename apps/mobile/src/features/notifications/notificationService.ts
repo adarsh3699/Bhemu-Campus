@@ -1,10 +1,10 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import type { TimetableEntry, UMSLocalData, UMSSeatingPlan } from "@bhemu/shared";
+import type { NotificationSettings } from "./notificationSettings";
 
 const CHANNEL_ID = "academic-reminders";
 const MANAGED_SOURCE = "bcampus-academic-reminder";
-const EXAM_REMINDER_HOUR = 8;
 
 const DAY_TO_WEEKDAY: Record<string, number> = {
 	Sunday: 1,
@@ -106,12 +106,15 @@ function parseMonth(value: string): number {
 	return MONTHS[value.slice(0, 3).toLowerCase()] ?? 0;
 }
 
-function getReminderTime(entry: TimetableEntry, index: number): { weekday: number; hour: number; minute: number } | null {
+function getReminderTime(
+	entry: TimetableEntry,
+	minutesBefore: number
+): { weekday: number; hour: number; minute: number } | null {
 	const startMinutes = parseTimeToMinutes(entry.startTime);
 	const weekday = DAY_TO_WEEKDAY[entry.dayOfWeek.trim()];
 	if (startMinutes === null || !weekday) return null;
 
-	const reminderMinutes = startMinutes - (index === 0 ? 15 : 10);
+	const reminderMinutes = startMinutes - minutesBefore;
 	const adjustedMinutes = reminderMinutes >= 0 ? reminderMinutes : reminderMinutes + 24 * 60;
 	return {
 		weekday: reminderMinutes >= 0 ? weekday : weekday === 1 ? 7 : weekday - 1,
@@ -136,12 +139,12 @@ function buildTimetableEntries(timetable: TimetableEntry[]): Array<{ entry: Time
 	});
 }
 
-function getExamReminderDate(examDate: string): Date | null {
+function getExamReminderDate(examDate: string, daysBefore: number, hour: number): Date | null {
 	const parsed = parseExamDate(examDate);
 	if (!parsed) return null;
 
-	const reminderDate = new Date(parsed.year, parsed.month - 1, parsed.day, EXAM_REMINDER_HOUR, 0, 0, 0);
-	reminderDate.setDate(reminderDate.getDate() - 1);
+	const reminderDate = new Date(parsed.year, parsed.month - 1, parsed.day, hour, 0, 0, 0);
+	reminderDate.setDate(reminderDate.getDate() - daysBefore);
 	return reminderDate > new Date() ? reminderDate : null;
 }
 
@@ -157,7 +160,6 @@ async function ensureNotificationPermission(): Promise<boolean> {
 		await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
 			name: "Academic reminders",
 			importance: Notifications.AndroidImportance.HIGH,
-			sound: "default",
 			vibrationPattern: [0, 250, 250, 250],
 		});
 	}
@@ -166,6 +168,7 @@ async function ensureNotificationPermission(): Promise<boolean> {
 	if (current.granted || current.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL) {
 		return true;
 	}
+	if (!current.canAskAgain) return false;
 
 	const requested = await Notifications.requestPermissionsAsync({
 		ios: { allowAlert: true, allowBadge: false, allowSound: true },
@@ -184,49 +187,62 @@ async function cancelManagedNotifications(): Promise<void> {
 	}
 }
 
-async function scheduleTimetableNotifications(timetable: TimetableEntry[]): Promise<void> {
-	for (const { entry, reminderIndex } of buildTimetableEntries(timetable)) {
-		const reminderTime = getReminderTime(entry, reminderIndex);
-		if (!reminderTime) continue;
+async function scheduleTimetableNotifications(
+	timetable: TimetableEntry[],
+	settings: NotificationSettings
+): Promise<void> {
+	const schedules = buildTimetableEntries(timetable).map(async ({ entry, reminderIndex }) => {
+		const minutesBefore = reminderIndex === 0 ? settings.firstClassMinutes : settings.otherClassMinutes;
+		const reminderTime = getReminderTime(entry, minutesBefore);
+		if (!reminderTime) return;
 
-		const minutesBefore = reminderIndex === 0 ? 15 : 10;
 		try {
 			await Notifications.scheduleNotificationAsync({
 				content: {
 					title: `Class in ${minutesBefore} minutes`,
 					body: `${entry.courseCode} starts at ${entry.startTime}${entry.room ? ` • Room ${entry.room}` : ""}`,
-					sound: "default",
 					data: { source: MANAGED_SOURCE, type: "timetable", courseCode: entry.courseCode },
 				},
-				trigger: {
-					type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
-					weekday: reminderTime.weekday,
-					hour: reminderTime.hour,
-					minute: reminderTime.minute,
-					repeats: true,
-					channelId: CHANNEL_ID,
-				},
+				trigger:
+					Platform.OS === "android"
+						? {
+								type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+								weekday: reminderTime.weekday,
+								hour: reminderTime.hour,
+								minute: reminderTime.minute,
+								channelId: CHANNEL_ID,
+							}
+						: {
+								type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+								weekday: reminderTime.weekday,
+								hour: reminderTime.hour,
+								minute: reminderTime.minute,
+								repeats: true,
+							},
 			});
 		} catch (error) {
 			console.warn(`Unable to schedule reminder for ${entry.courseCode}`, error);
 		}
-	}
+	});
+	await Promise.all(schedules);
 }
 
-async function scheduleExamNotifications(seatingPlan: UMSSeatingPlan[]): Promise<void> {
+async function scheduleExamNotifications(
+	seatingPlan: UMSSeatingPlan[],
+	settings: NotificationSettings
+): Promise<void> {
 	const scheduledExams = new Set<string>();
-	for (const exam of seatingPlan) {
-		const reminderDate = getExamReminderDate(exam.ExamDate);
+	const schedules = seatingPlan.map(async (exam) => {
+		const reminderDate = getExamReminderDate(exam.ExamDate, settings.examDaysBefore, settings.examReminderHour);
 		const examKey = `${exam.CourseCode}-${exam.ExamDate}-${exam.ExamType}`;
-		if (!reminderDate || scheduledExams.has(examKey)) continue;
+		if (!reminderDate || scheduledExams.has(examKey)) return;
 		scheduledExams.add(examKey);
 
 		try {
 			await Notifications.scheduleNotificationAsync({
 				content: {
-					title: "Exam tomorrow",
+					title: `Exam in ${settings.examDaysBefore} day${settings.examDaysBefore === 1 ? "" : "s"}`,
 					body: `${exam.CourseCode}${exam.CourseName ? ` — ${exam.CourseName}` : ""}${exam.Room ? ` • Room ${exam.Room}` : ""}`,
-					sound: "default",
 					data: { source: MANAGED_SOURCE, type: "exam", courseCode: exam.CourseCode },
 				},
 				trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: reminderDate, channelId: CHANNEL_ID },
@@ -234,21 +250,26 @@ async function scheduleExamNotifications(seatingPlan: UMSSeatingPlan[]): Promise
 		} catch (error) {
 			console.warn(`Unable to schedule exam reminder for ${exam.CourseCode}`, error);
 		}
-	}
+	});
+	await Promise.all(schedules);
 }
 
-async function scheduleLatestNotifications(data: UMSLocalData | null): Promise<void> {
+async function scheduleLatestNotifications(data: UMSLocalData | null, settings: NotificationSettings): Promise<void> {
 	configureNotifications();
 	await cancelManagedNotifications();
-	if (!data) return;
+	if (!data || !settings.enabled) return;
+	if (!settings.timetableEnabled && !settings.examEnabled) return;
 	if (!(await ensureNotificationPermission())) return;
 
-	await scheduleTimetableNotifications(data.timetable);
-	await scheduleExamNotifications(data.seatingPlan);
+	if (settings.timetableEnabled) await scheduleTimetableNotifications(data.timetable, settings);
+	if (settings.examEnabled) await scheduleExamNotifications(data.seatingPlan, settings);
 }
 
-export function rescheduleUmsNotifications(data: UMSLocalData | null): Promise<void> {
-	scheduleQueue = scheduleQueue.then(() => scheduleLatestNotifications(data)).catch((error) => {
+export function rescheduleUmsNotifications(
+	data: UMSLocalData | null,
+	settings: NotificationSettings
+): Promise<void> {
+	scheduleQueue = scheduleQueue.then(() => scheduleLatestNotifications(data, settings)).catch((error) => {
 		console.warn("Unable to schedule academic notifications", error);
 	});
 	return scheduleQueue;
