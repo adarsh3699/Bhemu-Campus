@@ -13,7 +13,7 @@ import { Colors, Spacing, FontSize, FontWeight, Radius } from "@/constants/Theme
 export default function MessagesScreen() {
 	const { activeProfile } = useGpaData();
 	const { data, loading } = useUmsData();
-	const messages = data?.messages ?? [];
+	const messages = useMemo(() => data?.messages ?? [], [data?.messages]);
 	const [search, setSearch] = useState("");
 
 	const filteredMessages = useMemo(() => {

@@ -326,12 +326,16 @@ export const WEBVIEW_SYNC_SCRIPT = `
                   if (inQ) cur+=ch;
                 }
                 var desc=args[0]||'', timeRange=args[1]||'', day=args[2]||dayLabel, courseName=args[3]||'', courseCode=args[4]||'';
-                var roomMatch = desc.match(/\\bS:(\\S+)/);
+                var roomMatch = desc.match(/\\bR:\\s*(\\S+)/);
                 var room = roomMatch ? roomMatch[1] : '';
+                var sectionMatch = desc.match(/\\bS:\\s*(\\S+)/);
+                var section = sectionMatch ? sectionMatch[1] : '';
+                var groupMatch = desc.match(/\\bG:\\s*(\\S+)/);
+                var group = groupMatch ? groupMatch[1] : '';
                 var facultyMatch = desc.match(/Teacher:\\s*\\d+::(.+)$/);
                 var faculty = facultyMatch ? facultyMatch[1].trim() : '';
                 var timeParts = timeRange.split('-');
-                timetable.push({ dayOfWeek:day, timeSlot:timeRange, startTime:(timeParts[0]||'').trim(), endTime:(timeParts[1]||'').trim(), courseCode:courseCode, courseName:courseName, room:room, faculty:faculty });
+                timetable.push({ dayOfWeek:day, timeSlot:timeRange, startTime:(timeParts[0]||'').trim(), endTime:(timeParts[1]||'').trim(), courseCode:courseCode, courseName:courseName, room:room, section:section, group:group, faculty:faculty });
               });
             });
           }

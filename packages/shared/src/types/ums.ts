@@ -48,6 +48,8 @@ export interface TimetableEntry {
 	courseCode: string;
 	courseName: string;
 	room: string;
+	section: string;
+	group: string;
 	faculty: string;
 }
 

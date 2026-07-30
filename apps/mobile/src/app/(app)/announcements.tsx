@@ -13,7 +13,7 @@ const CATEGORY_ORDER = ["AC", "EX", "PL", "CU", "AM", "RE"];
 
 export default function AnnouncementsScreen() {
 	const { data, loading } = useUmsData();
-	const announcements = data?.announcements ?? [];
+	const announcements = useMemo(() => data?.announcements ?? [], [data?.announcements]);
 	const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
 	const [search, setSearch] = useState("");
 
@@ -23,7 +23,7 @@ export default function AnnouncementsScreen() {
 	}, [announcements]);
 
 	const filteredAnnouncements = useMemo(() => {
-		let result =
+		const result =
 			selectedCategory === "ALL"
 				? announcements
 				: announcements.filter((ann) => ann.categorycode === selectedCategory);
