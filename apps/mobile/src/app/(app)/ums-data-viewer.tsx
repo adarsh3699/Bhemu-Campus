@@ -3,7 +3,7 @@ import { ScrollView, Text, StyleSheet, View, TouchableOpacity } from "react-nati
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ChevronDown, ChevronRight, Trash2 } from "lucide-react-native";
 import ScreenHeader from "@/components/ui/ScreenHeader";
-import { useGpaData } from "@/contexts/GpaDataContext";
+import { useGpaProfiles } from "@/contexts/GpaDataContext";
 import { useUmsData } from "@/features/ums-data/useUmsData";
 import { clearUmsData } from "@/features/ums-data/storage";
 import { Layout } from "@/styles";
@@ -38,7 +38,7 @@ function DataSection({ title, count, data }: SectionProps) {
 }
 
 export default function UmsDataViewerScreen() {
-	const { activeProfile } = useGpaData();
+	const { activeProfile } = useGpaProfiles();
 	const { data, loading, refresh } = useUmsData();
 
 	const handleClear = async () => {

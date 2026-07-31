@@ -71,7 +71,7 @@ export default function TimetableDay({ day, entries, showLabel = true, currentDa
 
 							<View style={local.infoCol}>
 								<View style={local.courseHeader}>
-									<Text style={local.courseName} numberOfLines={2}>
+									<Text style={local.courseCode} numberOfLines={2}>
 										{courseCode}
 									</Text>
 									{isCurrent && (
@@ -177,7 +177,7 @@ const local = StyleSheet.create({
 		justifyContent: "space-between",
 		gap: Spacing.sm,
 	},
-	courseName: {
+	courseCode: {
 		fontSize: FontSize.base,
 		fontWeight: FontWeight.bold,
 		color: Colors.textPrimary,

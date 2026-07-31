@@ -1,4 +1,4 @@
-import { ScrollView, View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { ScrollView, View, Text, StyleSheet, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Database } from "lucide-react-native";
@@ -8,6 +8,7 @@ import AccountInfo from "@/components/Settings/AccountInfo";
 import SecuritySection from "@/components/Settings/SecuritySection";
 import ProfileSettings from "@/components/Settings/ProfileSettings";
 import DangerZone from "@/components/Settings/DangerZone";
+import LogoutButton from "@/components/Settings/LogoutButton";
 import NotificationSettings from "@/components/Settings/NotificationSettings";
 
 export default function SettingsTab() {
@@ -28,19 +29,20 @@ export default function SettingsTab() {
 				<ProfileSettings />
 				<NotificationSettings />
 
-				<TouchableOpacity
+				<Pressable
 					style={local.dataViewerBtn}
 					onPress={() => router.push("/ums-data-viewer" as never)}
-					activeOpacity={0.7}
+					android_ripple={{ color: Colors.border }}
 				>
 					<Database size={18} color={Colors.textMuted} />
 					<View style={local.dataViewerText}>
 						<Text style={local.dataViewerTitle}>UMS Data Viewer</Text>
 						<Text style={local.dataViewerSub}>View raw synced data for debugging</Text>
 					</View>
-				</TouchableOpacity>
+				</Pressable>
 
 				<SecuritySection />
+				<LogoutButton />
 				<DangerZone />
 			</ScrollView>
 		</SafeAreaView>

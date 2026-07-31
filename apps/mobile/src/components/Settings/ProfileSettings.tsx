@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "rea
 import { UserCog, Pencil, Share2, Trash2, Eye, EyeOff, Info } from "lucide-react-native";
 import { Colors, Spacing, Radius, FontSize, FontWeight } from "@/constants/Theme";
 import { useAuth } from "@/contexts/AuthContext";
-import { useGpaData } from "@/contexts/GpaDataContext";
+import { useGpaProfiles } from "@/contexts/GpaDataContext";
 import { useMessage } from "@/contexts/MessageContext";
 import { LeaderboardService } from "@/firebase/services";
 import { db } from "@/firebase/config";
@@ -15,7 +15,7 @@ import type { ShareItem } from "@bhemu/shared";
 export default function ProfileSettings() {
 	const { currentUser } = useAuth();
 	const { currentProfile, profiles, renameProfile, deleteProfile, shareProfileWithUser, mySharedProfiles } =
-		useGpaData();
+		useGpaProfiles();
 	const { showMessage } = useMessage();
 
 	const [showRename, setShowRename] = useState(false);

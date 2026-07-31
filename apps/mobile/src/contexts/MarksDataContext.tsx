@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useMemo } from "react";
-import { useGpaData } from "@/contexts/GpaDataContext";
+import { useGpaSemesters } from "@/contexts/GpaDataContext";
 import { useMessage } from "@/contexts/MessageContext";
 import { computeGradeFromMarks, computeTotal } from "@bhemu/shared";
 import type { SubjectMarks } from "@/types";
@@ -23,7 +23,7 @@ export function useMarksData(): MarksDataContextValue {
 }
 
 export function MarksDataProvider({ children }: { children: React.ReactNode }) {
-	const { semesters, updateSemesters } = useGpaData();
+	const { semesters, updateSemesters } = useGpaSemesters();
 	const { showMessage } = useMessage();
 
 	const [selectedTermId, setSelectedTermId] = useState<string | null>(null);

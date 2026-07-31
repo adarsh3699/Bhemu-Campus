@@ -5,8 +5,19 @@ export interface FirebaseError extends Error {
 	requiresRelogin?: boolean;
 }
 
+/** Minimal local identity used to render cached app data during auth restoration. */
+export interface LaunchUser {
+	uid: string;
+	email: string | null;
+	displayName: string | null;
+	photoURL: string | null;
+}
+
 export interface AuthContextType {
 	currentUser: User | null;
+	authLoading: boolean;
+	launchUser: LaunchUser | null;
+	launchReady: boolean;
 	signup: (email: string, password: string, displayName?: string) => Promise<UserCredential>;
 	login: (email: string, password: string) => Promise<UserCredential>;
 	logout: () => Promise<void>;

@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { STORAGE_KEYS } from "@bhemu/shared";
 
-const NOTIFICATION_SETTINGS_KEY = "notification_settings_v1";
+const NOTIFICATION_SETTINGS_KEY = STORAGE_KEYS.notificationSettings;
 
 export const REMINDER_MINUTES = [5, 10, 15, 20, 30] as const;
 export const EXAM_DAYS_BEFORE = [1, 2, 3] as const;

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal } from "rea
 import { Check, Plus, Share2, Trash2, Pencil, Copy, MoreVertical } from "lucide-react-native";
 import { Colors, Spacing, Radius, FontSize, FontWeight } from "@/constants/Theme";
 import { useAuth } from "@/contexts/AuthContext";
-import { useGpaData } from "@/contexts/GpaDataContext";
+import { useGpaProfiles } from "@/contexts/GpaDataContext";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import InputModal from "@/components/ui/InputModal";
 import type { ShareData } from "@bhemu/firebase";
@@ -62,7 +62,7 @@ export default function ProfileDrawer({ visible, onClose, onShareProfile }: Prop
 		copySharedProfile,
 		mySharedProfiles,
 		sharedWithMeShareIds,
-	} = useGpaData();
+	} = useGpaProfiles();
 
 	const [showCreateModal, setShowCreateModal] = useState(false);
 	const [profileToDelete, setProfileToDelete] = useState<{ id: string | number; name: string } | null>(null);

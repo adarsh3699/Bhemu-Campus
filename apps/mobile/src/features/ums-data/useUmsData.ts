@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import type { UMSLocalData } from "@bhemu/shared";
-import { useGpaData } from "@/contexts/GpaDataContext";
+import { useGpaProfiles } from "@/contexts/GpaDataContext";
 import { getUmsData, subscribeToUmsData } from "./storage";
 
 export function useUmsData() {
-	const { activeProfile } = useGpaData();
+	const { activeProfile } = useGpaProfiles();
 	const [data, setData] = useState<UMSLocalData | null>(null);
 	const [loading, setLoading] = useState(true);
 

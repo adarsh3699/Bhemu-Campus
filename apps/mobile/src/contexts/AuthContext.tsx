@@ -25,17 +25,70 @@ import {
 	getDocs,
 	writeBatch,
 } from "firebase/firestore";
-import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { auth, db } from "@/firebase/config";
-import type { FirebaseError, AuthContextType } from "@/types";
+import type { FirebaseError, AuthContextType, LaunchUser } from "@/types";
 import { STORAGE_KEYS } from "@bhemu/shared";
-
-GoogleSignin.configure({
-	webClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID,
-});
+import { authStateAfterRestore } from "@/features/startup/authReadiness";
+import { clearLocalSessionData } from "@/features/session/clearLocalSessionData";
+import { enableGpaCacheWrites } from "@/features/gpa-data/cache";
 
 const ACCOUNT_DELETING_KEY = STORAGE_KEYS.accountDeleting;
+
+function toLaunchUser(user: User): LaunchUser {
+	return {
+		uid: user.uid,
+		email: user.email,
+		displayName: user.displayName,
+		photoURL: user.photoURL,
+	};
+}
+
+function parseLaunchUser(raw: string | null): LaunchUser | null {
+	if (!raw) return null;
+	try {
+		const value = JSON.parse(raw) as Partial<LaunchUser>;
+		if (typeof value.uid !== "string" || value.uid.length === 0) return null;
+		return {
+			uid: value.uid,
+			email: typeof value.email === "string" ? value.email : null,
+			displayName: typeof value.displayName === "string" ? value.displayName : null,
+			photoURL: typeof value.photoURL === "string" ? value.photoURL : null,
+		};
+	} catch {
+		return null;
+	}
+}
+
+async function readStoredLaunchUser(): Promise<LaunchUser | null> {
+	const [[, rawLaunchUser], [, disabled]] = await AsyncStorage.multiGet([
+		STORAGE_KEYS.launchUser,
+		STORAGE_KEYS.launchUserDisabled,
+	]);
+	if (disabled === "1") return null;
+	const stored = parseLaunchUser(rawLaunchUser);
+	if (stored) return stored;
+
+	// Older installs may already have a GPA cache but not the launch hint. Only
+	// infer the identity when there is exactly one account cache, avoiding a
+	// potentially incorrect account choice for users who switch accounts.
+	const cachePrefix = `${STORAGE_KEYS.gpaCache}:`;
+	const cacheKeys = (await AsyncStorage.getAllKeys()).filter((key) => key.startsWith(cachePrefix));
+	if (cacheKeys.length !== 1) return null;
+	const uid = cacheKeys[0].slice(cachePrefix.length);
+	return uid ? { uid, email: null, displayName: null, photoURL: null } : null;
+}
+
+type GoogleSigninClient = typeof import("@react-native-google-signin/google-signin")["GoogleSignin"];
+let googleSigninClient: GoogleSigninClient | null = null;
+
+async function getGoogleSignin() {
+	if (googleSigninClient) return googleSigninClient;
+	const { GoogleSignin } = await import("@react-native-google-signin/google-signin");
+	GoogleSignin.configure({ webClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID });
+	googleSigninClient = GoogleSignin;
+	return GoogleSignin;
+}
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -48,6 +101,8 @@ export function useAuth(): AuthContextType {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
 	const [currentUser, setCurrentUser] = useState<User | null>(null);
 	const [loading, setLoading] = useState(true);
+	const [launchUser, setLaunchUser] = useState<LaunchUser | null>(null);
+	const [launchReady, setLaunchReady] = useState(false);
 
 	async function saveUserData(user: User, isNewUser = false) {
 		try {
@@ -84,6 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	}
 
 	async function signInWithGoogle(): Promise<UserCredential> {
+		const GoogleSignin = await getGoogleSignin();
 		await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
 		const response = await GoogleSignin.signIn();
 		const idToken = response.data?.idToken;
@@ -95,11 +151,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	}
 
 	async function logout(): Promise<void> {
+		const clearNotifications = import("@/features/notifications/notificationService")
+			.then(({ clearManagedNotifications }) => clearManagedNotifications())
+			.catch(() => {});
+
 		try {
-			await AsyncStorage.removeItem(STORAGE_KEYS.activeProfileId);
-			await AsyncStorage.removeItem(STORAGE_KEYS.gpaViewMode);
-		} catch { /* intentionally swallowed */ }
-		return signOut(auth);
+			// Complete local cleanup before changing auth state so no account-scoped
+			// cache can leak into the next signed-in session.
+			await Promise.all([clearLocalSessionData(), clearNotifications]);
+			await signOut(auth);
+		} catch (error) {
+			// Keep the current session usable if Firebase rejects the sign-out.
+			enableGpaCacheWrites();
+			throw error;
+		}
 	}
 
 	function resetPassword(email: string): Promise<void> {
@@ -169,6 +234,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			const hasGoogle = isGoogleUser();
 
 			if ((useGoogleAuth || (!hasPass && hasGoogle))) {
+				const GoogleSignin = await getGoogleSignin();
 				await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
 				const googleResponse = await GoogleSignin.signIn();
 				const idToken = googleResponse.data?.idToken;
@@ -266,18 +332,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	}
 
 	useEffect(() => {
-		const unsubscribe = onAuthStateChanged(auth, async (user) => {
-			if (user) await saveUserData(user);
-			setCurrentUser(user);
-			setLoading(false);
-		});
-		return unsubscribe;
-	}, []);
+		let disposed = false;
+		let authStateObserved = false;
 
-	if (loading) return null;
+		// A small account-scoped hint lets returning users open their cached Home
+		// immediately. Firebase still remains the authority and replaces it as
+		// soon as its local auth restoration completes.
+		void readStoredLaunchUser()
+			.then((storedUser) => {
+				if (!disposed && !authStateObserved) setLaunchUser(storedUser);
+			})
+			.catch(() => {})
+			.finally(() => {
+				if (!disposed) setLaunchReady(true);
+			});
+
+		const unsubscribe = onAuthStateChanged(auth, (user) => {
+			authStateObserved = true;
+			// Auth restoration is the critical path. Firestore metadata writes belong
+			// to explicit auth actions and must never delay the first render.
+			const state = authStateAfterRestore(user);
+			setCurrentUser(state.currentUser);
+			setLoading(state.authLoading);
+			setLaunchReady(true);
+			if (user) {
+				enableGpaCacheWrites();
+				const nextLaunchUser = toLaunchUser(user);
+				setLaunchUser(nextLaunchUser);
+				void AsyncStorage.removeItem(STORAGE_KEYS.launchUserDisabled);
+				void AsyncStorage.setItem(STORAGE_KEYS.launchUser, JSON.stringify(nextLaunchUser));
+			} else {
+				setLaunchUser(null);
+				void AsyncStorage.setItem(STORAGE_KEYS.launchUserDisabled, "1");
+				void AsyncStorage.removeItem(STORAGE_KEYS.launchUser);
+			}
+		});
+		return () => {
+			disposed = true;
+			unsubscribe();
+		};
+	}, []);
 
 	return (
 		<AuthContext.Provider value={{
+			authLoading: loading, launchUser, launchReady,
 			currentUser, signup, login, logout, resetPassword, signInWithGoogle,
 			updateDisplayName, createPassword, changePassword, deleteAllUserData,
 			isGoogleUser, hasPassword,

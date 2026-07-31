@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { collection, getDocs, query, where } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { gpaService as createGPAService, LeaderboardService } from "@/firebase/services";
 import { STORAGE_KEYS, sortSemesters } from "@bhemu/shared";
@@ -8,11 +7,15 @@ import { db } from "@/firebase/config";
 import type { GPAProfile, GPASemester } from "@bhemu/shared";
 import type { ShareData } from "@bhemu/firebase";
 import { useMessage } from "@/contexts/MessageContext";
+import { readGpaCache, writeGpaCache } from "@/features/gpa-data/cache";
+import { markStartup } from "@/features/startup/performance";
 
-interface GpaDataContextValue {
+interface GpaDataState {
 	profiles: GPAProfile[];
 	activeProfile: string | number | null;
 	loading: boolean;
+	isHydrated: boolean;
+	isRefreshing: boolean;
 	saving: boolean;
 	sharedWithMeProfiles: GPAProfile[];
 	mySharedProfiles: ShareData[];
@@ -37,21 +40,60 @@ interface GpaDataContextValue {
 	renameProfile: (profileId: string | number, newName: string) => Promise<void>;
 }
 
-const GpaDataContext = createContext<GpaDataContextValue | undefined>(undefined);
+type GpaProfileContextValue = Pick<
+	GpaDataState,
+	| "profiles"
+	| "activeProfile"
+	| "loading"
+	| "isHydrated"
+	| "isRefreshing"
+	| "sharedWithMeProfiles"
+	| "mySharedProfiles"
+	| "allProfiles"
+	| "currentProfile"
+	| "isReadOnlyProfile"
+	| "sharedWithMeShareIds"
+	| "updateActiveProfile"
+	| "createProfile"
+	| "deleteProfile"
+	| "shareProfileWithUser"
+	| "copySharedProfile"
+	| "renameProfile"
+>;
+type GpaSemesterContextValue = Pick<GpaDataState, "semesters" | "saving" | "updateSemesters">;
 
-export function useGpaData(): GpaDataContextValue {
-	const ctx = useContext(GpaDataContext);
-	if (!ctx) throw new Error("useGpaData must be used within a GpaDataProvider");
+const GpaProfilesContext = createContext<GpaProfileContextValue | undefined>(undefined);
+const GpaSemestersContext = createContext<GpaSemesterContextValue | undefined>(undefined);
+const EMPTY_PROFILES: GPAProfile[] = [];
+const EMPTY_SHARED_DATA: ShareData[] = [];
+const EMPTY_SEMESTERS: GPASemester[] = [];
+const EMPTY_SHARE_IDS: Record<string, string> = {};
+
+const profileIdKey = (profileId: string | number | null | undefined): string | null =>
+	profileId == null ? null : String(profileId);
+
+export function useGpaProfiles(): GpaProfileContextValue {
+	const ctx = useContext(GpaProfilesContext);
+	if (!ctx) throw new Error("useGpaProfiles must be used within a GpaDataProvider");
+	return ctx;
+}
+
+export function useGpaSemesters(): GpaSemesterContextValue {
+	const ctx = useContext(GpaSemestersContext);
+	if (!ctx) throw new Error("useGpaSemesters must be used within a GpaDataProvider");
 	return ctx;
 }
 
 export function GpaDataProvider({ children }: { children: React.ReactNode }) {
-	const { currentUser } = useAuth();
+	const { currentUser, launchUser } = useAuth();
 	const { showMessage } = useMessage();
+	const dataUserId = currentUser?.uid ?? launchUser?.uid ?? null;
 
 	const [profiles, setProfiles] = useState<GPAProfile[]>([]);
 	const [activeProfile, setActiveProfile] = useState<string | number | null>(null);
 	const [loading, setLoading] = useState(true);
+	const [isHydrated, setIsHydrated] = useState(false);
+	const [isRefreshing, setIsRefreshing] = useState(true);
 	const [saving, setSaving] = useState(false);
 	const [sharedWithMeProfiles, setSharedWithMeProfiles] = useState<GPAProfile[]>([]);
 	const [mySharedProfiles, setMySharedProfiles] = useState<ShareData[]>([]);
@@ -63,6 +105,11 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 	const initializedUserIdRef = useRef<string | null>(null);
 	const initialActiveProfileRef = useRef<string | null>(null);
 	const creatingDefaultProfileRef = useRef(false);
+	const semestersCacheRef = useRef<Record<string, GPASemester[]>>({});
+	const hasReceivedRemoteProfilesRef = useRef(false);
+	const hasReceivedOutgoingSharesRef = useRef(false);
+	const hydratedCacheUserIdRef = useRef<string | null>(null);
+	const hasCachedDataRef = useRef(false);
 
 	const gpaService = useMemo(() => {
 		return currentUser ? createGPAService(currentUser.uid) : null;
@@ -87,38 +134,48 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 		});
 	}, [sortedProfiles, sharedWithMeProfiles]);
 
-	const currentProfile = allProfiles.find((p) => p.id === activeProfile) || allProfiles[0];
+	const currentProfile = allProfiles.find((p) => profileIdKey(p.id) === profileIdKey(activeProfile)) || allProfiles[0];
 	const [semesters, setSemesters] = useState<GPASemester[]>([]);
 	const isReadOnlyProfile = !!(currentProfile?.isShared && currentProfile?.permission === "read");
 
 	useEffect(() => {
-		if (!gpaService || !activeProfile) return;
+		if (!dataUserId || initializedUserIdRef.current !== dataUserId || !activeProfile) {
+			setSemesters([]);
+			return;
+		}
+
+		const cachedSemesters = semestersCacheRef.current[String(activeProfile)];
+		if (cachedSemesters) setSemesters(cachedSemesters);
+		if (!gpaService) return;
 
 		const profile = allProfiles.find((p) => p.id === activeProfile);
 		const isSharedProfile = profile?.isShared && profile?.ownerUserId;
 
 		const unsubscribe = isSharedProfile
 			? gpaService.onSemestersChangeForUser(profile.ownerUserId!, activeProfile, (result) => {
-				setSemesters(result.success ? sortSemesters(result.semesters) : []);
+				const next = result.success ? sortSemesters(result.semesters) : [];
+				semestersCacheRef.current[String(activeProfile)] = next;
+				setSemesters(next);
 			})
 			: gpaService.onSemestersChange(activeProfile, (result) => {
-				if (!result.success) { setSemesters([]); return; }
-				setSemesters(sortSemesters(result.semesters));
+				const next = result.success ? sortSemesters(result.semesters) : [];
+				semestersCacheRef.current[String(activeProfile)] = next;
+				setSemesters(next);
 			});
 
 		return () => unsubscribe();
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [gpaService, activeProfile, sortSemesters]);
+	}, [gpaService, activeProfile, allProfiles, dataUserId]);
 
 	const generateProfileName = useCallback(() => {
-		return currentUser?.displayName || currentUser?.email?.split("@")[0] || "User";
-	}, [currentUser]);
+		return currentUser?.displayName || launchUser?.displayName || currentUser?.email?.split("@")[0] || launchUser?.email?.split("@")[0] || "User";
+	}, [currentUser, launchUser]);
 
 	const updateActiveProfile = useCallback((profileId: string | number) => {
-		setActiveProfile(profileId);
-		AsyncStorage.setItem(STORAGE_KEYS.activeProfileId, profileId.toString()).catch(() => {});
-		const isShared = sharedWithMeProfiles.some((p) => p.id === profileId);
-		if (!isShared) gpaService?.updateLastOpened(profileId);
+		const normalizedId = String(profileId);
+		setActiveProfile(normalizedId);
+		AsyncStorage.setItem(STORAGE_KEYS.activeProfileId, normalizedId).catch(() => {});
+		const isShared = sharedWithMeProfiles.some((p) => profileIdKey(p.id) === normalizedId);
+		if (!isShared) gpaService?.updateLastOpened(normalizedId);
 	}, [gpaService, sharedWithMeProfiles]);
 
 	const createProfile = useCallback(async (name: string) => {
@@ -146,14 +203,14 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 			showMessage("Cannot delete the last profile", "warning");
 			return;
 		}
-		const profileToDelete = profiles.find((p) => p.id === profileId);
+		const profileToDelete = profiles.find((p) => profileIdKey(p.id) === profileIdKey(profileId));
 		if (!profileToDelete) { showMessage("Profile not found", "error"); return; }
 		if (profileToDelete.isDefault) { showMessage("Cannot delete the default profile", "warning"); return; }
 		try {
 			if (gpaService) {
 				await gpaService.deleteProfile(profileId);
-				if (activeProfile === profileId) {
-					const remaining = sortedProfiles.filter((p) => p.id !== profileId);
+				if (profileIdKey(activeProfile) === profileIdKey(profileId)) {
+					const remaining = sortedProfiles.filter((p) => profileIdKey(p.id) !== profileIdKey(profileId));
 					if (remaining.length > 0) updateActiveProfile(remaining[0].id);
 				}
 				showMessage("Profile deleted successfully", "success");
@@ -247,6 +304,7 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 		if (!gpaService || !activeProfile) return;
 		try {
 			setSaving(true);
+			semestersCacheRef.current[String(activeProfile)] = newSemesters;
 			setSemesters(newSemesters);
 			const profile = allProfiles.find((p) => p.id === activeProfile);
 			if (profile?.isShared && profile.permission === "edit" && profile.ownerUserId) {
@@ -262,59 +320,188 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 		}
 	}, [gpaService, activeProfile, allProfiles, showMessage]);
 
+	useEffect(() => {
+		if (!currentUser || initializedUserIdRef.current !== currentUser.uid || !isHydrated) return;
+		const timer = setTimeout(() => {
+			void writeGpaCache(currentUser.uid, {
+				activeProfile: activeProfile == null ? null : String(activeProfile),
+				profiles,
+				sharedWithMeProfiles,
+				mySharedProfiles,
+				sharedWithMeShareIds,
+				semestersByProfile: semestersCacheRef.current,
+			});
+		}, 150);
+		return () => clearTimeout(timer);
+	}, [
+		currentUser,
+		isHydrated,
+		activeProfile,
+		semesters,
+		profiles,
+		sharedWithMeProfiles,
+		mySharedProfiles,
+		sharedWithMeShareIds,
+	]);
+
+	// During account transitions, keep the previous account's state out of the
+	// render tree until the new provider instance has started hydration.
+	const stateReadyForCurrentUser = !!dataUserId && initializedUserIdRef.current === dataUserId;
+	const visibleProfiles = useMemo(() => stateReadyForCurrentUser ? profiles : EMPTY_PROFILES, [stateReadyForCurrentUser, profiles]);
+	const visibleActiveProfile = stateReadyForCurrentUser ? activeProfile : null;
+	const visibleSharedWithMeProfiles = useMemo(
+		() => stateReadyForCurrentUser ? sharedWithMeProfiles : EMPTY_PROFILES,
+		[stateReadyForCurrentUser, sharedWithMeProfiles]
+	);
+	const visibleMySharedProfiles = useMemo(
+		() => stateReadyForCurrentUser ? mySharedProfiles : EMPTY_SHARED_DATA,
+		[stateReadyForCurrentUser, mySharedProfiles]
+	);
+	const visibleAllProfiles = useMemo(
+		() => stateReadyForCurrentUser ? allProfiles : EMPTY_PROFILES,
+		[stateReadyForCurrentUser, allProfiles]
+	);
+	const visibleCurrentProfile = stateReadyForCurrentUser ? currentProfile : undefined;
+	const visibleSemesters = useMemo(
+		() => stateReadyForCurrentUser ? semesters : EMPTY_SEMESTERS,
+		[stateReadyForCurrentUser, semesters]
+	);
+	const visibleIsReadOnlyProfile = stateReadyForCurrentUser && isReadOnlyProfile;
+	const visibleSharedWithMeShareIds = useMemo(
+		() => stateReadyForCurrentUser ? sharedWithMeShareIds : EMPTY_SHARE_IDS,
+		[stateReadyForCurrentUser, sharedWithMeShareIds]
+	);
+
+	// Cache hydration is independent from Firebase auth and Firestore. A
+	// returning user can therefore render cached Home while the auth listener
+	// and realtime listeners are still starting.
+	useEffect(() => {
+		if (!dataUserId || hydratedCacheUserIdRef.current === dataUserId) return;
+		hydratedCacheUserIdRef.current = dataUserId;
+		let cancelled = false;
+
+		void readGpaCache(dataUserId).then((cache) => {
+			if (cancelled) return;
+			hasCachedDataRef.current = cache !== null;
+			const canHydrateProfiles = !hasReceivedRemoteProfilesRef.current;
+			if (cache && canHydrateProfiles) {
+				const cachedProfiles = [...cache.profiles, ...cache.sharedWithMeProfiles];
+				const cachedActiveProfile =
+					cache.activeProfile !== null && cachedProfiles.some((profile) => profileIdKey(profile.id) === cache.activeProfile)
+						? cache.activeProfile
+						: cache.profiles.find((profile) => profile.isDefault)?.id?.toString() ?? cache.profiles[0]?.id?.toString() ?? null;
+				if (cachedActiveProfile !== null) {
+					initialActiveProfileRef.current = cachedActiveProfile;
+					setActiveProfile(cachedActiveProfile);
+				}
+				semestersCacheRef.current = cache.semestersByProfile;
+				setProfiles(cache.profiles);
+				setSharedWithMeProfiles(cache.sharedWithMeProfiles);
+				setSharedWithMeShareIds(cache.sharedWithMeShareIds);
+				setMySharedProfiles(cache.mySharedProfiles as ShareData[]);
+				if (cachedActiveProfile && cache.semestersByProfile[cachedActiveProfile]) {
+					setSemesters(cache.semestersByProfile[cachedActiveProfile]);
+				}
+			}
+			setIsHydrated(true);
+			setLoading(false);
+			markStartup("cache_hydrated");
+		}).catch((error) => {
+			if (!cancelled) console.error("Cache hydration error:", error);
+		});
+
+		return () => {
+			cancelled = true;
+		};
+	}, [dataUserId]);
+
 	// ===== INITIALIZATION & LISTENERS =====
 	useEffect(() => {
-		if (currentUser && initializedUserIdRef.current !== currentUser.uid) {
+		if (dataUserId && initializedUserIdRef.current !== dataUserId) {
+			const isAccountSwitch = initializedUserIdRef.current !== null;
+			// Never let a previous account's cached state flash while the new account hydrates.
+			setProfiles([]);
+			setActiveProfile(null);
+			setSharedWithMeProfiles([]);
+			setMySharedProfiles([]);
+			setSharedWithMeShareIds({});
+			setSemesters([]);
+			setLoading(true);
+			setIsHydrated(false);
+			setIsRefreshing(true);
+			semestersCacheRef.current = {};
+			hasReceivedRemoteProfilesRef.current = false;
+			hasReceivedOutgoingSharesRef.current = false;
+			initialActiveProfileRef.current = null;
 			hasInitializedRef.current = false;
 			isInitializingRef.current = false;
-			initializedUserIdRef.current = currentUser.uid;
+			if (isAccountSwitch) {
+				hydratedCacheUserIdRef.current = null;
+				hasCachedDataRef.current = false;
+			}
+			initializedUserIdRef.current = dataUserId;
 		}
 		if (!gpaService || !currentUser || hasInitializedRef.current) return;
 		if (isInitializingRef.current) return;
 
-		setLoading(true);
+		setLoading(!hasCachedDataRef.current);
+		setIsRefreshing(true);
 		isInitializingRef.current = true;
 
 		let profilesUnsubscribe: (() => void) | null = null;
+		let incomingSharesUnsubscribe: (() => void) | null = null;
 		let cleanupCollaborativeListeners: (() => void) | null = null;
+		let cancelled = false;
 
-		const loadShares = async () => {
-			try {
-				const [sharedWithMeResult, mySharedResult] = await Promise.all([
-					gpaService.getSharedWithMeProfiles(),
-					gpaService.getMySharedProfiles(),
-				]);
-				if (sharedWithMeResult.success) setSharedWithMeProfiles(sharedWithMeResult.sharedProfiles);
-				if (mySharedResult.success) setMySharedProfiles(mySharedResult.sharedProfiles);
-
-				// Build profileId → shareId map from incoming share docs
-				// _buildSharedProfile doesn't expose shareId on the profile, so we read it here
-				if (currentUser) {
-					try {
-						const incomingRef = collection(db, "userShares", currentUser.uid, "incoming");
-						const snap = await getDocs(query(incomingRef, where("isActive", "==", true)));
-						const map: Record<string, string> = {};
-						snap.docs.forEach((d) => {
-							const data = d.data() as { profileId?: string | number; shareId?: string };
-							if (data.profileId != null && data.shareId) {
-								map[String(data.profileId)] = data.shareId;
-							}
-						});
-						setSharedWithMeShareIds(map);
-					} catch (e) {
-						console.error("Error loading share IDs:", e);
-					}
+		const loadOutgoingShares = () => {
+			if (cancelled || hasReceivedOutgoingSharesRef.current) return;
+			void gpaService.getMySharedProfiles().then((result) => {
+				if (!cancelled && result.success) {
+					hasReceivedOutgoingSharesRef.current = true;
+					setMySharedProfiles(result.sharedProfiles);
 				}
-			} catch (error) {
-				console.error("Error loading shared profiles:", error);
-			}
+			});
+		};
+
+		const setupIncomingShares = () => {
+			if (cancelled || incomingSharesUnsubscribe) return;
+			incomingSharesUnsubscribe = gpaService.onIncomingSharesChange((result) => {
+				if (cancelled) return;
+				if (result.success) {
+					const shareIds: Record<string, string> = {};
+					for (const share of result.shares) {
+						const item = share as { id?: string; profileId?: string | number; shareId?: string };
+						if (item.profileId != null) shareIds[String(item.profileId)] = item.shareId ?? item.id ?? String(item.profileId);
+					}
+					setSharedWithMeShareIds(shareIds);
+					void gpaService.getSharedWithMeProfiles(result.shares as ShareData[]).then((res) => {
+						if (!cancelled && res.success) {
+							setSharedWithMeProfiles(res.sharedProfiles.map((profile) => ({ ...profile, id: String(profile.id) })));
+						}
+					});
+				}
+			});
 		};
 
 		const setupRealtimeListeners = () => {
 			profilesUnsubscribe = gpaService.onProfilesChange(async (result) => {
+				if (cancelled) return;
 				if (result.success) {
+					hasReceivedRemoteProfilesRef.current = true;
 					const currentProfiles = result.profiles;
 					if (currentProfiles.length === 0) {
+						// Firestore is authoritative. Remove cached profiles when the
+						// account has no profiles instead of showing stale data.
+						setProfiles([]);
+						setActiveProfile(null);
+						setSemesters([]);
+						semestersCacheRef.current = {};
+						// An empty first snapshot is still usable state. Keep the home screen
+						// interactive while the default profile is created in the background.
+						setIsHydrated(true);
+						setIsRefreshing(false);
+						setLoading(false);
+						markStartup("remote_profiles_received");
 						let isDeleting = false;
 						try { isDeleting = !!(await AsyncStorage.getItem(STORAGE_KEYS.accountDeleting)); } catch { /* intentionally swallowed */ }
 						if (isDeleting || creatingDefaultProfileRef.current) return;
@@ -327,7 +514,8 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 								isDefault: true,
 								createdAt: new Date(),
 							};
-							await gpaService.saveProfile(defaultProfile);
+							const profileResult = await gpaService.saveProfile(defaultProfile);
+							if (!profileResult.success) return;
 							await gpaService.saveSingleSemester(profileId, {
 								id: Date.now().toString(),
 								name: "Semester 1",
@@ -350,84 +538,61 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 						if (cleanProfiles.length > 0) return cleanProfiles[0].id;
 						return prev;
 					});
+					setIsHydrated(true);
+					setIsRefreshing(false);
+					markStartup("remote_profiles_received");
+					setupIncomingShares();
+					loadOutgoingShares();
 				} else if (result.error) {
 					console.error("Error loading profiles:", result.error);
 					showMessage("Error loading profiles. Please refresh.", "error");
+					setIsHydrated(true);
+					setIsRefreshing(false);
 				}
 				setLoading(false);
 			});
 
-			const incomingSharesUnsubscribe = gpaService.onIncomingSharesChange((result) => {
-				if (result.success) {
-					gpaService.getSharedWithMeProfiles().then((res) => {
-						if (res.success) setSharedWithMeProfiles(res.sharedProfiles);
-					});
-					if (currentUser) {
-						const incomingRef = collection(db, "userShares", currentUser.uid, "incoming");
-						getDocs(query(incomingRef, where("isActive", "==", true))).then((snap) => {
-							const map: Record<string, string> = {};
-							snap.docs.forEach((d) => {
-								const data = d.data() as { profileId?: string | number; shareId?: string };
-								if (data.profileId != null && data.shareId) map[String(data.profileId)] = data.shareId;
-							});
-							setSharedWithMeShareIds(map);
-						}).catch(() => {});
-					}
-				}
-			});
-			return () => { incomingSharesUnsubscribe?.(); };
+			return () => incomingSharesUnsubscribe?.();
 		};
 
-		const initializeData = async () => {
-			try {
-				let savedActiveId: string | null = null;
-				try { savedActiveId = await AsyncStorage.getItem(STORAGE_KEYS.activeProfileId); } catch { /* intentionally swallowed */ }
-				if (savedActiveId) {
-					initialActiveProfileRef.current = savedActiveId;
-					setActiveProfile(savedActiveId);
-				}
-				loadShares();
-				return setupRealtimeListeners();
-			} catch (error) {
-				console.error("Initialization error:", error);
-				showMessage("Error loading your data. Please try again.", "error");
-				setLoading(false);
-			} finally {
-				isInitializingRef.current = false;
-				hasInitializedRef.current = true;
-			}
-		};
-
-		initializeData().then((cleanup) => {
-			cleanupCollaborativeListeners = cleanup || null;
-		});
+		cleanupCollaborativeListeners = setupRealtimeListeners();
+		isInitializingRef.current = false;
+		hasInitializedRef.current = true;
 
 		return () => {
+			cancelled = true;
 			profilesUnsubscribe?.();
 			cleanupCollaborativeListeners?.();
 			hasInitializedRef.current = false;
 			isInitializingRef.current = false;
 		};
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [currentUser, gpaService]);
+	}, [dataUserId, currentUser, gpaService]);
 
 	// Reset on logout
 	useEffect(() => {
-		if (!currentUser) {
+		if (!dataUserId) {
 			setProfiles([]);
 			setActiveProfile(null);
 			setLoading(true);
+			setIsHydrated(false);
+			setIsRefreshing(false);
 			setSaving(false);
 			setSharedWithMeProfiles([]);
 			setMySharedProfiles([]);
 			setSharedWithMeShareIds({});
+			semestersCacheRef.current = {};
+			hasReceivedRemoteProfilesRef.current = false;
+			hasReceivedOutgoingSharesRef.current = false;
 			hasInitializedRef.current = false;
 			isInitializingRef.current = false;
 			initializedUserIdRef.current = null;
+			hydratedCacheUserIdRef.current = null;
+			hasCachedDataRef.current = false;
 			Object.values(activeListeners.current).forEach((u) => { if (typeof u === "function") u(); });
 			activeListeners.current = {};
 		}
-	}, [currentUser]);
+	}, [dataUserId]);
 
 	// Collaborative listeners for edit-permission shared profiles
 	useEffect(() => {
@@ -447,7 +612,7 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 							const oldTime = oldAtObj?.toMillis ? oldAtObj.toMillis() : prev[index].updatedAt;
 							if (newTime && oldTime && newTime === oldTime) return prev;
 							const next = [...prev];
-							next[index] = { ...updated, isShared: true, permission: "edit", ownerUserId: ownerId };
+							next[index] = { ...updated, id: String(updated.id), isShared: true, permission: "edit", ownerUserId: ownerId };
 							return next;
 						});
 					}
@@ -478,24 +643,32 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 		}
 	}, [sharedWithMeProfiles]);
 
-	const value = useMemo<GpaDataContextValue>(
+	const profileValue = useMemo<GpaProfileContextValue>(
 		() => ({
-			profiles, activeProfile, loading, saving,
-			sharedWithMeProfiles, mySharedProfiles, allProfiles,
-			currentProfile, semesters, isReadOnlyProfile,
-			sharedWithMeShareIds,
-			updateActiveProfile, createProfile, deleteProfile, updateSemesters,
+			profiles: visibleProfiles, activeProfile: visibleActiveProfile, loading: stateReadyForCurrentUser ? loading : true,
+			isHydrated: stateReadyForCurrentUser && isHydrated, isRefreshing: stateReadyForCurrentUser ? isRefreshing : true,
+			sharedWithMeProfiles: visibleSharedWithMeProfiles, mySharedProfiles: visibleMySharedProfiles, allProfiles: visibleAllProfiles,
+			currentProfile: visibleCurrentProfile, isReadOnlyProfile: visibleIsReadOnlyProfile, sharedWithMeShareIds: visibleSharedWithMeShareIds,
+			updateActiveProfile, createProfile, deleteProfile,
 			shareProfileWithUser, copySharedProfile, renameProfile,
 		}),
 		[
-			profiles, activeProfile, loading, saving,
-			sharedWithMeProfiles, mySharedProfiles, allProfiles,
-			currentProfile, semesters, isReadOnlyProfile,
-			sharedWithMeShareIds,
-			updateActiveProfile, createProfile, deleteProfile, updateSemesters,
+			visibleProfiles, visibleActiveProfile, loading, stateReadyForCurrentUser, isHydrated, isRefreshing,
+			visibleSharedWithMeProfiles, visibleMySharedProfiles, visibleAllProfiles,
+			visibleCurrentProfile, visibleIsReadOnlyProfile, visibleSharedWithMeShareIds,
+			updateActiveProfile, createProfile, deleteProfile,
 			shareProfileWithUser, copySharedProfile, renameProfile,
 		]
 	);
-
-	return <GpaDataContext.Provider value={value}>{children}</GpaDataContext.Provider>;
+	const semesterValue = useMemo<GpaSemesterContextValue>(
+		() => ({ semesters: visibleSemesters, saving, updateSemesters }),
+		[visibleSemesters, saving, updateSemesters]
+	);
+	return (
+		<GpaProfilesContext.Provider value={profileValue}>
+			<GpaSemestersContext.Provider value={semesterValue}>
+				{children}
+			</GpaSemestersContext.Provider>
+		</GpaProfilesContext.Provider>
+	);
 }

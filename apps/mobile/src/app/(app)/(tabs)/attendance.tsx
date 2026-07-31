@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo } from "react";
 import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
-import { useAttendanceData } from "@/contexts/AttendanceDataContext";
+import { AttendanceDataProvider, useAttendanceData } from "@/contexts/AttendanceDataContext";
 import AttendanceSummaryCard from "@/components/AttendanceCalculator/AttendanceSummaryCard";
 import AttendanceSubjectForm, { type AttendanceFormState } from "@/components/AttendanceCalculator/AttendanceSubjectForm";
 import AttendanceSubjectList from "@/components/AttendanceCalculator/AttendanceSubjectList";
@@ -13,7 +13,7 @@ import type { AttendanceSubject } from "@bhemu/shared";
 
 const EMPTY_FORM: AttendanceFormState = { id: "", name: "", totalClasses: "", attended: "", threshold: "" };
 
-export default function AttendanceScreen() {
+function AttendanceScreenContent() {
 	const { attendanceData, loading, saving, addOrUpdateSubject, deleteSubject, updateDefaultThreshold } =
 		useAttendanceData();
 
@@ -162,6 +162,14 @@ export default function AttendanceScreen() {
 				type="danger"
 			/>
 		</SafeAreaView>
+	);
+}
+
+export default function AttendanceScreen() {
+	return (
+		<AttendanceDataProvider>
+			<AttendanceScreenContent />
+		</AttendanceDataProvider>
 	);
 }
 

@@ -6,6 +6,12 @@ import type { NotificationSettings } from "./notificationSettings";
 const CHANNEL_ID = "academic-reminders";
 const MANAGED_SOURCE = "bcampus-academic-reminder";
 
+export type NotificationProfileData = {
+	profileId: string | number;
+	profileName: string;
+	data: UMSLocalData | null;
+};
+
 const DAY_TO_WEEKDAY: Record<string, number> = {
 	Sunday: 1,
 	Monday: 2,
@@ -153,7 +159,7 @@ function isManagedRequest(request: Notifications.NotificationRequest): boolean {
 	return source === MANAGED_SOURCE;
 }
 
-async function ensureNotificationPermission(): Promise<boolean> {
+async function ensureNotificationPermission(allowPrompt = true): Promise<boolean> {
 	if (Platform.OS === "web") return false;
 
 	if (Platform.OS === "android") {
@@ -168,6 +174,7 @@ async function ensureNotificationPermission(): Promise<boolean> {
 	if (current.granted || current.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL) {
 		return true;
 	}
+	if (!allowPrompt) return false;
 	if (!current.canAskAgain) return false;
 
 	const requested = await Notifications.requestPermissionsAsync({
@@ -175,6 +182,29 @@ async function ensureNotificationPermission(): Promise<boolean> {
 		android: {},
 	});
 	return requested.granted || requested.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
+}
+
+/** Send an immediate local notification so users can verify device permissions. */
+export async function sendTestNotification(profileName = "Current profile"): Promise<boolean> {
+	configureNotifications();
+	if (!(await ensureNotificationPermission(true))) return false;
+	const displayProfileName = profileName.trim() || "Current profile";
+
+	try {
+		await Notifications.scheduleNotificationAsync({
+			content: {
+				subtitle: displayProfileName,
+				title: "Test notification",
+				body: "Notifications are working correctly on this device.",
+				data: { source: MANAGED_SOURCE, type: "test", profileName: displayProfileName },
+			},
+			trigger: null,
+		});
+		return true;
+	} catch (error) {
+		console.warn("Unable to send test notification", error);
+		return false;
+	}
 }
 
 async function cancelManagedNotifications(): Promise<void> {
@@ -187,9 +217,21 @@ async function cancelManagedNotifications(): Promise<void> {
 	}
 }
 
+/** Cancel reminders that belong to this app when the local session ends. */
+export function clearManagedNotifications(): Promise<void> {
+	scheduleQueue = scheduleQueue
+		.then(() => cancelManagedNotifications())
+		.catch((error) => {
+			console.warn("Unable to clear academic notifications", error);
+		});
+	return scheduleQueue;
+}
+
 async function scheduleTimetableNotifications(
 	timetable: TimetableEntry[],
-	settings: NotificationSettings
+	settings: NotificationSettings,
+	profileName: string,
+	profileId: string | number
 ): Promise<void> {
 	const schedules = buildTimetableEntries(timetable).map(async ({ entry, reminderIndex }) => {
 		const minutesBefore = reminderIndex === 0 ? settings.firstClassMinutes : settings.otherClassMinutes;
@@ -199,9 +241,16 @@ async function scheduleTimetableNotifications(
 		try {
 			await Notifications.scheduleNotificationAsync({
 				content: {
+					subtitle: profileName,
 					title: `Class in ${minutesBefore} minutes`,
 					body: `${entry.courseCode} starts at ${entry.startTime}${entry.room ? ` • Room ${entry.room}` : ""}`,
-					data: { source: MANAGED_SOURCE, type: "timetable", courseCode: entry.courseCode },
+					data: {
+						source: MANAGED_SOURCE,
+						type: "timetable",
+						profileId: String(profileId),
+						profileName,
+						courseCode: entry.courseCode,
+					},
 				},
 				trigger:
 					Platform.OS === "android"
@@ -229,7 +278,9 @@ async function scheduleTimetableNotifications(
 
 async function scheduleExamNotifications(
 	seatingPlan: UMSSeatingPlan[],
-	settings: NotificationSettings
+	settings: NotificationSettings,
+	profileName: string,
+	profileId: string | number
 ): Promise<void> {
 	const scheduledExams = new Set<string>();
 	const schedules = seatingPlan.map(async (exam) => {
@@ -241,9 +292,16 @@ async function scheduleExamNotifications(
 		try {
 			await Notifications.scheduleNotificationAsync({
 				content: {
+					subtitle: profileName,
 					title: `Exam in ${settings.examDaysBefore} day${settings.examDaysBefore === 1 ? "" : "s"}`,
 					body: `${exam.CourseCode}${exam.CourseName ? ` — ${exam.CourseName}` : ""}${exam.Room ? ` • Room ${exam.Room}` : ""}`,
-					data: { source: MANAGED_SOURCE, type: "exam", courseCode: exam.CourseCode },
+					data: {
+						source: MANAGED_SOURCE,
+						type: "exam",
+						profileId: String(profileId),
+						profileName,
+						courseCode: exam.CourseCode,
+					},
 				},
 				trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: reminderDate, channelId: CHANNEL_ID },
 			});
@@ -254,23 +312,50 @@ async function scheduleExamNotifications(
 	await Promise.all(schedules);
 }
 
-async function scheduleLatestNotifications(data: UMSLocalData | null, settings: NotificationSettings): Promise<void> {
+async function scheduleLatestNotifications(
+	activeProfile: NotificationProfileData | null,
+	allProfiles: NotificationProfileData[],
+	settings: NotificationSettings,
+	allowPermissionPrompt: boolean
+): Promise<void> {
 	configureNotifications();
 	await cancelManagedNotifications();
-	if (!data || !settings.enabled) return;
+	if (!settings.enabled) return;
 	if (!settings.timetableEnabled && !settings.examEnabled) return;
-	if (!(await ensureNotificationPermission())) return;
+	if (!(await ensureNotificationPermission(allowPermissionPrompt))) return;
 
-	if (settings.timetableEnabled) await scheduleTimetableNotifications(data.timetable, settings);
-	if (settings.examEnabled) await scheduleExamNotifications(data.seatingPlan, settings);
+	// Timetable reminders intentionally follow only the currently selected
+	// profile. Exam reminders are scheduled for every available profile below.
+	if (settings.timetableEnabled && activeProfile?.data) {
+		await scheduleTimetableNotifications(
+			activeProfile.data.timetable,
+			settings,
+			activeProfile.profileName,
+			activeProfile.profileId
+		);
+	}
+
+	if (settings.examEnabled) {
+		await Promise.all(
+			allProfiles
+				.filter((profile): profile is NotificationProfileData & { data: UMSLocalData } => profile.data !== null)
+				.map((profile) =>
+					scheduleExamNotifications(profile.data.seatingPlan, settings, profile.profileName, profile.profileId)
+				)
+		);
+	}
 }
 
 export function rescheduleUmsNotifications(
-	data: UMSLocalData | null,
-	settings: NotificationSettings
+	activeProfile: NotificationProfileData | null,
+	allProfiles: NotificationProfileData[],
+	settings: NotificationSettings,
+	allowPermissionPrompt = true
 ): Promise<void> {
-	scheduleQueue = scheduleQueue.then(() => scheduleLatestNotifications(data, settings)).catch((error) => {
-		console.warn("Unable to schedule academic notifications", error);
-	});
+	scheduleQueue = scheduleQueue
+		.then(() => scheduleLatestNotifications(activeProfile, allProfiles, settings, allowPermissionPrompt))
+		.catch((error) => {
+			console.warn("Unable to schedule academic notifications", error);
+		});
 	return scheduleQueue;
 }

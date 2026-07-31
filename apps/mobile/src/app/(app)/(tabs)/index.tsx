@@ -1,5 +1,5 @@
-import { useMemo, useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
+import { memo, useMemo, useState, useEffect, useCallback } from "react";
+import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -13,13 +13,14 @@ import {
 	CalendarClock,
 } from "lucide-react-native";
 import { useAuth } from "@/contexts/AuthContext";
-import { useGpaData } from "@/contexts/GpaDataContext";
+import { useGpaProfiles, useGpaSemesters } from "@/contexts/GpaDataContext";
 import { Colors, Spacing, Radius, FontSize, FontWeight } from "@/constants/Theme";
 import { Layout } from "@/styles";
 import ProfileDrawer from "@/components/profile/ProfileDrawer";
 import ShareModal from "@/components/profile/ShareModal";
 import { getMessagesLastSeenCount } from "@/features/ums-data/storage";
 import { useUmsData } from "@/features/ums-data/useUmsData";
+import { markStartup } from "@/features/startup/performance";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONTH_MAP: Record<string, number> = {
@@ -61,10 +62,39 @@ interface QuickAction {
 	badge?: number;
 }
 
+const QuickActionCard = memo(function QuickActionCardView({
+	action,
+	onPress,
+}: {
+	action: QuickAction;
+	onPress: (action: QuickAction) => void;
+}) {
+	return (
+		<Pressable style={local.actionCard} onPress={() => onPress(action)}>
+			<View style={local.actionIconWrap}>
+				<View style={[local.actionIcon, { borderColor: action.color + "40" }]}>
+					{action.icon}
+				</View>
+				{action.badge ? (
+					<View style={[local.actionBadge, { backgroundColor: action.color }]}>
+						<Text style={local.actionBadgeText}>{action.badge > 99 ? "99+" : action.badge}</Text>
+					</View>
+				) : null}
+			</View>
+			<Text style={local.actionTitle}>{action.title}</Text>
+			<Text style={local.actionSubtitle}>{action.subtitle}</Text>
+		</Pressable>
+	);
+});
+
 export default function HomeTab() {
 	const router = useRouter();
-	const { currentUser } = useAuth();
-	const { semesters, currentProfile, activeProfile, profiles, shareProfileWithUser, mySharedProfiles } = useGpaData();
+	const { currentUser, launchUser } = useAuth();
+	const { currentProfile, activeProfile, profiles, shareProfileWithUser, mySharedProfiles } = useGpaProfiles();
+	const { semesters } = useGpaSemesters();
+	useEffect(() => {
+		markStartup("home_interactive");
+	}, []);
 	const isSharedProfile = !!currentProfile?.isShared;
 	const { data: umsData } = useUmsData();
 
@@ -149,10 +179,10 @@ export default function HomeTab() {
 		return isSharedProfile ? all.filter((a) => !UMS_ACTIONS.includes(a.title)) : all;
 	}, [isSharedProfile, todayClassCount, announcementCount, examCount]);
 
-	const handlePress = (action: QuickAction) => {
+	const handlePress = useCallback((action: QuickAction) => {
 		if (action.tab) router.push(action.tab as never);
 		else if (action.route) router.push(action.route as never);
-	};
+	}, [router]);
 
 	const profileForShare = shareProfileId != null ? profiles.find((p) => p.id === shareProfileId) : undefined;
 
@@ -173,13 +203,12 @@ export default function HomeTab() {
 				<View style={local.greetingSection}>
 					<View style={local.greetingRow}>
 						<Text style={local.greeting}>
-							Hello, {currentUser?.displayName?.split(" ")[0] || "Student"}
+							Hello, {(currentUser?.displayName || launchUser?.displayName)?.split(" ")[0] || "Student"}
 						</Text>
 						{!isSharedProfile && (
-							<TouchableOpacity
+							<Pressable
 								style={local.bellBtn}
 								onPress={() => router.push("/messages" as never)}
-								activeOpacity={0.7}
 							>
 								<View style={local.bellWrap}>
 									<Bell size={22} color={Colors.textPrimary} />
@@ -189,7 +218,7 @@ export default function HomeTab() {
 										</View>
 									)}
 								</View>
-							</TouchableOpacity>
+							</Pressable>
 						)}
 					</View>
 					<Text style={local.greetingSub}>
@@ -197,13 +226,13 @@ export default function HomeTab() {
 					</Text>
 
 					{/* Profile switcher chip */}
-					<TouchableOpacity style={local.profileChip} onPress={() => setDrawerOpen(true)} activeOpacity={0.7}>
+					<Pressable style={local.profileChip} onPress={() => setDrawerOpen(true)}>
 						<View style={local.profileDot} />
 						<Text style={local.profileChipName} numberOfLines={1}>
 							{currentProfile?.name ?? "Select Profile"}
 						</Text>
 						<ChevronDown size={13} color={Colors.textSubtle} />
-					</TouchableOpacity>
+					</Pressable>
 				</View>
 
 				{/* Quick Stats */}
@@ -230,41 +259,21 @@ export default function HomeTab() {
 				</View>
 
 				<View style={local.actionsGrid}>
-					{quickActions.map((action) => (
-						<TouchableOpacity
-							key={action.title}
-							style={local.actionCard}
-							onPress={() => handlePress(action)}
-							activeOpacity={0.7}
-						>
-							<View style={local.actionIconWrap}>
-								<View style={[local.actionIcon, { borderColor: action.color + "40" }]}>
-									{action.icon}
-								</View>
-								{!!action.badge && (
-									<View style={[local.actionBadge, { backgroundColor: action.color }]}>
-										<Text style={local.actionBadgeText}>
-											{action.badge > 99 ? "99+" : action.badge}
-										</Text>
-									</View>
-								)}
-							</View>
-							<Text style={local.actionTitle}>{action.title}</Text>
-							<Text style={local.actionSubtitle}>{action.subtitle}</Text>
-						</TouchableOpacity>
-					))}
+					{quickActions.map((action) => <QuickActionCard key={action.title} action={action} onPress={handlePress} />)}
 				</View>
 			</ScrollView>
 
 			{/* Profile Drawer */}
-			<ProfileDrawer
-				visible={drawerOpen}
-				onClose={() => setDrawerOpen(false)}
-				onShareProfile={(id) => {
-					setDrawerOpen(false);
-					setShareProfileId(id);
-				}}
-			/>
+			{drawerOpen ? (
+				<ProfileDrawer
+					visible
+					onClose={() => setDrawerOpen(false)}
+					onShareProfile={(id) => {
+						setDrawerOpen(false);
+						setShareProfileId(id);
+					}}
+				/>
+			) : null}
 
 			{/* Share Modal */}
 			{profileForShare && (

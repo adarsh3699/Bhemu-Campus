@@ -385,10 +385,13 @@ export class GPAService {
 		await batch.commit();
 	}
 
-	async getSharedWithMeProfiles(): Promise<{ success: boolean; sharedProfiles: GPAProfile[]; error?: string }> {
+	async getSharedWithMeProfiles(
+		incomingShares?: ShareData[]
+	): Promise<{ success: boolean; sharedProfiles: GPAProfile[]; error?: string }> {
 		try {
-			const snapshot = await getDocs(query(this.incomingSharesRef, where("isActive", "==", true)));
-			const sharePromises = snapshot.docs.map((docSnap) => this._buildSharedProfile(docSnap.data() as ShareData));
+			const shares = incomingShares ?? (await getDocs(query(this.incomingSharesRef, where("isActive", "==", true))))
+				.docs.map((docSnap) => docSnap.data() as ShareData);
+			const sharePromises = shares.map((share) => this._buildSharedProfile(share));
 			const sharedProfiles = (await Promise.all(sharePromises)).filter((p): p is GPAProfile => p !== null);
 			return { success: true, sharedProfiles };
 		} catch (error) {

@@ -1,15 +1,19 @@
 import { useState } from "react";
 import {
+	ActivityIndicator,
 	Linking,
 	Modal,
+	Pressable,
 	Switch,
 	Text,
 	TouchableOpacity,
 	View,
 	StyleSheet,
 } from "react-native";
-import { Bell, CalendarDays, Clock3, Settings2 } from "lucide-react-native";
+import { Bell, CalendarDays, Clock3, Send, Settings2 } from "lucide-react-native";
 import { Colors, FontSize, FontWeight, Radius, Spacing } from "@/constants/Theme";
+import { useGpaProfiles } from "@/contexts/GpaDataContext";
+import { useMessage } from "@/contexts/MessageContext";
 import { useNotificationSettings } from "@/features/notifications/useNotificationSettings";
 import {
 	EXAM_DAYS_BEFORE,
@@ -77,9 +81,13 @@ function SwitchControl({ value, onValueChange, disabled = false }: {
 
 export default function NotificationSettings() {
 	const { settings, loading, permissionStatus, updateSettings } = useNotificationSettings();
+	const { currentProfile } = useGpaProfiles();
+	const { showMessage } = useMessage();
 	const [picker, setPicker] = useState<PickerKey | null>(null);
+	const [sendingTest, setSendingTest] = useState(false);
 	const notificationsBlocked = permissionStatus === "denied" || permissionStatus === "unavailable";
 	const notificationsEnabled = settings.enabled && !notificationsBlocked;
+	const currentProfileName = currentProfile?.name?.trim() || "Current profile";
 
 	const openNotificationSettings = () => {
 		void Linking.openSettings();
@@ -91,6 +99,25 @@ export default function NotificationSettings() {
 			return;
 		}
 		void updateSettings({ enabled });
+	};
+
+	const handleTestNotification = async () => {
+		if (sendingTest) return;
+		setSendingTest(true);
+		try {
+			const { sendTestNotification } = await import("@/features/notifications/notificationService");
+			const sent = await sendTestNotification(currentProfileName);
+			showMessage(
+				sent
+					? "Test notification sent. Check your notification tray."
+					: "Notifications are blocked. Allow notification permission in phone settings and try again.",
+				sent ? "success" : "warning"
+			);
+		} catch {
+			showMessage("Unable to send a test notification. Please try again.", "error");
+		} finally {
+			setSendingTest(false);
+		}
 	};
 
 	const pickerData = getPickerData(picker);
@@ -140,6 +167,26 @@ export default function NotificationSettings() {
 					/>
 				)}
 			</View>
+
+			{!loading && (
+				<Pressable
+					style={[local.testButton, sendingTest && local.testButtonDisabled]}
+					onPress={() => void handleTestNotification()}
+					disabled={sendingTest}
+					android_ripple={{ color: Colors.border }}
+					accessibilityRole="button"
+					accessibilityLabel="Send test notification"
+				>
+					<View style={local.testButtonIcon}>
+						<Send size={15} color={Colors.primary} />
+					</View>
+					<View style={local.testButtonContent}>
+						<Text style={local.testButtonTitle}>Send test notification</Text>
+						<Text style={local.testButtonSub}>Check that notifications work on this device</Text>
+					</View>
+					{sendingTest ? <ActivityIndicator size="small" color={Colors.primary} /> : <Send size={18} color={Colors.textMuted} />}
+				</Pressable>
+			)}
 
 			{notificationsBlocked && permissionStatus === "denied" && (
 				<TouchableOpacity style={local.systemNotice} onPress={openNotificationSettings} activeOpacity={0.7}>
@@ -329,6 +376,30 @@ const local = StyleSheet.create({
 	rowContent: { flex: 1, gap: 3 },
 	rowTitle: { fontSize: FontSize.base, fontWeight: FontWeight.medium, color: Colors.textPrimary },
 	rowSub: { fontSize: FontSize.xs, lineHeight: 16, color: Colors.textMuted },
+	testButton: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: Spacing.md,
+		marginHorizontal: Spacing.lg,
+		marginTop: Spacing.sm,
+		padding: Spacing.md,
+		borderRadius: Radius.md,
+		backgroundColor: "rgba(3,152,172,0.08)",
+		borderWidth: StyleSheet.hairlineWidth,
+		borderColor: "rgba(3,152,172,0.28)",
+	},
+	testButtonDisabled: { opacity: 0.6 },
+	testButtonIcon: {
+		width: 30,
+		height: 30,
+		alignItems: "center",
+		justifyContent: "center",
+		borderRadius: Radius.md,
+		backgroundColor: "rgba(3,152,172,0.12)",
+	},
+	testButtonContent: { flex: 1, gap: 2 },
+	testButtonTitle: { fontSize: FontSize.sm, fontWeight: FontWeight.semibold, color: Colors.textPrimary },
+	testButtonSub: { fontSize: FontSize.xs, color: Colors.textMuted },
 	sectionLabel: {
 		paddingHorizontal: Spacing.lg,
 		paddingTop: Spacing.md,

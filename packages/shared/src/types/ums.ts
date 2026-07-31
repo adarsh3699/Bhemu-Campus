@@ -46,7 +46,6 @@ export interface TimetableEntry {
 	startTime: string;
 	endTime: string;
 	courseCode: string;
-	courseName: string;
 	room: string;
 	section: string;
 	group: string;
