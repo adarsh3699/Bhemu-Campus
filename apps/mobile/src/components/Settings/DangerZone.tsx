@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Modal, ActivityIndicator } from "react-native";
+import { View, Text, Pressable, StyleSheet, Modal, ActivityIndicator } from "react-native";
 import { AlertTriangle, Trash2, X } from "lucide-react-native";
 import { Colors, Spacing, Radius, FontSize, FontWeight } from "@/constants/Theme";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMessage } from "@/contexts/MessageContext";
 import AppInput from "@/components/ui/AppInput";
+import { SettingsCard, SettingsDivider, SettingsHeader } from "@/components/Settings/SettingsPrimitives";
 
 type Step = "idle" | "confirm" | "password" | "google";
 
@@ -56,34 +57,32 @@ export default function DangerZone() {
 
 	return (
 		<>
-			<View style={local.card}>
-				<View style={local.header}>
-					<View style={local.headerIcon}>
-						<AlertTriangle size={15} color={Colors.destructive} />
-					</View>
-					<View>
-						<Text style={local.headerTitle}>Danger Zone</Text>
-						<Text style={local.headerSub}>Irreversible account actions</Text>
-					</View>
-				</View>
+			<SettingsCard>
+				<SettingsHeader
+					icon={<AlertTriangle size={19} color={Colors.destructive} />}
+					title="Danger Zone"
+					subtitle="Irreversible account actions"
+					tone="danger"
+				/>
 
-				<View style={local.divider} />
+				<SettingsDivider />
 
 				<View style={local.row}>
 					<View style={local.rowContent}>
 						<Text style={local.rowTitle}>Delete Account</Text>
 						<Text style={local.rowSub}>Permanently removes all your data and cannot be undone</Text>
 					</View>
-					<TouchableOpacity
-						style={local.deleteBtn}
+					<Pressable
+						style={({ pressed }) => [local.deleteBtn, pressed && local.pressed]}
 						onPress={() => setStep("confirm")}
-						activeOpacity={0.7}
+						accessibilityRole="button"
+						accessibilityLabel="Delete account"
 					>
 						<Trash2 size={14} color={Colors.destructive} />
 						<Text style={local.deleteBtnText}>Delete</Text>
-					</TouchableOpacity>
+					</Pressable>
 				</View>
-			</View>
+			</SettingsCard>
 
 			{/* Confirm modal */}
 			<Modal
@@ -94,12 +93,12 @@ export default function DangerZone() {
 				presentationStyle="overFullScreen"
 			>
 				<View style={modal.overlay}>
-					<TouchableOpacity style={modal.backdrop} onPress={reset} activeOpacity={1} />
+					<Pressable style={modal.backdrop} onPress={reset} accessibilityLabel="Close delete account dialog" />
 					<View style={modal.sheet}>
 						{/* Close */}
-						<TouchableOpacity style={modal.closeBtn} onPress={reset} hitSlop={8}>
+						<Pressable style={modal.closeBtn} onPress={reset} accessibilityRole="button" accessibilityLabel="Close dialog">
 							<X size={18} color={Colors.textMuted} />
-						</TouchableOpacity>
+						</Pressable>
 
 						<View style={modal.iconWrap}>
 							<Trash2 size={24} color={Colors.destructive} />
@@ -112,16 +111,15 @@ export default function DangerZone() {
 								<Text style={modal.body}>
 									This will permanently delete your account and all associated data — profiles, semesters, attendance, and shared data. This cannot be undone.
 								</Text>
-								<TouchableOpacity
-									style={modal.dangerBtn}
+								<Pressable
+									style={({ pressed }) => [modal.dangerBtn, pressed && modal.pressed]}
 									onPress={handleInitialConfirm}
-									activeOpacity={0.8}
 								>
 									<Text style={modal.dangerBtnText}>I understand, continue</Text>
-								</TouchableOpacity>
-								<TouchableOpacity style={modal.cancelBtn} onPress={reset}>
+								</Pressable>
+								<Pressable style={({ pressed }) => [modal.cancelBtn, pressed && modal.pressed]} onPress={reset}>
 									<Text style={modal.cancelBtnText}>Cancel</Text>
-								</TouchableOpacity>
+								</Pressable>
 							</>
 						)}
 
@@ -137,28 +135,27 @@ export default function DangerZone() {
 									autoFocus
 								/>
 								{isGoogle && hasPw && (
-									<TouchableOpacity
+									<Pressable
 										style={modal.googleLink}
 										onPress={() => { setStep("google"); setPassword(""); }}
 									>
 										<Text style={modal.googleLinkText}>Use Google authentication instead</Text>
-									</TouchableOpacity>
+									</Pressable>
 								)}
-								<TouchableOpacity
-									style={[modal.dangerBtn, (deleting || !password.trim()) && modal.dangerBtnDisabled]}
+								<Pressable
+									style={({ pressed }) => [modal.dangerBtn, (deleting || !password.trim()) && modal.dangerBtnDisabled, pressed && modal.pressed]}
 									onPress={() => handleDelete(false)}
 									disabled={deleting || !password.trim()}
-									activeOpacity={0.8}
 								>
 									{deleting ? (
 										<ActivityIndicator size="small" color={Colors.textPrimary} />
 									) : (
 										<Text style={modal.dangerBtnText}>Delete Everything</Text>
 									)}
-								</TouchableOpacity>
-								<TouchableOpacity style={modal.cancelBtn} onPress={reset} disabled={deleting}>
+								</Pressable>
+								<Pressable style={({ pressed }) => [modal.cancelBtn, pressed && modal.pressed]} onPress={reset} disabled={deleting}>
 									<Text style={modal.cancelBtnText}>Cancel</Text>
-								</TouchableOpacity>
+								</Pressable>
 							</>
 						)}
 
@@ -168,28 +165,27 @@ export default function DangerZone() {
 									We'll use Google to confirm your identity before deleting your account.
 								</Text>
 								{hasPw && (
-									<TouchableOpacity
+									<Pressable
 										style={modal.googleLink}
 										onPress={() => setStep("password")}
 									>
 										<Text style={modal.googleLinkText}>Use password instead</Text>
-									</TouchableOpacity>
+									</Pressable>
 								)}
-								<TouchableOpacity
-									style={[modal.dangerBtn, deleting && modal.dangerBtnDisabled]}
+								<Pressable
+									style={({ pressed }) => [modal.dangerBtn, deleting && modal.dangerBtnDisabled, pressed && modal.pressed]}
 									onPress={() => handleDelete(true)}
 									disabled={deleting}
-									activeOpacity={0.8}
 								>
 									{deleting ? (
 										<ActivityIndicator size="small" color={Colors.textPrimary} />
 									) : (
 										<Text style={modal.dangerBtnText}>Confirm with Google</Text>
 									)}
-								</TouchableOpacity>
-								<TouchableOpacity style={modal.cancelBtn} onPress={reset} disabled={deleting}>
+								</Pressable>
+								<Pressable style={({ pressed }) => [modal.cancelBtn, pressed && modal.pressed]} onPress={reset} disabled={deleting}>
 									<Text style={modal.cancelBtnText}>Cancel</Text>
-								</TouchableOpacity>
+								</Pressable>
 							</>
 						)}
 					</View>
@@ -200,48 +196,12 @@ export default function DangerZone() {
 }
 
 const local = StyleSheet.create({
-	card: {
-		backgroundColor: Colors.surface,
-		borderRadius: Radius.xl,
-		borderWidth: StyleSheet.hairlineWidth,
-		borderColor: "rgba(239,68,68,0.2)",
-		overflow: "hidden",
-	},
-	header: {
-		flexDirection: "row",
-		alignItems: "center",
-		gap: Spacing.md,
-		padding: Spacing.lg,
-	},
-	headerIcon: {
-		width: 32,
-		height: 32,
-		borderRadius: 10,
-		backgroundColor: "rgba(239,68,68,0.1)",
-		borderWidth: StyleSheet.hairlineWidth,
-		borderColor: "rgba(239,68,68,0.2)",
-		alignItems: "center",
-		justifyContent: "center",
-	},
-	headerTitle: {
-		fontSize: FontSize.base,
-		fontWeight: FontWeight.semibold,
-		color: Colors.destructive,
-	},
-	headerSub: {
-		fontSize: FontSize.xs,
-		color: Colors.textSubtle,
-		marginTop: 1,
-	},
-	divider: {
-		height: StyleSheet.hairlineWidth,
-		backgroundColor: "rgba(239,68,68,0.1)",
-	},
 	row: {
+		minHeight: 72,
 		flexDirection: "row",
 		alignItems: "center",
 		gap: Spacing.md,
-		paddingHorizontal: Spacing.lg,
+		paddingHorizontal: Spacing.xl,
 		paddingVertical: Spacing.md,
 	},
 	rowContent: {
@@ -259,6 +219,9 @@ const local = StyleSheet.create({
 		lineHeight: 16,
 	},
 	deleteBtn: {
+		minWidth: 88,
+		minHeight: 44,
+		justifyContent: "center",
 		flexDirection: "row",
 		alignItems: "center",
 		gap: Spacing.xs,
@@ -269,6 +232,7 @@ const local = StyleSheet.create({
 		borderWidth: StyleSheet.hairlineWidth,
 		borderColor: "rgba(239,68,68,0.25)",
 	},
+	pressed: { opacity: 0.78 },
 	deleteBtnText: {
 		fontSize: FontSize.xs,
 		fontWeight: FontWeight.semibold,
@@ -291,6 +255,7 @@ const modal = StyleSheet.create({
 	sheet: {
 		backgroundColor: Colors.surfaceElevated,
 		borderRadius: Radius.xl,
+		borderCurve: "continuous",
 		padding: Spacing.xl,
 		width: "100%",
 		maxWidth: 360,
@@ -300,8 +265,8 @@ const modal = StyleSheet.create({
 	},
 	closeBtn: {
 		alignSelf: "flex-end",
-		width: 28,
-		height: 28,
+		width: 44,
+		height: 44,
 		alignItems: "center",
 		justifyContent: "center",
 	},
@@ -329,7 +294,7 @@ const modal = StyleSheet.create({
 		lineHeight: 20,
 	},
 	dangerBtn: {
-		height: 48,
+		minHeight: 48,
 		alignItems: "center",
 		justifyContent: "center",
 		borderRadius: Radius.md,
@@ -344,7 +309,7 @@ const modal = StyleSheet.create({
 		color: Colors.textPrimary,
 	},
 	cancelBtn: {
-		height: 44,
+		minHeight: 44,
 		alignItems: "center",
 		justifyContent: "center",
 	},
@@ -353,6 +318,7 @@ const modal = StyleSheet.create({
 		color: Colors.textSubtle,
 	},
 	googleLink: {
+		minHeight: 44,
 		alignItems: "center",
 	},
 	googleLinkText: {
@@ -360,4 +326,5 @@ const modal = StyleSheet.create({
 		color: Colors.blue,
 		textDecorationLine: "underline",
 	},
+	pressed: { opacity: 0.78 },
 });

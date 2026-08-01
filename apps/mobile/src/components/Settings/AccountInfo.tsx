@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, Pressable, StyleSheet, ActivityIndicator } from "react-native";
 import { Pencil, Check, X, Mail, Shield, Star } from "lucide-react-native";
 import { Colors, Spacing, Radius, FontSize, FontWeight } from "@/constants/Theme";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMessage } from "@/contexts/MessageContext";
 import AppInput from "@/components/ui/AppInput";
+import { SettingsCard, SettingsDivider } from "@/components/Settings/SettingsPrimitives";
 import type { User } from "firebase/auth";
 
 function initials(name: string): string {
@@ -60,7 +61,7 @@ export default function AccountInfo() {
 	};
 
 	return (
-		<View style={local.card}>
+		<SettingsCard>
 			{/* Avatar + name */}
 			<View style={local.avatarRow}>
 				<View style={local.avatar}>
@@ -79,35 +80,52 @@ export default function AccountInfo() {
 								onSubmitEditing={handleSave}
 								returnKeyType="done"
 							/>
-							<TouchableOpacity onPress={handleSave} style={local.iconBtn} disabled={saving}>
+							<Pressable
+								onPress={handleSave}
+								style={({ pressed }) => [local.iconBtn, pressed && local.pressed]}
+								disabled={saving}
+								accessibilityRole="button"
+								accessibilityLabel="Save display name"
+							>
 								{saving ? (
 									<ActivityIndicator size="small" color={Colors.primary} />
 								) : (
 									<Check size={16} color={Colors.success} />
 								)}
-							</TouchableOpacity>
-							<TouchableOpacity onPress={handleCancel} style={local.iconBtn} disabled={saving}>
+							</Pressable>
+							<Pressable
+								onPress={handleCancel}
+								style={({ pressed }) => [local.iconBtn, pressed && local.pressed]}
+								disabled={saving}
+								accessibilityRole="button"
+								accessibilityLabel="Cancel name editing"
+							>
 								<X size={16} color={Colors.textMuted} />
-							</TouchableOpacity>
+							</Pressable>
 						</View>
 					) : (
 						<View style={local.nameRow}>
 							<Text style={local.displayName} numberOfLines={1}>{displayName}</Text>
-							<TouchableOpacity onPress={() => { setName(currentUser.displayName ?? ""); setEditing(true); }} hitSlop={8}>
+							<Pressable
+								onPress={() => { setName(currentUser.displayName ?? ""); setEditing(true); }}
+								style={({ pressed }) => [local.iconBtn, pressed && local.pressed]}
+								accessibilityRole="button"
+								accessibilityLabel="Edit display name"
+							>
 								<Pencil size={14} color={Colors.textSubtle} />
-							</TouchableOpacity>
+							</Pressable>
 						</View>
 					)}
 					{since ? <Text style={local.since}>Member since {since}</Text> : null}
 				</View>
 			</View>
 
-			<View style={local.divider} />
+			<SettingsDivider />
 
 			{/* Email row */}
 			<View style={local.infoRow}>
-				<View style={local.infoIcon}>
-					<Mail size={14} color={Colors.textSubtle} />
+			<View style={local.infoIcon}>
+					<Mail size={16} color={Colors.primary} />
 				</View>
 				<View style={local.infoContent}>
 					<Text style={local.infoLabel}>Email</Text>
@@ -127,7 +145,7 @@ export default function AccountInfo() {
 			{/* Provider row */}
 			<View style={local.infoRow}>
 				<View style={local.infoIcon}>
-					<Shield size={14} color={Colors.textSubtle} />
+					<Shield size={16} color={Colors.indigo} />
 				</View>
 				<View style={local.infoContent}>
 					<Text style={local.infoLabel}>Sign-in method</Text>
@@ -144,23 +162,16 @@ export default function AccountInfo() {
 					<Text style={local.badgeTealText}>Active</Text>
 				</View>
 			</View>
-		</View>
+		</SettingsCard>
 	);
 }
 
 const local = StyleSheet.create({
-	card: {
-		backgroundColor: Colors.surface,
-		borderRadius: Radius.xl,
-		borderWidth: StyleSheet.hairlineWidth,
-		borderColor: "rgba(255,255,255,0.08)",
-		overflow: "hidden",
-	},
 	avatarRow: {
 		flexDirection: "row",
 		alignItems: "center",
 		gap: Spacing.md,
-		padding: Spacing.lg,
+		padding: Spacing.xl,
 	},
 	avatar: {
 		width: 56,
@@ -204,28 +215,24 @@ const local = StyleSheet.create({
 		flex: 1,
 	},
 	iconBtn: {
-		width: 32,
-		height: 32,
+		width: 44,
+		height: 44,
 		alignItems: "center",
 		justifyContent: "center",
+		borderRadius: Radius.md,
 	},
-	divider: {
-		height: StyleSheet.hairlineWidth,
-		backgroundColor: "rgba(255,255,255,0.06)",
-		marginHorizontal: Spacing.lg,
-	},
+	pressed: { backgroundColor: Colors.surfaceElevated },
 	infoRow: {
+		minHeight: 68,
 		flexDirection: "row",
 		alignItems: "center",
 		gap: Spacing.md,
-		paddingHorizontal: Spacing.lg,
+		paddingHorizontal: Spacing.xl,
 		paddingVertical: Spacing.md,
 	},
 	infoIcon: {
-		width: 28,
-		height: 28,
-		borderRadius: 8,
-		backgroundColor: "rgba(255,255,255,0.04)",
+		width: 32,
+		height: 32,
 		alignItems: "center",
 		justifyContent: "center",
 	},

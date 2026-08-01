@@ -27,7 +27,10 @@ export default function MessagesScreen() {
 		);
 		return [...subjectMatches, ...bodyMatches];
 	}, [messages, search]);
-	const renderItem = useCallback(({ item }: { item: (typeof messages)[number] }) => <MessageCard message={item} />, []);
+	const renderItem = useCallback(
+		({ item }: { item: (typeof messages)[number] }) => <MessageCard message={item} />,
+		[]
+	);
 
 	useEffect(() => {
 		if (messages.length > 0 && activeProfile) {
@@ -52,7 +55,7 @@ export default function MessagesScreen() {
 			</View>
 			<FlatList
 				data={filteredMessages}
-				keyExtractor={(item) => `${item.Date}:${item.Subject}:${item.Body}`}
+				keyExtractor={(_, index) => String(index)}
 				renderItem={renderItem}
 				contentContainerStyle={local.list}
 				initialNumToRender={5}
@@ -76,7 +79,9 @@ export default function MessagesScreen() {
 							<>
 								<Inbox size={40} color={Colors.textMuted} />
 								<Text style={local.emptyTitle}>No messages yet</Text>
-								<Text style={local.emptyText}>Go to Home and tap the sync button to fetch your messages</Text>
+								<Text style={local.emptyText}>
+									Go to Home and tap the sync button to fetch your messages
+								</Text>
 							</>
 						)}
 					</View>
@@ -107,6 +112,12 @@ const local = StyleSheet.create({
 	},
 	list: { padding: Spacing.lg, gap: Spacing.sm, paddingBottom: Spacing.xxxl },
 	empty: { alignItems: "center", paddingTop: Spacing.xxxl, paddingHorizontal: Spacing.xl, gap: Spacing.sm },
-	emptyTitle: { fontSize: FontSize.base, fontWeight: FontWeight.semibold, color: Colors.textPrimary, textAlign: "center", marginTop: Spacing.sm },
+	emptyTitle: {
+		fontSize: FontSize.base,
+		fontWeight: FontWeight.semibold,
+		color: Colors.textPrimary,
+		textAlign: "center",
+		marginTop: Spacing.sm,
+	},
 	emptyText: { fontSize: FontSize.sm, color: Colors.textMuted, textAlign: "center", lineHeight: 20 },
 });
