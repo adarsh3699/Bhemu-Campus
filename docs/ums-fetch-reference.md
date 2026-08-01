@@ -63,7 +63,10 @@ Returns an array with one element. Used for `studentInfo` on the profile.
 **Body:** `{}`  
 **Response:** `{ d: "<html table>" }` — HTML string, not JSON
 
-Parse `<tr>` rows. Each row: `CourseCode:CourseName | ExamDate | Slot | TotalDuty | Present | Percentage`
+Parse `<tr>` rows. Each row: `CourseCode:CourseName | LastAttended | DutyLeave | TotalDelivered | TotalAttended | Percentage`
+
+> [!IMPORTANT]
+> **Attendance Percentage Calculation:** UMS considers Duty Leave as an officially attended class. To match the UMS `Percentage`, the correct math is `(TotalAttended + DutyLeave) / TotalDelivered`. Sync scripts must add `DutyLeave` to `TotalAttended` before passing data to the Bhemu Calculator.
 
 Skip rows containing "Aggregate".
 

@@ -137,7 +137,7 @@ export const WEBVIEW_SYNC_SCRIPT = `
   }
 
   function parseAttendance(html) {
-    var doc = htmlDoc('<html><body>'+html+'</body></html>');
+    var doc = htmlDoc('<html><body><table><tbody>'+html+'</tbody></table></body></html>');
     var results=[];
     doc.querySelectorAll('tr').forEach(function(tr){
       var tds=tr.querySelectorAll('td');
@@ -149,7 +149,7 @@ export const WEBVIEW_SYNC_SCRIPT = `
         courseCode:first.slice(0,ci).trim(),
         courseName:first.slice(ci+1).trim(),
         totalLectures:parseInt((tds[3].textContent||'0'))||0,
-        attendedLectures:parseInt((tds[4].textContent||'0'))||0,
+        attendedLectures:(parseInt((tds[4].textContent||'0'))||0) + (parseInt((tds[2].textContent||'0'))||0),
         percentage:parseFloat((tds[5].textContent||'0'))||0
       });
     });

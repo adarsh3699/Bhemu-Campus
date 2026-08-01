@@ -133,7 +133,6 @@ export default function ProfileDrawer({ visible, onClose, onShareProfile }: Prop
 													{initials(profile.name || "?")}
 												</Text>
 											</View>
-
 											{/* Info */}
 											<View style={local.cardInfo}>
 												<Text
@@ -158,23 +157,16 @@ export default function ProfileDrawer({ visible, onClose, onShareProfile }: Prop
 													{date && <Text style={local.cardDate}>{date}</Text>}
 												</View>
 											</View>
-
-											{/* Right: checkmark or menu */}
-											{isActive ? (
-												<View style={local.checkWrap}>
-													<Check size={16} color={Colors.primary} />
-												</View>
-											) : (
-												<TouchableOpacity
-													style={local.menuBtn}
-													onPress={() =>
-														setMenuTarget({ id: profile.id, name: profile.name, canDelete })
-													}
-													hitSlop={12}
-												>
-													<MoreVertical size={16} color={Colors.textSubtle} />
-												</TouchableOpacity>
-											)}
+											{/* profile menu */}
+											<TouchableOpacity
+												style={local.menuBtn}
+												onPress={() =>
+													setMenuTarget({ id: profile.id, name: profile.name, canDelete })
+												}
+												hitSlop={12}
+											>
+												<MoreVertical size={16} color={Colors.textSubtle} />
+											</TouchableOpacity>
 										</TouchableOpacity>
 									);
 								})}

@@ -3,7 +3,8 @@ import { ScrollView, Text, StyleSheet, View, TouchableOpacity } from "react-nati
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ChevronDown, ChevronRight, Trash2 } from "lucide-react-native";
 import ScreenHeader from "@/components/ui/ScreenHeader";
-import { useGpaProfiles } from "@/contexts/GpaDataContext";
+import { useGpaProfiles, useGpaSemesters } from "@/contexts/GpaDataContext";
+import { useAttendanceData, AttendanceDataProvider } from "@/contexts/AttendanceDataContext";
 import { useUmsData } from "@/features/ums-data/useUmsData";
 import { clearUmsData } from "@/features/ums-data/storage";
 import { Layout } from "@/styles";
@@ -37,9 +38,11 @@ function DataSection({ title, count, data }: SectionProps) {
 	);
 }
 
-export default function UmsDataViewerScreen() {
+function UmsDataViewerContent() {
 	const { activeProfile } = useGpaProfiles();
 	const { data, loading, refresh } = useUmsData();
+	const { semesters } = useGpaSemesters();
+	const { attendanceData } = useAttendanceData();
 
 	const handleClear = async () => {
 		if (activeProfile) await clearUmsData(activeProfile);
@@ -64,6 +67,8 @@ export default function UmsDataViewerScreen() {
 						<DataSection title="Announcements" count={data.announcements.length} data={data.announcements} />
 						<DataSection title="Seating Plan" count={data.seatingPlan.length} data={data.seatingPlan} />
 						<DataSection title="Timetable" count={data.timetable.length} data={data.timetable} />
+						<DataSection title="Attendance" count={attendanceData?.subjects ? Object.keys(attendanceData.subjects).length : 0} data={attendanceData} />
+						<DataSection title="GPA Semesters" count={semesters?.length ?? 0} data={semesters} />
 
 						<TouchableOpacity style={local.clearBtn} onPress={handleClear} activeOpacity={0.7}>
 							<Trash2 size={16} color={Colors.destructive} />
@@ -73,6 +78,14 @@ export default function UmsDataViewerScreen() {
 				)}
 			</ScrollView>
 		</SafeAreaView>
+	);
+}
+
+export default function UmsDataViewerScreen() {
+	return (
+		<AttendanceDataProvider>
+			<UmsDataViewerContent />
+		</AttendanceDataProvider>
 	);
 }
 

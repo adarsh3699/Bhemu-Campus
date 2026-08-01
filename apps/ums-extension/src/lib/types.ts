@@ -99,10 +99,10 @@ export interface UMSStudentCourse {
 export interface UMSAttendanceSummary {
   CourseCode: string;
   CourseName: string;
-  ExamDate: string;
-  Slot: number;
-  TotalDuty: number;
-  Present: number;
+  LastAttended: string;
+  DutyLeave: number;
+  TotalDelivered: number;
+  TotalAttended: number;
   Percentage: number;
 }
 

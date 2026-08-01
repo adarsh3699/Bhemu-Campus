@@ -62,10 +62,10 @@ function parseAttendanceHtml(html: string): UMSAttendanceSummary[] {
     results.push({
       CourseCode: firstText.slice(0, colonIdx).trim(),
       CourseName: firstText.slice(colonIdx + 1).trim(),
-      ExamDate: tds[1].textContent?.trim() ?? '',
-      Slot: parseInt(tds[2].textContent?.trim() ?? '0') || 0,
-      TotalDuty: parseInt(tds[3].textContent?.trim() ?? '0') || 0,
-      Present: parseInt(tds[4].textContent?.trim() ?? '0') || 0,
+      LastAttended: tds[1].textContent?.trim() ?? '',
+      DutyLeave: parseInt(tds[2].textContent?.trim() ?? '0') || 0,
+      TotalDelivered: parseInt(tds[3].textContent?.trim() ?? '0') || 0,
+      TotalAttended: parseInt(tds[4].textContent?.trim() ?? '0') || 0,
       Percentage: parseFloat(tds[5].textContent?.trim() ?? '0') || 0,
     });
   });
@@ -206,12 +206,17 @@ function parseTimetableHtml(html: string): TimetableEntry[] {
       const desc = args[0] ?? '';
       const timeRange = args[1] ?? '';   // "19:00-20:00"
       const day = args[2] ?? dayLabel;   // "Monday"
-      const courseName = args[3] ?? '';  // "Assignment-1"
       const courseCode = args[4] ?? '';  // "PETV50"
 
-      // Extract room from desc: "S:9PV34"
-      const roomMatch = desc.match(/\bS:(\S+)/);
+      // Extract room, section, group from desc
+      const roomMatch = desc.match(/\bR:\s*(\S+)/);
       const room = roomMatch?.[1] ?? '';
+
+      const sectionMatch = desc.match(/\bS:\s*(\S+)/);
+      const section = sectionMatch?.[1] ?? '';
+
+      const groupMatch = desc.match(/\bG:\s*(\S+)/);
+      const group = groupMatch?.[1] ?? '';
 
       // Extract faculty from desc: "Teacher: 21482::Amarinder Kaur"
       const facultyMatch = desc.match(/Teacher:\s*\d+::(.+)$/);
@@ -227,9 +232,10 @@ function parseTimetableHtml(html: string): TimetableEntry[] {
         startTime,
         endTime,
         courseCode,
-        courseName,
         room,
         faculty,
+        section,
+        group
       });
     });
   });

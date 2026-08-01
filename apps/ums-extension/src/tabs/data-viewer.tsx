@@ -794,7 +794,7 @@ export default function DataViewer() {
 				{tab === "timetable" && (
 					<Section title="Timetable" count={data.timetable.length}>
 						<Table
-							headers={["Day", "Start", "End", "Course Code", "Course Name", "Room", "Faculty"]}
+							headers={["Day", "Start", "End", "Course Code", "Room", "Faculty", "Section", "Group"]}
 							rows={data.timetable.map((e) => [
 								e.dayOfWeek,
 								e.startTime,
@@ -802,6 +802,8 @@ export default function DataViewer() {
 								e.courseCode || "—",
 								e.room,
 								e.faculty || "—",
+								e.section,
+								e.group,
 							])}
 						/>
 						<RawJson label="timetable" data={data.timetable} />
