@@ -15,9 +15,12 @@ export interface LaunchUser {
 
 export interface AuthContextType {
 	currentUser: User | null;
-	authLoading: boolean;
-	launchUser: LaunchUser | null;
-	launchReady: boolean;
+	/** Only provided by the mobile client which has a launch-user optimisation. */
+	authLoading?: boolean;
+	/** Only provided by the mobile client which has a launch-user optimisation. */
+	launchUser?: LaunchUser | null;
+	/** Only provided by the mobile client which has a launch-user optimisation. */
+	launchReady?: boolean;
 	signup: (email: string, password: string, displayName?: string) => Promise<UserCredential>;
 	login: (email: string, password: string) => Promise<UserCredential>;
 	logout: () => Promise<void>;

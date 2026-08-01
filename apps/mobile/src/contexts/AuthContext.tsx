@@ -17,14 +17,7 @@ import {
 	type User,
 	type UserCredential,
 } from "firebase/auth";
-import {
-	doc,
-	setDoc,
-	serverTimestamp,
-	collection,
-	getDocs,
-	writeBatch,
-} from "firebase/firestore";
+import { doc, serverTimestamp, collection, getDocs, writeBatch, updateDoc } from "firebase/firestore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { auth, db } from "@/firebase/config";
 import type { FirebaseError, AuthContextType, LaunchUser } from "@/types";
@@ -32,6 +25,7 @@ import { STORAGE_KEYS } from "@bhemu/shared";
 import { authStateAfterRestore } from "@/features/startup/authReadiness";
 import { clearLocalSessionData } from "@/features/session/clearLocalSessionData";
 import { enableGpaCacheWrites } from "@/features/gpa-data/cache";
+import { provisionNewUserProfile } from "@bhemu/firebase";
 
 const ACCOUNT_DELETING_KEY = STORAGE_KEYS.accountDeleting;
 
@@ -79,7 +73,7 @@ async function readStoredLaunchUser(): Promise<LaunchUser | null> {
 	return uid ? { uid, email: null, displayName: null, photoURL: null } : null;
 }
 
-type GoogleSigninClient = typeof import("@react-native-google-signin/google-signin")["GoogleSignin"];
+type GoogleSigninClient = (typeof import("@react-native-google-signin/google-signin"))["GoogleSignin"];
 let googleSigninClient: GoogleSigninClient | null = null;
 
 async function getGoogleSignin() {
@@ -105,19 +99,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	const [launchReady, setLaunchReady] = useState(false);
 
 	async function saveUserData(user: User, isNewUser = false) {
+		if (isNewUser) {
+			// The default profile is provisioned exactly once, as part of the
+			// explicit signup transaction. Auth restoration and an empty profile
+			// list must never create one.
+			await provisionNewUserProfile(db, {
+				uid: user.uid,
+				email: user.email,
+				displayName: user.displayName,
+				photoURL: user.photoURL,
+			});
+			return;
+		}
+
 		try {
 			const userRef = doc(db, "users", user.uid);
-			await setDoc(
-				userRef,
-				{
-					email: user.email,
-					displayName: user.displayName || user.email?.split("@")[0] || "User",
-					photoURL: user.photoURL || null,
-					lastLoginAt: serverTimestamp(),
-					...(isNewUser ? { createdAt: serverTimestamp() } : {}),
-				},
-				{ merge: true }
-			);
+			await updateDoc(userRef, {
+				email: user.email,
+				displayName: user.displayName || user.email?.split("@")[0] || "User",
+				photoURL: user.photoURL || null,
+				lastLoginAt: serverTimestamp(),
+			});
 		} catch (error) {
 			console.error("Error saving user data:", error);
 		}
@@ -176,7 +178,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			if (!auth.currentUser) throw new Error("No authenticated user");
 			await updateProfile(auth.currentUser, { displayName: newDisplayName });
 			const userRef = doc(db, "users", auth.currentUser.uid);
-			await setDoc(userRef, { displayName: newDisplayName, updatedAt: serverTimestamp() }, { merge: true });
+			await updateDoc(userRef, { displayName: newDisplayName, updatedAt: serverTimestamp() });
 			return { success: true };
 		} catch (error) {
 			console.error("Error updating display name:", error);
@@ -190,7 +192,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			const credential = EmailAuthProvider.credential(auth.currentUser.email, password);
 			await linkWithCredential(auth.currentUser, credential);
 			const userRef = doc(db, "users", auth.currentUser.uid);
-			await setDoc(userRef, { hasPassword: true, updatedAt: serverTimestamp() }, { merge: true });
+			await updateDoc(userRef, { hasPassword: true, updatedAt: serverTimestamp() });
 			return { success: true };
 		} catch (error) {
 			console.error("Error creating password:", error);
@@ -198,23 +200,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		}
 	}
 
-	async function changePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
+	async function changePassword(
+		currentPassword: string,
+		newPassword: string
+	): Promise<{ success: boolean; error?: string }> {
 		try {
 			if (!auth.currentUser || !auth.currentUser.email) throw new Error("No authenticated user");
 			const credential = EmailAuthProvider.credential(auth.currentUser.email, currentPassword);
 			await reauthenticateWithCredential(auth.currentUser, credential);
 			await updatePassword(auth.currentUser, newPassword);
 			const userRef = doc(db, "users", auth.currentUser.uid);
-			await setDoc(userRef, { passwordUpdatedAt: serverTimestamp(), updatedAt: serverTimestamp() }, { merge: true });
+			await updateDoc(userRef, { passwordUpdatedAt: serverTimestamp(), updatedAt: serverTimestamp() });
 			return { success: true };
 		} catch (error) {
 			console.error("Error changing password:", error);
 			const err = error as FirebaseError;
 			const msg =
-				err.code === "auth/wrong-password" ? "Current password is incorrect"
-				: err.code === "auth/weak-password" ? "New password is too weak"
-				: err.code === "auth/requires-recent-login" ? "Please log out and log back in first"
-				: "Failed to change password";
+				err.code === "auth/wrong-password"
+					? "Current password is incorrect"
+					: err.code === "auth/weak-password"
+						? "New password is too weak"
+						: err.code === "auth/requires-recent-login"
+							? "Please log out and log back in first"
+							: "Failed to change password";
 			return { success: false, error: msg };
 		}
 	}
@@ -233,7 +241,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			const hasPass = hasPassword();
 			const hasGoogle = isGoogleUser();
 
-			if ((useGoogleAuth || (!hasPass && hasGoogle))) {
+			if (useGoogleAuth || (!hasPass && hasGoogle)) {
 				const GoogleSignin = await getGoogleSignin();
 				await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
 				const googleResponse = await GoogleSignin.signIn();
@@ -252,14 +260,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			}
 
 			// Set deletion flag before batch to prevent auto profile creation
-			try { await AsyncStorage.setItem(ACCOUNT_DELETING_KEY, "1"); } catch { /* intentionally swallowed */ }
+			try {
+				await AsyncStorage.setItem(ACCOUNT_DELETING_KEY, "1");
+			} catch {
+				/* intentionally swallowed */
+			}
 
 			// Delete all Firestore data
 			await _executeComprehensiveDataDeletion(originalUserId);
 
 			// Delete Auth account
 			await deleteUser(auth.currentUser);
-			try { await AsyncStorage.clear(); } catch { /* intentionally swallowed */ }
+			try {
+				await AsyncStorage.clear();
+			} catch {
+				/* intentionally swallowed */
+			}
 
 			return { success: true };
 		} catch (error) {
@@ -274,7 +290,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		let opCount = 0;
 
 		const add = (op: (b: ReturnType<typeof writeBatch>) => void) => {
-			if (opCount >= 450) { batches.push(currentBatch); currentBatch = writeBatch(db); opCount = 0; }
+			if (opCount >= 450) {
+				batches.push(currentBatch);
+				currentBatch = writeBatch(db);
+				opCount = 0;
+			}
 			op(currentBatch);
 			opCount++;
 		};
@@ -315,7 +335,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		const map: Record<string, { error: string; requiresPassword?: boolean; requiresRelogin?: boolean }> = {
 			"auth/requires-password": { error: "Password required for account deletion", requiresPassword: true },
 			"auth/wrong-password": { error: "Incorrect password. Please try again." },
-			"auth/user-mismatch": { error: "Account mismatch. Please try again.", requiresRelogin: err.requiresRelogin },
+			"auth/user-mismatch": {
+				error: "Account mismatch. Please try again.",
+				requiresRelogin: err.requiresRelogin,
+			},
 			"auth/requires-recent-login": { error: "Please log out and log back in before deleting your account" },
 			"auth/network-request-failed": { error: "Network error. Please check your connection." },
 		};
@@ -374,12 +397,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	}, []);
 
 	return (
-		<AuthContext.Provider value={{
-			authLoading: loading, launchUser, launchReady,
-			currentUser, signup, login, logout, resetPassword, signInWithGoogle,
-			updateDisplayName, createPassword, changePassword, deleteAllUserData,
-			isGoogleUser, hasPassword,
-		}}>
+		<AuthContext.Provider
+			value={{
+				authLoading: loading,
+				launchUser,
+				launchReady,
+				currentUser,
+				signup,
+				login,
+				logout,
+				resetPassword,
+				signInWithGoogle,
+				updateDisplayName,
+				createPassword,
+				changePassword,
+				deleteAllUserData,
+				isGoogleUser,
+				hasPassword,
+			}}
+		>
 			{children}
 		</AuthContext.Provider>
 	);

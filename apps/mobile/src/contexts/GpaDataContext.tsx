@@ -104,7 +104,7 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 	const hasInitializedRef = useRef(false);
 	const initializedUserIdRef = useRef<string | null>(null);
 	const initialActiveProfileRef = useRef<string | null>(null);
-	const creatingDefaultProfileRef = useRef(false);
+
 	const semestersCacheRef = useRef<Record<string, GPASemester[]>>({});
 	const hasReceivedRemoteProfilesRef = useRef(false);
 	const hasReceivedOutgoingSharesRef = useRef(false);
@@ -166,9 +166,7 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 		return () => unsubscribe();
 	}, [gpaService, activeProfile, allProfiles, dataUserId]);
 
-	const generateProfileName = useCallback(() => {
-		return currentUser?.displayName || launchUser?.displayName || currentUser?.email?.split("@")[0] || launchUser?.email?.split("@")[0] || "User";
-	}, [currentUser, launchUser]);
+
 
 	const updateActiveProfile = useCallback((profileId: string | number) => {
 		const normalizedId = String(profileId);
@@ -181,17 +179,20 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 	const createProfile = useCallback(async (name: string) => {
 		try {
 			if (!gpaService) return;
-			const profileId = Date.now();
-			const newProfile: GPAProfile = { id: profileId, name, isDefault: false };
-			await gpaService.saveProfile(newProfile);
 			const defaultSemester: GPASemester = {
 				id: Date.now().toString(),
 				name: "Semester 1",
 				subjects: [],
 			};
-			await gpaService.saveSingleSemester(profileId, defaultSemester);
-			updateActiveProfile(profileId);
-			showMessage("Profile created successfully!", "success");
+			const result = await gpaService.createProfile(
+				{ name, isDefault: false },
+				[defaultSemester]
+			);
+			if (result.success && result.profile) {
+				updateActiveProfile(result.profile.id);
+			} else {
+				showMessage(result.error || "Error creating profile.", "error");
+			}
 		} catch (error) {
 			console.error("Error creating profile:", error);
 			showMessage("Error creating profile. Please try again.", "error");
@@ -213,7 +214,6 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 					const remaining = sortedProfiles.filter((p) => profileIdKey(p.id) !== profileIdKey(profileId));
 					if (remaining.length > 0) updateActiveProfile(remaining[0].id);
 				}
-				showMessage("Profile deleted successfully", "success");
 			}
 		} catch (error) {
 			console.error("Error deleting profile:", error);
@@ -490,40 +490,18 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 					hasReceivedRemoteProfilesRef.current = true;
 					const currentProfiles = result.profiles;
 					if (currentProfiles.length === 0) {
-						// Firestore is authoritative. Remove cached profiles when the
-						// account has no profiles instead of showing stale data.
+						// The default profile is created atomically during signup.
+						// An empty snapshot here means the account is being deleted
+						// or hasn't finished provisioning yet. Never auto-create a
+						// profile here — that was the source of phantom duplicates.
 						setProfiles([]);
 						setActiveProfile(null);
 						setSemesters([]);
 						semestersCacheRef.current = {};
-						// An empty first snapshot is still usable state. Keep the home screen
-						// interactive while the default profile is created in the background.
 						setIsHydrated(true);
 						setIsRefreshing(false);
 						setLoading(false);
 						markStartup("remote_profiles_received");
-						let isDeleting = false;
-						try { isDeleting = !!(await AsyncStorage.getItem(STORAGE_KEYS.accountDeleting)); } catch { /* intentionally swallowed */ }
-						if (isDeleting || creatingDefaultProfileRef.current) return;
-						creatingDefaultProfileRef.current = true;
-						try {
-							const profileId = Date.now();
-							const defaultProfile: GPAProfile = {
-								id: profileId,
-								name: generateProfileName(),
-								isDefault: true,
-								createdAt: new Date(),
-							};
-							const profileResult = await gpaService.saveProfile(defaultProfile);
-							if (!profileResult.success) return;
-							await gpaService.saveSingleSemester(profileId, {
-								id: Date.now().toString(),
-								name: "Semester 1",
-								subjects: [],
-							});
-						} finally {
-							creatingDefaultProfileRef.current = false;
-						}
 						return;
 					}
 

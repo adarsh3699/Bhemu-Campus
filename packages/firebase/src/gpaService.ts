@@ -3,13 +3,13 @@ import {
 	doc,
 	getDoc,
 	getDocs,
-	setDoc,
 	query,
 	where,
 	orderBy,
 	limit,
 	serverTimestamp,
 	writeBatch,
+	updateDoc,
 	onSnapshot,
 	type Firestore,
 	type CollectionReference,
@@ -19,6 +19,45 @@ import {
 import type { GPASubject, GPASemester, GPAProfile, ShareData } from "@bhemu/shared";
 
 export type { GPASubject, GPASemester, GPAProfile, ShareData };
+
+type CreateProfileInput = Omit<
+	GPAProfile,
+	| "id"
+	| "semesters"
+	| "createdAt"
+	| "updatedAt"
+	| "isShared"
+	| "ownerUserId"
+	| "permission"
+	| "lastOpened"
+>;
+
+function profileFromSnapshot(id: string, data: Omit<GPAProfile, "id">): GPAProfile {
+	// The document id is canonical. Older documents may contain a stale `id`
+	// field, so never allow document data to override it.
+	return { ...data, id };
+}
+
+function profileMetadataForCreate(profile: CreateProfileInput): Omit<CreateProfileInput, "isDefault"> {
+	const { isDefault: _isDefault, ...metadata } = profile;
+	return metadata;
+}
+
+function profileMetadataForUpdate(profile: GPAProfile): Record<string, unknown> {
+	const {
+		id: _id,
+		semesters: _semesters,
+		isDefault: _isDefault,
+		createdAt: _createdAt,
+		updatedAt: _updatedAt,
+		isShared: _isShared,
+		ownerUserId: _ownerUserId,
+		permission: _permission,
+		lastOpened: _lastOpened,
+		...metadata
+	} = profile;
+	return metadata;
+}
 
 export class GPAService {
 	private db: Firestore;
@@ -44,6 +83,10 @@ export class GPAService {
 
 	private gpaAndMarksRefForUser(userId: string, profileId: string | number): CollectionReference<DocumentData> {
 		return collection(this.db, "users", userId, "profiles", profileId.toString(), "gpaAndMarks");
+	}
+
+	private ownProfileRef(profileId: string | number) {
+		return doc(this.userProfilesRef, profileId.toString());
 	}
 
 	async getSemesters(profileId: string | number): Promise<{ success: boolean; semesters: GPASemester[]; error?: string }> {
@@ -76,8 +119,9 @@ export class GPAService {
 				}
 			}
 
-			const profileRef = doc(this.userProfilesRef, profileId.toString());
-			batch.set(profileRef, { updatedAt: serverTimestamp() }, { merge: true });
+			// `update` is intentional: a stale cache must not recreate a deleted
+			// parent profile while writing child data.
+			batch.update(this.ownProfileRef(profileId), { updatedAt: serverTimestamp() });
 
 			await batch.commit();
 			return { success: true };
@@ -90,7 +134,10 @@ export class GPAService {
 	async saveSingleSemester(profileId: string | number, semester: GPASemester): Promise<{ success: boolean; error?: string }> {
 		try {
 			const semDoc = doc(this.gpaAndMarksRef(profileId), semester.id.toString());
-			await setDoc(semDoc, { id: semester.id, name: semester.name, subjects: semester.subjects || [] });
+			const batch = writeBatch(this.db);
+			batch.set(semDoc, { id: semester.id, name: semester.name, subjects: semester.subjects || [] });
+			batch.update(this.ownProfileRef(profileId), { updatedAt: serverTimestamp() });
+			await batch.commit();
 			return { success: true };
 		} catch (error) {
 			console.error("Error saving semester:", error);
@@ -103,7 +150,7 @@ export class GPAService {
 			const semDoc = doc(this.gpaAndMarksRef(profileId), semesterId.toString());
 			const batch = writeBatch(this.db);
 			batch.delete(semDoc);
-			batch.set(doc(this.userProfilesRef, profileId.toString()), { updatedAt: serverTimestamp() }, { merge: true });
+			batch.update(this.ownProfileRef(profileId), { updatedAt: serverTimestamp() });
 			await batch.commit();
 			return { success: true };
 		} catch (error) {
@@ -112,14 +159,17 @@ export class GPAService {
 		}
 	}
 
-	onSemestersChange(profileId: string | number, callback: (res: { success: boolean; semesters: GPASemester[]; error?: string }) => void): Unsubscribe {
+	onSemestersChange(
+		profileId: string | number,
+		callback: (res: { success: boolean; semesters: GPASemester[]; fromCache?: boolean; error?: string }) => void
+	): Unsubscribe {
 		try {
 			const colRef = this.gpaAndMarksRef(profileId);
 			return onSnapshot(
 				colRef,
 				(snapshot) => {
-					const semesters = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as unknown as GPASemester));
-					callback({ success: true, semesters });
+					const semesters = snapshot.docs.map((d) => ({ ...d.data(), id: d.id } as unknown as GPASemester));
+					callback({ success: true, semesters, fromCache: snapshot.metadata.fromCache });
 				},
 				(error) => {
 					console.error("Error listening to semesters:", error);
@@ -133,14 +183,18 @@ export class GPAService {
 		}
 	}
 
-	onSemestersChangeForUser(userId: string, profileId: string | number, callback: (res: { success: boolean; semesters: GPASemester[]; error?: string }) => void): Unsubscribe {
+	onSemestersChangeForUser(
+		userId: string,
+		profileId: string | number,
+		callback: (res: { success: boolean; semesters: GPASemester[]; fromCache?: boolean; error?: string }) => void
+	): Unsubscribe {
 		try {
 			const colRef = this.gpaAndMarksRefForUser(userId, profileId);
 			return onSnapshot(
 				colRef,
 				(snapshot) => {
-					const semesters = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as unknown as GPASemester));
-					callback({ success: true, semesters });
+					const semesters = snapshot.docs.map((d) => ({ ...d.data(), id: d.id } as unknown as GPASemester));
+					callback({ success: true, semesters, fromCache: snapshot.metadata.fromCache });
 				},
 				(error) => {
 					console.error("Error listening to semesters for user:", error);
@@ -156,26 +210,66 @@ export class GPAService {
 
 	// ===== PROFILE MANAGEMENT =====
 
-	async saveProfile(profile: GPAProfile): Promise<{ success: boolean; profile?: GPAProfile; error?: string }> {
+	/** Creates a non-default profile and its initial semesters atomically. */
+	async createProfile(
+		profile: CreateProfileInput,
+		initialSemesters: GPASemester[] = []
+	): Promise<{ success: boolean; profile?: GPAProfile; error?: string }> {
 		try {
-			const { semesters, permission: _permission, ...profileMetadata } = profile;
-			const profileData = {
-				...profileMetadata,
-				updatedAt: serverTimestamp(),
-				createdAt: profile.createdAt || serverTimestamp(),
-				...(profile.studentInfo ? { studentInfo: profile.studentInfo } : {}),
-				...(profile.allTermIds ? { allTermIds: profile.allTermIds } : {}),
-				...(profile.umsVerified ? { umsVerified: profile.umsVerified } : {}),
-				...(profile.lastUMSSync ? { lastUMSSync: profile.lastUMSSync } : {}),
-			};
-
-			await setDoc(doc(this.userProfilesRef, profile.id.toString()), profileData, { merge: true });
-
-			if (semesters && semesters.length > 0) {
-				await this.saveSemesters(profile.id, semesters);
+			if (profile.isDefault === true) {
+				return { success: false, error: "Default profiles may only be created during signup" };
+			}
+			if (initialSemesters.length > 499) {
+				return { success: false, error: "Too many semesters to create atomically" };
 			}
 
-			return { success: true, profile: { ...profileData, semesters } as GPAProfile };
+			const profileRef = doc(this.userProfilesRef);
+			const createdProfile: GPAProfile = {
+				...profileMetadataForCreate(profile),
+				id: profileRef.id,
+				name: profile.name,
+				isDefault: false,
+			};
+			const batch = writeBatch(this.db);
+			batch.set(profileRef, {
+				...profileMetadataForCreate(profile),
+				name: profile.name,
+				isDefault: false,
+				createdAt: serverTimestamp(),
+				updatedAt: serverTimestamp(),
+			});
+			for (const semester of initialSemesters) {
+				batch.set(doc(profileRef, "gpaAndMarks", String(semester.id)), {
+					id: semester.id,
+					name: semester.name,
+					subjects: semester.subjects || [],
+				});
+			}
+			await batch.commit();
+			return { success: true, profile: { ...createdProfile, semesters: initialSemesters } };
+		} catch (error) {
+			console.error("Error creating profile:", error);
+			return { success: false, error: (error as Error).message };
+		}
+	}
+
+	/**
+	 * Compatibility wrapper for callers that update an existing profile. It
+	 * deliberately uses `updateDoc`, so it can never recreate a missing profile.
+	 */
+	async saveProfile(profile: GPAProfile): Promise<{ success: boolean; profile?: GPAProfile; error?: string }> {
+		try {
+			await updateDoc(this.ownProfileRef(profile.id), {
+				...profileMetadataForUpdate(profile),
+				updatedAt: serverTimestamp(),
+			});
+
+			if (profile.semesters !== undefined) {
+				const semestersResult = await this.saveSemesters(profile.id, profile.semesters);
+				if (!semestersResult.success) return semestersResult;
+			}
+
+			return { success: true, profile };
 		} catch (error) {
 			console.error("Error saving profile:", error);
 			return { success: false, error: (error as Error).message };
@@ -185,17 +279,13 @@ export class GPAService {
 	async renameProfile(profileId: string | number, newName: string, ownerUserId?: string): Promise<void> {
 		const ref = ownerUserId
 			? doc(this.db, "users", ownerUserId, "profiles", profileId.toString())
-			: doc(this.userProfilesRef, profileId.toString());
-		await setDoc(ref, { name: newName, updatedAt: serverTimestamp() }, { merge: true });
+			: this.ownProfileRef(profileId);
+		await updateDoc(ref, { name: newName, updatedAt: serverTimestamp() });
 	}
 
 	async updateLastOpened(profileId: string | number): Promise<void> {
 		try {
-			await setDoc(
-				doc(this.userProfilesRef, profileId.toString()),
-				{ lastOpened: serverTimestamp() },
-				{ merge: true }
-			);
+			await updateDoc(this.ownProfileRef(profileId), { lastOpened: serverTimestamp() });
 		} catch (error) {
 			console.error("Error updating lastOpened:", error);
 		}
@@ -204,10 +294,9 @@ export class GPAService {
 	async getProfiles(): Promise<{ success: boolean; profiles: GPAProfile[]; error?: string }> {
 		try {
 			const snapshot = await getDocs(query(this.userProfilesRef, orderBy("createdAt", "desc")));
-			const profiles = snapshot.docs.map((d) => ({
-				id: d.id,
-				...(d.data() as Omit<GPAProfile, "id">),
-			}));
+			const profiles = snapshot.docs.map((d) =>
+				profileFromSnapshot(d.id, d.data() as Omit<GPAProfile, "id">)
+			);
 
 			const sortedProfiles = profiles.sort((a, b) => {
 				if (a.isDefault && !b.isDefault) return -1;
@@ -228,7 +317,10 @@ export class GPAService {
 			const docSnap = await getDoc(docRef);
 
 			if (docSnap.exists()) {
-				return { success: true, profile: { id: docSnap.id, ...(docSnap.data() as Omit<GPAProfile, "id">) } };
+				return {
+					success: true,
+					profile: profileFromSnapshot(docSnap.id, docSnap.data() as Omit<GPAProfile, "id">),
+				};
 			} else {
 				return { success: false, error: "Profile not found" };
 			}
@@ -242,10 +334,15 @@ export class GPAService {
 		try {
 			const batch = writeBatch(this.db);
 			const idStr = profileId.toString();
+			const profileSnapshot = await getDoc(this.ownProfileRef(idStr));
+			if (!profileSnapshot.exists()) return { success: false, error: "Profile not found" };
+			if (profileSnapshot.data().isDefault === true) {
+				return { success: false, error: "The default profile cannot be deleted" };
+			}
 			const idNum = Number(profileId);
 			const idVariants: Array<string | number> = isNaN(idNum) ? [idStr] : [idStr, idNum];
 
-			batch.delete(doc(this.userProfilesRef, idStr));
+			batch.delete(this.ownProfileRef(idStr));
 
 			const semSnapshot = await getDocs(this.gpaAndMarksRef(profileId));
 			semSnapshot.docs.forEach((d) => batch.delete(d.ref));
@@ -285,16 +382,17 @@ export class GPAService {
 
 	// ===== REAL-TIME LISTENERS =====
 
-	onProfilesChange(callback: (res: { success: boolean; profiles: GPAProfile[]; error?: string }) => void): Unsubscribe {
+	onProfilesChange(
+		callback: (res: { success: boolean; profiles: GPAProfile[]; fromCache?: boolean; error?: string }) => void
+	): Unsubscribe {
 		try {
 			const q = query(this.userProfilesRef, orderBy("createdAt", "desc"));
 			return onSnapshot(
 				q,
 				(snapshot) => {
-					const profiles = snapshot.docs.map((d) => ({
-						id: d.id,
-						...(d.data() as Omit<GPAProfile, "id">),
-					}));
+					const profiles = snapshot.docs.map((d) =>
+						profileFromSnapshot(d.id, d.data() as Omit<GPAProfile, "id">)
+					);
 
 					const sortedProfiles = profiles.sort((a, b) => {
 						if (a.isDefault && !b.isDefault) return -1;
@@ -302,7 +400,7 @@ export class GPAService {
 						return (a.name || "").localeCompare(b.name || "");
 					});
 
-					callback({ success: true, profiles: sortedProfiles });
+						callback({ success: true, profiles: sortedProfiles, fromCache: snapshot.metadata.fromCache });
 				},
 				(error) => {
 					console.error("Error listening to profiles:", error);
@@ -323,7 +421,10 @@ export class GPAService {
 				docRef,
 				(docSnap) => {
 					if (docSnap.exists()) {
-						callback({ success: true, profile: { id: docSnap.id, ...(docSnap.data() as Omit<GPAProfile, "id">) } });
+							callback({
+								success: true,
+								profile: profileFromSnapshot(docSnap.id, docSnap.data() as Omit<GPAProfile, "id">),
+							});
 					} else {
 						callback({ success: false, error: "Profile not found" });
 					}
@@ -472,9 +573,9 @@ export class GPAService {
 			const batch = writeBatch(this.db);
 			const profileId = profile.id.toString();
 			if (profile.isShared && profile.ownerUserId && profile.ownerUserId !== this.userId) {
-				batch.set(doc(this.db, "users", profile.ownerUserId, "profiles", profileId), profileData, { merge: true });
+				batch.update(doc(this.db, "users", profile.ownerUserId, "profiles", profileId), profileData);
 			} else {
-				batch.set(doc(this.userProfilesRef, profileId), profileData, { merge: true });
+				batch.update(doc(this.userProfilesRef, profileId), profileData);
 			}
 			await batch.commit();
 
@@ -551,30 +652,28 @@ export class GPAService {
 			const profileData = await this._getProfileDataByPermission(shareData);
 			if (!profileData) return { success: false, error: "Profile data not found" };
 
-			const newProfile: GPAProfile = {
-				id: Date.now(),
-				name: newProfileName || `Copy of ${profileData.name}`,
-				isDefault: false,
-				copiedFrom: {
-					shareId: shareData.shareId,
-					originalUserId: shareData.ownerUserId,
-					originalProfileId: shareData.profileId,
-					copiedAt: serverTimestamp(),
-				},
-			};
-
-			const saveResult = await this.saveProfile(newProfile);
-			if (!saveResult.success) return { success: false, error: saveResult.error };
-
+			// Fetch the source semesters before creating the profile so
+			// createProfile can write everything in one atomic batch.
 			const ownerSemRef = this.gpaAndMarksRefForUser(shareData.ownerUserId, shareData.profileId);
 			const semSnap = await getDocs(ownerSemRef);
 			const semesters = semSnap.docs.map((d) => ({ id: d.id, ...d.data() } as unknown as GPASemester));
 
-			if (semesters.length > 0) {
-				await this.saveSemesters(newProfile.id, semesters);
-			}
+			const result = await this.createProfile(
+				{
+					name: newProfileName || `Copy of ${profileData.name}`,
+					isDefault: false,
+					copiedFrom: {
+						shareId: shareData.shareId,
+						originalUserId: shareData.ownerUserId,
+						originalProfileId: shareData.profileId,
+						copiedAt: serverTimestamp(),
+					},
+				},
+				semesters,
+			);
+			if (!result.success) return { success: false, error: result.error };
 
-			return { success: true, profile: { ...newProfile, semesters } };
+			return { success: true, profile: { ...result.profile!, semesters } };
 		} catch (error) {
 			console.error("Error copying shared profile:", error);
 			return { success: false, error: (error as Error).message };
