@@ -17,25 +17,72 @@ import {
 	type User,
 	type UserCredential,
 } from "firebase/auth";
-import {
-	doc,
-	setDoc,
-	serverTimestamp,
-	collection,
-	getDocs,
-	writeBatch,
-} from "firebase/firestore";
-import { GoogleSignin } from "@react-native-google-signin/google-signin";
+import { doc, serverTimestamp, collection, getDocs, writeBatch, updateDoc } from "firebase/firestore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { auth, db } from "@/firebase/config";
-import type { FirebaseError, AuthContextType } from "@/types";
+import type { FirebaseError, AuthContextType, LaunchUser } from "@/types";
 import { STORAGE_KEYS } from "@bhemu/shared";
-
-GoogleSignin.configure({
-	webClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID,
-});
+import { authStateAfterRestore } from "@/features/startup/authReadiness";
+import { clearLocalSessionData } from "@/features/session/clearLocalSessionData";
+import { enableGpaCacheWrites } from "@/features/gpa-data/cache";
+import { provisionNewUserProfile } from "@bhemu/firebase";
 
 const ACCOUNT_DELETING_KEY = STORAGE_KEYS.accountDeleting;
+
+function toLaunchUser(user: User): LaunchUser {
+	return {
+		uid: user.uid,
+		email: user.email,
+		displayName: user.displayName,
+		photoURL: user.photoURL,
+	};
+}
+
+function parseLaunchUser(raw: string | null): LaunchUser | null {
+	if (!raw) return null;
+	try {
+		const value = JSON.parse(raw) as Partial<LaunchUser>;
+		if (typeof value.uid !== "string" || value.uid.length === 0) return null;
+		return {
+			uid: value.uid,
+			email: typeof value.email === "string" ? value.email : null,
+			displayName: typeof value.displayName === "string" ? value.displayName : null,
+			photoURL: typeof value.photoURL === "string" ? value.photoURL : null,
+		};
+	} catch {
+		return null;
+	}
+}
+
+async function readStoredLaunchUser(): Promise<LaunchUser | null> {
+	const [[, rawLaunchUser], [, disabled]] = await AsyncStorage.multiGet([
+		STORAGE_KEYS.launchUser,
+		STORAGE_KEYS.launchUserDisabled,
+	]);
+	if (disabled === "1") return null;
+	const stored = parseLaunchUser(rawLaunchUser);
+	if (stored) return stored;
+
+	// Older installs may already have a GPA cache but not the launch hint. Only
+	// infer the identity when there is exactly one account cache, avoiding a
+	// potentially incorrect account choice for users who switch accounts.
+	const cachePrefix = `${STORAGE_KEYS.gpaCache}:`;
+	const cacheKeys = (await AsyncStorage.getAllKeys()).filter((key) => key.startsWith(cachePrefix));
+	if (cacheKeys.length !== 1) return null;
+	const uid = cacheKeys[0].slice(cachePrefix.length);
+	return uid ? { uid, email: null, displayName: null, photoURL: null } : null;
+}
+
+type GoogleSigninClient = (typeof import("@react-native-google-signin/google-signin"))["GoogleSignin"];
+let googleSigninClient: GoogleSigninClient | null = null;
+
+async function getGoogleSignin() {
+	if (googleSigninClient) return googleSigninClient;
+	const { GoogleSignin } = await import("@react-native-google-signin/google-signin");
+	GoogleSignin.configure({ webClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID });
+	googleSigninClient = GoogleSignin;
+	return GoogleSignin;
+}
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -48,21 +95,31 @@ export function useAuth(): AuthContextType {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
 	const [currentUser, setCurrentUser] = useState<User | null>(null);
 	const [loading, setLoading] = useState(true);
+	const [launchUser, setLaunchUser] = useState<LaunchUser | null>(null);
+	const [launchReady, setLaunchReady] = useState(false);
 
 	async function saveUserData(user: User, isNewUser = false) {
+		if (isNewUser) {
+			// The default profile is provisioned exactly once, as part of the
+			// explicit signup transaction. Auth restoration and an empty profile
+			// list must never create one.
+			await provisionNewUserProfile(db, {
+				uid: user.uid,
+				email: user.email,
+				displayName: user.displayName,
+				photoURL: user.photoURL,
+			});
+			return;
+		}
+
 		try {
 			const userRef = doc(db, "users", user.uid);
-			await setDoc(
-				userRef,
-				{
-					email: user.email,
-					displayName: user.displayName || user.email?.split("@")[0] || "User",
-					photoURL: user.photoURL || null,
-					lastLoginAt: serverTimestamp(),
-					...(isNewUser ? { createdAt: serverTimestamp() } : {}),
-				},
-				{ merge: true }
-			);
+			await updateDoc(userRef, {
+				email: user.email,
+				displayName: user.displayName || user.email?.split("@")[0] || "User",
+				photoURL: user.photoURL || null,
+				lastLoginAt: serverTimestamp(),
+			});
 		} catch (error) {
 			console.error("Error saving user data:", error);
 		}
@@ -84,6 +141,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	}
 
 	async function signInWithGoogle(): Promise<UserCredential> {
+		const GoogleSignin = await getGoogleSignin();
 		await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
 		const response = await GoogleSignin.signIn();
 		const idToken = response.data?.idToken;
@@ -95,11 +153,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	}
 
 	async function logout(): Promise<void> {
+		const clearNotifications = import("@/features/notifications/notificationService")
+			.then(({ clearManagedNotifications }) => clearManagedNotifications())
+			.catch(() => {});
+
 		try {
-			await AsyncStorage.removeItem(STORAGE_KEYS.activeProfileId);
-			await AsyncStorage.removeItem(STORAGE_KEYS.gpaViewMode);
-		} catch { /* intentionally swallowed */ }
-		return signOut(auth);
+			// Complete local cleanup before changing auth state so no account-scoped
+			// cache can leak into the next signed-in session.
+			await Promise.all([clearLocalSessionData(), clearNotifications]);
+			await signOut(auth);
+		} catch (error) {
+			// Keep the current session usable if Firebase rejects the sign-out.
+			enableGpaCacheWrites();
+			throw error;
+		}
 	}
 
 	function resetPassword(email: string): Promise<void> {
@@ -111,7 +178,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			if (!auth.currentUser) throw new Error("No authenticated user");
 			await updateProfile(auth.currentUser, { displayName: newDisplayName });
 			const userRef = doc(db, "users", auth.currentUser.uid);
-			await setDoc(userRef, { displayName: newDisplayName, updatedAt: serverTimestamp() }, { merge: true });
+			await updateDoc(userRef, { displayName: newDisplayName, updatedAt: serverTimestamp() });
 			return { success: true };
 		} catch (error) {
 			console.error("Error updating display name:", error);
@@ -125,7 +192,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			const credential = EmailAuthProvider.credential(auth.currentUser.email, password);
 			await linkWithCredential(auth.currentUser, credential);
 			const userRef = doc(db, "users", auth.currentUser.uid);
-			await setDoc(userRef, { hasPassword: true, updatedAt: serverTimestamp() }, { merge: true });
+			await updateDoc(userRef, { hasPassword: true, updatedAt: serverTimestamp() });
 			return { success: true };
 		} catch (error) {
 			console.error("Error creating password:", error);
@@ -133,23 +200,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		}
 	}
 
-	async function changePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
+	async function changePassword(
+		currentPassword: string,
+		newPassword: string
+	): Promise<{ success: boolean; error?: string }> {
 		try {
 			if (!auth.currentUser || !auth.currentUser.email) throw new Error("No authenticated user");
 			const credential = EmailAuthProvider.credential(auth.currentUser.email, currentPassword);
 			await reauthenticateWithCredential(auth.currentUser, credential);
 			await updatePassword(auth.currentUser, newPassword);
 			const userRef = doc(db, "users", auth.currentUser.uid);
-			await setDoc(userRef, { passwordUpdatedAt: serverTimestamp(), updatedAt: serverTimestamp() }, { merge: true });
+			await updateDoc(userRef, { passwordUpdatedAt: serverTimestamp(), updatedAt: serverTimestamp() });
 			return { success: true };
 		} catch (error) {
 			console.error("Error changing password:", error);
 			const err = error as FirebaseError;
 			const msg =
-				err.code === "auth/wrong-password" ? "Current password is incorrect"
-				: err.code === "auth/weak-password" ? "New password is too weak"
-				: err.code === "auth/requires-recent-login" ? "Please log out and log back in first"
-				: "Failed to change password";
+				err.code === "auth/wrong-password"
+					? "Current password is incorrect"
+					: err.code === "auth/weak-password"
+						? "New password is too weak"
+						: err.code === "auth/requires-recent-login"
+							? "Please log out and log back in first"
+							: "Failed to change password";
 			return { success: false, error: msg };
 		}
 	}
@@ -168,7 +241,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			const hasPass = hasPassword();
 			const hasGoogle = isGoogleUser();
 
-			if ((useGoogleAuth || (!hasPass && hasGoogle))) {
+			if (useGoogleAuth || (!hasPass && hasGoogle)) {
+				const GoogleSignin = await getGoogleSignin();
 				await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
 				const googleResponse = await GoogleSignin.signIn();
 				const idToken = googleResponse.data?.idToken;
@@ -186,14 +260,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			}
 
 			// Set deletion flag before batch to prevent auto profile creation
-			try { await AsyncStorage.setItem(ACCOUNT_DELETING_KEY, "1"); } catch { /* intentionally swallowed */ }
+			try {
+				await AsyncStorage.setItem(ACCOUNT_DELETING_KEY, "1");
+			} catch {
+				/* intentionally swallowed */
+			}
 
 			// Delete all Firestore data
 			await _executeComprehensiveDataDeletion(originalUserId);
 
 			// Delete Auth account
 			await deleteUser(auth.currentUser);
-			try { await AsyncStorage.clear(); } catch { /* intentionally swallowed */ }
+			try {
+				await AsyncStorage.clear();
+			} catch {
+				/* intentionally swallowed */
+			}
 
 			return { success: true };
 		} catch (error) {
@@ -208,7 +290,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		let opCount = 0;
 
 		const add = (op: (b: ReturnType<typeof writeBatch>) => void) => {
-			if (opCount >= 450) { batches.push(currentBatch); currentBatch = writeBatch(db); opCount = 0; }
+			if (opCount >= 450) {
+				batches.push(currentBatch);
+				currentBatch = writeBatch(db);
+				opCount = 0;
+			}
 			op(currentBatch);
 			opCount++;
 		};
@@ -249,7 +335,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		const map: Record<string, { error: string; requiresPassword?: boolean; requiresRelogin?: boolean }> = {
 			"auth/requires-password": { error: "Password required for account deletion", requiresPassword: true },
 			"auth/wrong-password": { error: "Incorrect password. Please try again." },
-			"auth/user-mismatch": { error: "Account mismatch. Please try again.", requiresRelogin: err.requiresRelogin },
+			"auth/user-mismatch": {
+				error: "Account mismatch. Please try again.",
+				requiresRelogin: err.requiresRelogin,
+			},
 			"auth/requires-recent-login": { error: "Please log out and log back in before deleting your account" },
 			"auth/network-request-failed": { error: "Network error. Please check your connection." },
 		};
@@ -266,22 +355,67 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	}
 
 	useEffect(() => {
-		const unsubscribe = onAuthStateChanged(auth, async (user) => {
-			if (user) await saveUserData(user);
-			setCurrentUser(user);
-			setLoading(false);
+		let disposed = false;
+		let authStateObserved = false;
+
+		// A small account-scoped hint lets returning users open their cached Home
+		// immediately. Firebase still remains the authority and replaces it as
+		// soon as its local auth restoration completes.
+		void readStoredLaunchUser()
+			.then((storedUser) => {
+				if (!disposed && !authStateObserved) setLaunchUser(storedUser);
+			})
+			.catch(() => {})
+			.finally(() => {
+				if (!disposed) setLaunchReady(true);
+			});
+
+		const unsubscribe = onAuthStateChanged(auth, (user) => {
+			authStateObserved = true;
+			// Auth restoration is the critical path. Firestore metadata writes belong
+			// to explicit auth actions and must never delay the first render.
+			const state = authStateAfterRestore(user);
+			setCurrentUser(state.currentUser);
+			setLoading(state.authLoading);
+			setLaunchReady(true);
+			if (user) {
+				enableGpaCacheWrites();
+				const nextLaunchUser = toLaunchUser(user);
+				setLaunchUser(nextLaunchUser);
+				void AsyncStorage.removeItem(STORAGE_KEYS.launchUserDisabled);
+				void AsyncStorage.setItem(STORAGE_KEYS.launchUser, JSON.stringify(nextLaunchUser));
+			} else {
+				setLaunchUser(null);
+				void AsyncStorage.setItem(STORAGE_KEYS.launchUserDisabled, "1");
+				void AsyncStorage.removeItem(STORAGE_KEYS.launchUser);
+			}
 		});
-		return unsubscribe;
+		return () => {
+			disposed = true;
+			unsubscribe();
+		};
 	}, []);
 
-	if (loading) return null;
-
 	return (
-		<AuthContext.Provider value={{
-			currentUser, signup, login, logout, resetPassword, signInWithGoogle,
-			updateDisplayName, createPassword, changePassword, deleteAllUserData,
-			isGoogleUser, hasPassword,
-		}}>
+		<AuthContext.Provider
+			value={{
+				authLoading: loading,
+				launchUser,
+				launchReady,
+				currentUser,
+				signup,
+				login,
+				logout,
+				resetPassword,
+				signInWithGoogle,
+				updateDisplayName,
+				createPassword,
+				changePassword,
+				deleteAllUserData,
+				isGoogleUser,
+				hasPassword,
+			}}
+		>
 			{children}
 		</AuthContext.Provider>
 	);

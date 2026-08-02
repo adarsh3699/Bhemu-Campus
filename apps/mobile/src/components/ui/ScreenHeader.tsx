@@ -13,7 +13,7 @@ export default function ScreenHeader({ title }: Props) {
 	return (
 		<View style={local.wrap}>
 			<TouchableOpacity onPress={() => router.back()} hitSlop={8} style={local.backBtn}>
-				<ArrowLeft size={20} color={Colors.textMuted} />
+				<ArrowLeft size={22} color={Colors.textBody} />
 			</TouchableOpacity>
 			<Text style={local.title}>{title}</Text>
 		</View>
@@ -29,14 +29,14 @@ const local = StyleSheet.create({
 		paddingVertical: Spacing.md,
 	},
 	backBtn: {
-		width: 32,
-		height: 32,
+		width: 36,
+		height: 36,
 		alignItems: "center",
 		justifyContent: "center",
 	},
 	title: {
-		fontSize: FontSize.base,
+		fontSize: FontSize.md,
 		fontWeight: FontWeight.semibold,
-		color: Colors.textMuted,
+		color: Colors.textBody,
 	},
 });

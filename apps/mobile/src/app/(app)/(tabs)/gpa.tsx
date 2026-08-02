@@ -2,8 +2,8 @@ import { useState, useCallback, useMemo } from "react";
 import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useGpaData } from "@/contexts/GpaDataContext";
-import { useMarksData } from "@/contexts/MarksDataContext";
+import { useGpaProfiles, useGpaSemesters } from "@/contexts/GpaDataContext";
+import { MarksDataProvider, useMarksData } from "@/contexts/MarksDataContext";
 import { useViewMode } from "@/components/GpaCalculator/hooks/useViewMode";
 import GpaStatsBar from "@/components/GpaCalculator/GpaStatsBar";
 import SemesterTabs from "@/components/GpaCalculator/SemesterTabs";
@@ -26,8 +26,9 @@ const EMPTY_FORM = {
 	attendanceMarks: "",
 };
 
-export default function GpaTab() {
-	const { semesters, loading, isReadOnlyProfile, updateSemesters } = useGpaData();
+function GpaTabContent() {
+	const { loading, isReadOnlyProfile } = useGpaProfiles();
+	const { semesters, updateSemesters } = useGpaSemesters();
 	const { activeTermId, setActiveTermId, subjects, saveMarks } = useMarksData();
 	const { viewMode, setViewMode } = useViewMode();
 	// ─── Semester state ──────────────────────────────────────────────────────
@@ -352,6 +353,14 @@ export default function GpaTab() {
 				type="danger"
 			/>
 		</SafeAreaView>
+	);
+}
+
+export default function GpaTab() {
+	return (
+		<MarksDataProvider>
+			<GpaTabContent />
+		</MarksDataProvider>
 	);
 }
 

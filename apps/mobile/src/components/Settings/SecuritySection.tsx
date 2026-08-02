@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, Pressable, StyleSheet, ActivityIndicator } from "react-native";
 import { Lock, KeyRound, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react-native";
 import { Colors, Spacing, Radius, FontSize, FontWeight } from "@/constants/Theme";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMessage } from "@/contexts/MessageContext";
 import AppInput from "@/components/ui/AppInput";
+import { SettingsCard, SettingsDivider, SettingsHeader } from "@/components/Settings/SettingsPrimitives";
 
 // Strength: 0-4 criteria met
 function passwordStrength(pw: string): { score: number; labels: string[] } {
@@ -117,19 +118,15 @@ export default function SecuritySection() {
 	};
 
 	return (
-		<View style={local.card}>
-			{/* Header */}
-			<View style={local.header}>
-				<View style={local.headerIcon}>
-					<Lock size={15} color={Colors.indigo} />
-				</View>
-				<View>
-					<Text style={local.headerTitle}>Security</Text>
-					<Text style={local.headerSub}>Manage your password and sign-in methods</Text>
-				</View>
-			</View>
+		<SettingsCard>
+			<SettingsHeader
+				icon={<Lock size={19} color={Colors.indigo} />}
+				title="Security"
+				subtitle="Manage your password and sign-in methods"
+				tone="indigo"
+			/>
 
-			<View style={local.divider} />
+			<SettingsDivider />
 
 			{/* Google-only warning */}
 			{isGoogle && !hasPw && (
@@ -144,10 +141,11 @@ export default function SecuritySection() {
 			{/* Create password (Google-only users) */}
 			{isGoogle && !hasPw && (
 				<View style={local.section}>
-					<TouchableOpacity
-						style={local.row}
+					<Pressable
+						style={({ pressed }) => [local.row, pressed && local.pressed]}
 						onPress={() => setShowCreate((v) => !v)}
-						activeOpacity={0.7}
+						accessibilityRole="button"
+						accessibilityState={{ expanded: showCreate }}
 					>
 						<View style={local.rowIcon}>
 							<KeyRound size={14} color={Colors.blue} />
@@ -161,7 +159,7 @@ export default function SecuritySection() {
 						) : (
 							<ChevronDown size={16} color={Colors.textSubtle} />
 						)}
-					</TouchableOpacity>
+					</Pressable>
 
 					{showCreate && (
 						<View style={local.form}>
@@ -181,14 +179,14 @@ export default function SecuritySection() {
 								size="md"
 							/>
 							<View style={local.formActions}>
-								<TouchableOpacity
-									style={local.cancelBtn}
+								<Pressable
+									style={({ pressed }) => [local.cancelBtn, pressed && local.pressed]}
 									onPress={() => { setShowCreate(false); setNewPw(""); setConfirmPw(""); }}
 								>
 									<Text style={local.cancelBtnText}>Cancel</Text>
-								</TouchableOpacity>
-								<TouchableOpacity
-									style={[local.saveBtn, creatingPw && local.saveBtnDisabled]}
+								</Pressable>
+								<Pressable
+									style={({ pressed }) => [local.saveBtn, creatingPw && local.saveBtnDisabled, pressed && local.pressed]}
 									onPress={handleCreatePassword}
 									disabled={creatingPw}
 								>
@@ -197,7 +195,7 @@ export default function SecuritySection() {
 									) : (
 										<Text style={local.saveBtnText}>Create</Text>
 									)}
-								</TouchableOpacity>
+								</Pressable>
 							</View>
 						</View>
 					)}
@@ -207,10 +205,11 @@ export default function SecuritySection() {
 			{/* Change password (has password) */}
 			{hasPw && (
 				<View style={local.section}>
-					<TouchableOpacity
-						style={local.row}
+					<Pressable
+						style={({ pressed }) => [local.row, pressed && local.pressed]}
 						onPress={() => setShowChange((v) => !v)}
-						activeOpacity={0.7}
+						accessibilityRole="button"
+						accessibilityState={{ expanded: showChange }}
 					>
 						<View style={local.rowIcon}>
 							<KeyRound size={14} color={Colors.blue} />
@@ -224,7 +223,7 @@ export default function SecuritySection() {
 						) : (
 							<ChevronDown size={16} color={Colors.textSubtle} />
 						)}
-					</TouchableOpacity>
+					</Pressable>
 
 					{showChange && (
 						<View style={local.form}>
@@ -251,14 +250,14 @@ export default function SecuritySection() {
 								size="md"
 							/>
 							<View style={local.formActions}>
-								<TouchableOpacity
-									style={local.cancelBtn}
+								<Pressable
+									style={({ pressed }) => [local.cancelBtn, pressed && local.pressed]}
 									onPress={() => { setShowChange(false); setCurrentPw(""); setChangePw(""); setChangeConfirm(""); }}
 								>
 									<Text style={local.cancelBtnText}>Cancel</Text>
-								</TouchableOpacity>
-								<TouchableOpacity
-									style={[local.saveBtn, changingPw && local.saveBtnDisabled]}
+								</Pressable>
+								<Pressable
+									style={({ pressed }) => [local.saveBtn, changingPw && local.saveBtnDisabled, pressed && local.pressed]}
 									onPress={handleChangePassword}
 									disabled={changingPw}
 								>
@@ -267,54 +266,17 @@ export default function SecuritySection() {
 									) : (
 										<Text style={local.saveBtnText}>Update</Text>
 									)}
-								</TouchableOpacity>
+								</Pressable>
 							</View>
 						</View>
 					)}
 				</View>
 			)}
-		</View>
+		</SettingsCard>
 	);
 }
 
 const local = StyleSheet.create({
-	card: {
-		backgroundColor: Colors.surface,
-		borderRadius: Radius.xl,
-		borderWidth: StyleSheet.hairlineWidth,
-		borderColor: "rgba(255,255,255,0.08)",
-		overflow: "hidden",
-	},
-	header: {
-		flexDirection: "row",
-		alignItems: "center",
-		gap: Spacing.md,
-		padding: Spacing.lg,
-	},
-	headerIcon: {
-		width: 32,
-		height: 32,
-		borderRadius: 10,
-		backgroundColor: "rgba(129,140,248,0.1)",
-		borderWidth: StyleSheet.hairlineWidth,
-		borderColor: "rgba(129,140,248,0.2)",
-		alignItems: "center",
-		justifyContent: "center",
-	},
-	headerTitle: {
-		fontSize: FontSize.base,
-		fontWeight: FontWeight.semibold,
-		color: Colors.textPrimary,
-	},
-	headerSub: {
-		fontSize: FontSize.xs,
-		color: Colors.textSubtle,
-		marginTop: 1,
-	},
-	divider: {
-		height: StyleSheet.hairlineWidth,
-		backgroundColor: "rgba(255,255,255,0.06)",
-	},
 	warningRow: {
 		flexDirection: "row",
 		alignItems: "flex-start",
@@ -334,20 +296,21 @@ const local = StyleSheet.create({
 	},
 	section: {
 		borderTopWidth: StyleSheet.hairlineWidth,
-		borderTopColor: "rgba(255,255,255,0.04)",
+		borderTopColor: Colors.border,
 	},
 	row: {
+		minHeight: 72,
 		flexDirection: "row",
 		alignItems: "center",
 		gap: Spacing.md,
-		paddingHorizontal: Spacing.lg,
-		paddingVertical: Spacing.md,
+		paddingHorizontal: Spacing.xl,
+		paddingVertical: Spacing.sm,
 	},
 	rowIcon: {
-		width: 28,
-		height: 28,
-		borderRadius: 8,
-		backgroundColor: "rgba(255,255,255,0.04)",
+		width: 32,
+		height: 32,
+		borderRadius: Radius.md,
+		backgroundColor: Colors.surfaceElevated,
 		alignItems: "center",
 		justifyContent: "center",
 	},
@@ -365,8 +328,8 @@ const local = StyleSheet.create({
 		color: Colors.textSubtle,
 	},
 	form: {
-		paddingHorizontal: Spacing.lg,
-		paddingBottom: Spacing.lg,
+		paddingHorizontal: Spacing.xl,
+		paddingBottom: Spacing.xl,
 		gap: Spacing.sm,
 	},
 	formActions: {
@@ -376,7 +339,7 @@ const local = StyleSheet.create({
 	},
 	cancelBtn: {
 		flex: 1,
-		height: 40,
+		minHeight: 44,
 		alignItems: "center",
 		justifyContent: "center",
 		borderRadius: Radius.md,
@@ -391,7 +354,7 @@ const local = StyleSheet.create({
 	},
 	saveBtn: {
 		flex: 1,
-		height: 40,
+		minHeight: 44,
 		alignItems: "center",
 		justifyContent: "center",
 		borderRadius: Radius.md,
@@ -405,4 +368,5 @@ const local = StyleSheet.create({
 		fontWeight: FontWeight.semibold,
 		color: Colors.textPrimary,
 	},
+	pressed: { opacity: 0.78 },
 });

@@ -13,38 +13,37 @@ interface AppInputProps extends TextInputProps {
 
 const HEIGHTS = { sm: 40, md: 44, lg: 48 } as const;
 
-const AppInput = forwardRef<TextInput, AppInputProps>(function AppInput(
-	{ label, error, size = "lg", containerStyle, secureTextEntry, style, ...rest },
-	ref
-) {
-	const [secure, setSecure] = useState(true);
-	const isPassword = secureTextEntry === true;
-	const height = HEIGHTS[size];
+const AppInput = forwardRef<TextInput, AppInputProps>(
+	({ label, error, size = "lg", containerStyle, secureTextEntry, style, ...rest }, ref) => {
+		const [secure, setSecure] = useState(true);
+		const isPassword = secureTextEntry === true;
+		const height = HEIGHTS[size];
 
-	return (
-		<View style={[local.wrap, containerStyle]}>
-			{label && <Text style={local.label}>{label}</Text>}
-			<View style={[local.inputWrap, { height }, error && local.inputWrapError]}>
-				<TextInput
-					ref={ref}
-					{...rest}
-					secureTextEntry={isPassword ? secure : false}
-					placeholderTextColor={Colors.textSubtle}
-					style={[local.input, isPassword && local.inputWithEye, style]}
-				/>
-				{isPassword && (
-					<TouchableOpacity onPress={() => setSecure((v) => !v)} style={local.eyeBtn} hitSlop={8}>
-						{secure ? (
-							<Eye size={20} color={Colors.textMuted} />
-						) : (
-							<EyeOff size={20} color={Colors.textMuted} />
-						)}
-					</TouchableOpacity>
-				)}
+		return (
+			<View style={[local.wrap, containerStyle]}>
+				{label && <Text style={local.label}>{label}</Text>}
+				<View style={[local.inputWrap, { height }, error && local.inputWrapError]}>
+					<TextInput
+						ref={ref}
+						{...rest}
+						secureTextEntry={isPassword ? secure : false}
+						placeholderTextColor={Colors.textSubtle}
+						style={[local.input, isPassword && local.inputWithEye, style]}
+					/>
+					{isPassword && (
+						<TouchableOpacity onPress={() => setSecure((v) => !v)} style={local.eyeBtn} hitSlop={8}>
+							{secure ? (
+								<Eye size={20} color={Colors.textMuted} />
+							) : (
+								<EyeOff size={20} color={Colors.textMuted} />
+							)}
+						</TouchableOpacity>
+					)}
+				</View>
 			</View>
-		</View>
-	);
-});
+		);
+	}
+);
 
 export default AppInput;
 

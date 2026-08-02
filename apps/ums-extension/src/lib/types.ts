@@ -47,16 +47,15 @@ export interface AttendanceRecord {
   termId?: string;
 }
 
-export interface TimetableEntry {
-  dayOfWeek: string;
-  timeSlot: string;
-  courseCode: string;
-  courseName: string;
-  room: string;
-  faculty: string;
-  startTime: string;
-  endTime: string;
-}
+import type {
+  TimetableEntry as _TimetableEntry,
+  UMSAnnouncement as _UMSAnnouncement,
+  UMSAnnouncementCategory as _UMSAnnouncementCategory,
+  UMSSeatingPlan as _UMSSeatingPlan,
+  UMSMessage as _UMSMessage,
+} from '@bhemu/shared';
+
+export type { TimetableEntry, UMSAnnouncement, UMSAnnouncementCategory, UMSSeatingPlan, UMSMessage } from '@bhemu/shared';
 
 export interface StudentInfo {
   vid: string | null;
@@ -95,72 +94,27 @@ export interface UMSStudentCourse {
   AttendancePct: number;
 }
 
-// Actual JSON response fields (lowercase)
-export interface UMSAnnouncement {
-  subject: string;
-  announcement: string;
-  categorycode: string;
-  time: string;
-  date: string;
-  announcementid: number;
-  isread: boolean;
-  uploadedby: string;
-  employeename: string;
-  status: string;
-  HeaderDate: string;
-  Files: Array<{ id: number; filepath: string; FileName: string }>;
-  [key: string]: unknown;
-}
-
-export interface UMSAnnouncementCategory {
-  code: string;
-  name: string;
-  displayorder: number;
-  today: number;
-  total: number;
-  [key: string]: unknown;
-}
-
-// Parsed from Bootstrap HTML (GetSeatingPlan returns HTML, not JSON)
-export interface UMSSeatingPlan {
-  CourseCode: string;
-  CourseName: string;
-  ExamDate: string;
-  ExamType: string;
-  Room: string;
-  Status: string;
-}
-
-// Parsed from Bootstrap HTML (GetStudentMessages returns HTML, not JSON)
-export interface UMSMessage {
-  Subject: string;
-  SenderName: string;
-  Date: string;
-  Body: string;
-  BodyHtml: string;
-}
 
 // Parsed from HTML <tr> rows (StudentAttendanceSummary returns HTML, not JSON)
 export interface UMSAttendanceSummary {
   CourseCode: string;
   CourseName: string;
-  ExamDate: string;
-  Slot: number;
-  TotalDuty: number;
-  Present: number;
+  LastAttended: string;
+  DutyLeave: number;
+  TotalDelivered: number;
+  TotalAttended: number;
   Percentage: number;
 }
 
 export interface UMSApiData {
   studentInfo?: UMSStudentBasicInfo;
   courses?: UMSStudentCourse[];
-  announcements?: UMSAnnouncement[];
-  announcementCategories?: UMSAnnouncementCategory[];
-  seatingPlan?: UMSSeatingPlan[];
-  messages?: UMSMessage[];
+  announcements?: _UMSAnnouncement[];
+  announcementCategories?: _UMSAnnouncementCategory[];
+  seatingPlan?: _UMSSeatingPlan[];
+  messages?: _UMSMessage[];
   headsHtml?: string;
   attendance?: UMSAttendanceSummary[];
-  // Raw HTML snippets stored for parser verification in dev mode
   _rawHtml?: Record<string, string>;
 }
 
@@ -170,7 +124,7 @@ export interface SyncResult {
   examMarks: ExamMark[];
   courseAssessments: CourseAssessment[];
   attendance: AttendanceRecord[];
-  timetable: TimetableEntry[];
+  timetable: _TimetableEntry[];
   terms: Term[];
   // from JSON APIs
   apiData?: UMSApiData;

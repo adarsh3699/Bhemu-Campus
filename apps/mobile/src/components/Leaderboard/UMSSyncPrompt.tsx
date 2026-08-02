@@ -1,135 +1,128 @@
-import { View, Text, StyleSheet, TouchableOpacity, Linking } from "react-native";
-import { Trophy, BarChart3, Users, Puzzle, ArrowRight, Shield } from "lucide-react-native";
-import { Colors, Spacing, Radius, FontSize, FontWeight } from "@/constants/Theme";
-
-const EXTENSION_URL = "https://chromewebstore.google.com/detail/bfmmcngnpcmnopnjacnebpnfcohhigkp";
+import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
+import { useRouter } from "expo-router";
+import { Trophy, BarChart3, Users, RefreshCw, Shield } from "lucide-react-native";
+import { Colors, Spacing, FontSize, FontWeight, Radius } from "@/constants/Theme";
 
 const features = [
-	{ icon: BarChart3, text: "Your CGPA rank", color: "#60A5FA" },
-	{ icon: Users, text: "Among batchmates", color: "#2DD4BF" },
-	{ icon: Trophy, text: "Top 10 toppers", color: "#FBBF24" },
+	{ icon: BarChart3, text: "Your CGPA rank", color: Colors.blue },
+	{ icon: Users, text: "Among batchmates", color: Colors.secondary },
+	{ icon: Trophy, text: "Top 10 toppers", color: Colors.gold },
 ] as const;
 
 export default function UMSSyncPrompt() {
+	const router = useRouter();
+
 	return (
-		<View style={local.container}>
-			<View style={local.card}>
-				{/* Icon */}
-				<View style={local.iconWrap}>
-					<Trophy size={28} color="#818CF8" />
-				</View>
-
-				{/* Title */}
-				<Text style={local.title}>See Where You Stand</Text>
-				<Text style={local.subtitle}>
-					Sync your UMS data to see your CGPA rank among your batchmates. Connect with the bCampus - UMS Sync extension to get started.
-				</Text>
-
-				{/* Feature pills */}
-				<View style={local.features}>
-					{features.map((item) => {
-						const Icon = item.icon;
-						return (
-							<View key={item.text} style={local.featureItem}>
-								<Icon size={14} color={item.color} />
-								<Text style={local.featureText}>{item.text}</Text>
-							</View>
-						);
-					})}
-				</View>
-
-				{/* CTA */}
-				<TouchableOpacity
-					style={local.ctaBtn}
-					onPress={() => Linking.openURL(EXTENSION_URL)}
-					activeOpacity={0.7}
-				>
-					<Puzzle size={16} color={Colors.textPrimary} />
-					<Text style={local.ctaText}>Connect UMS Extension</Text>
-					<ArrowRight size={16} color={Colors.textPrimary} />
-				</TouchableOpacity>
-
-				{/* Privacy note */}
-				<View style={local.privacyRow}>
-					<Shield size={14} color={Colors.textSubtle} />
-					<Text style={local.privacyText}>
-						Only your profile name and CGPA are shown publicly. You can change your display name anytime. Opt out from Settings whenever you want.
-					</Text>
-				</View>
+		<ScrollView style={local.scroll} contentContainerStyle={local.container} showsVerticalScrollIndicator={false}>
+			<View style={local.iconWrap}>
+				<Trophy size={28} color={Colors.indigo} accessibilityLabel="Leaderboard trophy" />
 			</View>
-		</View>
+
+			<Text style={local.title}>See Where You Stand</Text>
+			<Text style={local.subtitle}>
+				Sync your UMS data to see your CGPA rank among your batchmates. Use the built-in Sync button in the
+				bottom navigation to get started.
+			</Text>
+
+			<View style={local.features}>
+				{features.map((item) => {
+					const Icon = item.icon;
+					return (
+						<View key={item.text} style={local.featureItem}>
+							<Icon size={20} color={item.color} />
+							<Text style={local.featureText}>{item.text}</Text>
+						</View>
+					);
+				})}
+			</View>
+
+			<Pressable
+				style={({ pressed }) => [local.ctaBtn, pressed && local.ctaPressed]}
+				onPress={() => router.replace("/(app)/(tabs)" as never)}
+				accessibilityRole="button"
+				accessibilityLabel="Click sync button"
+			>
+				<RefreshCw size={18} color={Colors.textPrimary} />
+				<Text style={local.ctaText}>Click Sync Button in Home</Text>
+			</Pressable>
+
+			<View style={local.privacyRow}>
+				<Shield size={16} color={Colors.textSubtle} />
+				<Text style={local.privacyText}>
+					Only your profile name and CGPA are shown publicly. You can change your display name anytime. Opt
+					out from Settings whenever you want.
+				</Text>
+			</View>
+		</ScrollView>
 	);
 }
 
 const local = StyleSheet.create({
-	container: {
+	scroll: {
 		flex: 1,
-		justifyContent: "center",
-		alignItems: "center",
-		padding: Spacing.xl,
 	},
-	card: {
-		width: "100%",
-		backgroundColor: Colors.surface,
-		borderRadius: Radius.xl,
-		borderWidth: 1,
-		borderColor: Colors.border,
-		padding: Spacing.xl,
+	container: {
+		flexGrow: 1,
+		justifyContent: "flex-start",
 		alignItems: "center",
-		gap: Spacing.md,
+		paddingHorizontal: Spacing.xl,
+		paddingTop: Spacing.xxxl,
+		paddingBottom: Spacing.xl,
+		gap: Spacing.lg,
 	},
 	iconWrap: {
 		width: 56,
 		height: 56,
-		borderRadius: Radius.lg,
-		backgroundColor: "rgba(99,102,241,0.1)",
-		borderWidth: 1,
-		borderColor: "rgba(99,102,241,0.2)",
 		alignItems: "center",
 		justifyContent: "center",
-		marginBottom: Spacing.xs,
 	},
 	title: {
-		fontSize: FontSize.xl,
+		fontSize: FontSize.xxl,
 		fontWeight: FontWeight.bold,
 		color: Colors.primary,
+		textAlign: "center",
 	},
 	subtitle: {
 		fontSize: FontSize.base,
 		color: Colors.textMuted,
 		textAlign: "center",
-		lineHeight: 20,
+		lineHeight: 22,
+		maxWidth: 380,
 	},
 	features: {
 		flexDirection: "row",
-		gap: Spacing.sm,
-		marginVertical: Spacing.sm,
+		width: "100%",
+		gap: Spacing.lg,
+		marginTop: Spacing.md,
 	},
 	featureItem: {
-		flexDirection: "row",
+		flex: 1,
 		alignItems: "center",
-		gap: Spacing.xs + 2,
-		paddingHorizontal: Spacing.md,
-		paddingVertical: Spacing.sm,
-		backgroundColor: "rgba(255,255,255,0.05)",
-		borderRadius: Radius.lg,
-		borderWidth: 1,
-		borderColor: "rgba(255,255,255,0.05)",
+		gap: Spacing.sm,
+		minHeight: 64,
 	},
 	featureText: {
 		fontSize: FontSize.xs,
 		fontWeight: FontWeight.medium,
-		color: "rgba(255,255,255,0.9)",
+		color: Colors.textBody,
+		flexShrink: 1,
+		textAlign: "center",
+		lineHeight: 16,
 	},
 	ctaBtn: {
 		flexDirection: "row",
 		alignItems: "center",
+		justifyContent: "center",
 		gap: Spacing.sm,
+		minHeight: 52,
 		paddingHorizontal: Spacing.xl,
-		paddingVertical: Spacing.md,
+		paddingVertical: Spacing.sm,
 		backgroundColor: Colors.primary,
 		borderRadius: Radius.lg,
-		marginTop: Spacing.sm,
+		width: "100%",
+	},
+	ctaPressed: {
+		opacity: 0.82,
 	},
 	ctaText: {
 		fontSize: FontSize.base,
@@ -140,17 +133,16 @@ const local = StyleSheet.create({
 		flexDirection: "row",
 		alignItems: "flex-start",
 		gap: Spacing.sm,
-		padding: Spacing.md,
-		backgroundColor: "rgba(255,255,255,0.03)",
-		borderRadius: Radius.lg,
-		borderWidth: 1,
-		borderColor: "rgba(255,255,255,0.06)",
-		marginTop: Spacing.sm,
+		width: "100%",
+		paddingTop: Spacing.lg,
+		borderTopWidth: 1,
+		borderTopColor: Colors.border,
+		marginTop: Spacing.md,
 	},
 	privacyText: {
 		flex: 1,
 		fontSize: FontSize.xs,
-		color: Colors.textSubtle,
+		color: Colors.textMuted,
 		lineHeight: 16,
 	},
 });

@@ -13,8 +13,10 @@ function mapAttendance(apiData: Awaited<ReturnType<typeof fetchSyncData>>): Sync
   return (apiData.attendance ?? []).map(a => ({
     courseCode: a.CourseCode,
     courseName: a.CourseName,
-    totalLectures: a.TotalDuty,
-    attendedLectures: a.Present,
+    totalLectures: a.TotalDelivered,
+    // UMS calculates percentage as (TotalAttended + DutyLeave) / TotalDelivered.
+    // We add DutyLeave here so Bhemu Calculator's pure attended/total math correctly matches UMS's 98% etc.
+    attendedLectures: a.TotalAttended + (a.DutyLeave || 0),
     percentage: a.Percentage,
   }));
 }

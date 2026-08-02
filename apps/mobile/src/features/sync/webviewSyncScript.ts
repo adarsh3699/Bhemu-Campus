@@ -137,7 +137,7 @@ export const WEBVIEW_SYNC_SCRIPT = `
   }
 
   function parseAttendance(html) {
-    var doc = htmlDoc('<html><body>'+html+'</body></html>');
+    var doc = htmlDoc('<html><body><table><tbody>'+html+'</tbody></table></body></html>');
     var results=[];
     doc.querySelectorAll('tr').forEach(function(tr){
       var tds=tr.querySelectorAll('td');
@@ -149,7 +149,7 @@ export const WEBVIEW_SYNC_SCRIPT = `
         courseCode:first.slice(0,ci).trim(),
         courseName:first.slice(ci+1).trim(),
         totalLectures:parseInt((tds[3].textContent||'0'))||0,
-        attendedLectures:parseInt((tds[4].textContent||'0'))||0,
+        attendedLectures:(parseInt((tds[4].textContent||'0'))||0) + (parseInt((tds[2].textContent||'0'))||0),
         percentage:parseFloat((tds[5].textContent||'0'))||0
       });
     });
@@ -236,6 +236,114 @@ export const WEBVIEW_SYNC_SCRIPT = `
       // Parse attendance
       var attendance=[];
       if(attRaw&&typeof attRaw.d==='string'&&attRaw.d.trim()) attendance=parseAttendance(attRaw.d);
+
+      // ── Additional UMS data (local-only, not written to Firestore) ──────────
+      post('progress', 'Fetching messages & announcements...');
+
+      var [msgsRaw, annRaw, seatRaw] = await Promise.all([
+        fetch(DASH+'/ViewAllMessages',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json;charset=UTF-8','X-Requested-With':'XMLHttpRequest'},body:'{}'}).then(function(r){return r.json();}).catch(function(){return null;}),
+        fetch(DASH+'/AnnouncementDetails',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json;charset=UTF-8','X-Requested-With':'XMLHttpRequest'},body:JSON.stringify({LoginId:'Reg',Type:'S'})}).then(function(r){return r.json();}).catch(function(){return null;}),
+        fetch(DASH+'/GetSeatingPlan',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json;charset=UTF-8','X-Requested-With':'XMLHttpRequest'},body:'{}'}).then(function(r){return r.json();}).catch(function(){return null;})
+      ]);
+
+      // Parse messages HTML
+      function parseMessages(html) {
+        if (!html || typeof html !== 'string') return [];
+        var doc = htmlDoc('<html><body>'+html+'</body></html>');
+        var results = [];
+        doc.querySelectorAll('div.d-flex.flex-row.border-bottom').forEach(function(div) {
+          var subEl = div.querySelector('p.font-weight-bold');
+          var subject = subEl ? (subEl.textContent||'').trim() : '';
+          if (!subject) return;
+          var textParas = Array.from(div.querySelectorAll('p.text-dark'));
+          var datePara = null; var bodyPara = null;
+          textParas.forEach(function(p) {
+            var t = (p.textContent||'').trim();
+            if (t.indexOf('Date :') === 0) datePara = p;
+            else if (!bodyPara) bodyPara = p;
+          });
+          var date = datePara ? (datePara.textContent||'').replace('Date :','').trim() : '';
+          var body = bodyPara ? (bodyPara.textContent||'').trim() : '';
+          var bodyHtml = bodyPara ? (bodyPara.innerHTML||'').trim() : '';
+          results.push({ Subject: subject, Date: date, Body: body, BodyHtml: bodyHtml });
+        });
+        return results;
+      }
+
+      // Parse seating HTML
+      function parseSeating(html) {
+        if (!html || typeof html !== 'string' || html.trim() === 'NA') return [];
+        var doc = htmlDoc('<html><body>'+html+'</body></html>');
+        var results = [];
+        doc.querySelectorAll('.mycoursesdiv').forEach(function(div) {
+          var texts = Array.from(div.querySelectorAll('p, div, td, b')).map(function(el){return (el.textContent||'').trim();}).filter(function(t){return t.length>0;});
+          if (texts.length < 2) return;
+          results.push({ CourseCode: texts[0]||'', CourseName: texts[1]||'', ExamDate: texts[2]||'', ExamType: texts[3]||'', Room: texts[4]||'', Status: texts[5]||'' });
+        });
+        return results;
+      }
+
+      var messages = parseMessages(msgsRaw && msgsRaw.d ? msgsRaw.d : '');
+      var announcements = [];
+      if (annRaw && annRaw.d) { announcements = Array.isArray(annRaw.d) ? annRaw.d : []; }
+      var seatingPlan = parseSeating(seatRaw && seatRaw.d ? seatRaw.d : '');
+
+      // Timetable (separate page — needs TermId extraction)
+      post('progress', 'Fetching timetable...');
+      var timetable = [];
+      try {
+        var TT_BASE = 'https://ums.lpu.in/lpuums/frmMyCurrentTimeTable.aspx';
+        var ttPageHtml = await fetch(TT_BASE, {credentials:'include'}).then(function(r){return r.text();});
+        var ttDoc = htmlDoc(ttPageHtml);
+        var firstOpt = ttDoc.querySelector('select#Select1 option') || ttDoc.querySelector('select[name="Select1"] option');
+        var termId = firstOpt ? (firstOpt.getAttribute('value')||'') : '';
+
+        if (/^\\d+$/.test(termId)) {
+          var ttRes = await fetch(TT_BASE+'/GetTimeTable', {
+            method:'POST', credentials:'include',
+            headers:{'Content-Type':'application/json;charset=UTF-8','X-Requested-With':'XMLHttpRequest','Referer':TT_BASE},
+            body: JSON.stringify({TermId: termId})
+          }).then(function(r){return r.json();}).catch(function(){return null;});
+
+          var ttHtml = ttRes && typeof ttRes.d === 'string' ? ttRes.d : '';
+          if (ttHtml) {
+            var ttD = htmlDoc('<html><body>'+ttHtml+'</body></html>');
+            ttD.querySelectorAll('.w-schedule__day, section[id^="w-schedule-"]').forEach(function(section) {
+              var dayLabel = (section.querySelector('.w-schedule__col-label')||{}).textContent;
+              dayLabel = dayLabel ? dayLabel.trim() : '';
+              if (!dayLabel) return;
+              section.querySelectorAll('.w-schedule__event-wrapper a[onclick]').forEach(function(anchor) {
+                var onclick = anchor.getAttribute('onclick')||'';
+                var match = onclick.match(/openPopup\\s*\\((.+)\\)\\s*$/s);
+                if (!match) return;
+                var argsRaw = match[1];
+                var args = []; var inQ=false, cur='', delim='';
+                for (var i=0; i<argsRaw.length; i++) {
+                  var ch = argsRaw[i];
+                  if (!inQ && (ch==='"'||ch==="'")) { inQ=true; delim=ch; continue; }
+                  if (inQ && ch===delim) { inQ=false; args.push(cur); cur=''; continue; }
+                  if (!inQ && ch===',') continue;
+                  if (inQ) cur+=ch;
+                }
+				var desc=args[0]||'', timeRange=args[1]||'', day=args[2]||dayLabel, courseCode=args[4]||'';
+                var roomMatch = desc.match(/\\bR:\\s*(\\S+)/);
+                var room = roomMatch ? roomMatch[1] : '';
+                var sectionMatch = desc.match(/\\bS:\\s*(\\S+)/);
+                var section = sectionMatch ? sectionMatch[1] : '';
+                var groupMatch = desc.match(/\\bG:\\s*(\\S+)/);
+                var group = groupMatch ? groupMatch[1] : '';
+                var facultyMatch = desc.match(/Teacher:\\s*\\d+::(.+)$/);
+                var faculty = facultyMatch ? facultyMatch[1].trim() : '';
+                var timeParts = timeRange.split('-');
+				timetable.push({ dayOfWeek:day, timeSlot:timeRange, startTime:(timeParts[0]||'').trim(), endTime:(timeParts[1]||'').trim(), courseCode:courseCode, room:room, section:section, group:group, faculty:faculty });
+              });
+            });
+          }
+        }
+      } catch(ttErr) { /* timetable is optional */ }
+
+      // Post umsLocalData BEFORE syncData — syncData unmounts the WebView
+      post('umsLocalData', { messages: messages, announcements: announcements, seatingPlan: seatingPlan, timetable: timetable });
 
       post('syncData', {
         studentInfo: si,

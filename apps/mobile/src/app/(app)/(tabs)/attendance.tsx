@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo } from "react";
 import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
-import { useAttendanceData } from "@/contexts/AttendanceDataContext";
+import { AttendanceDataProvider, useAttendanceData } from "@/contexts/AttendanceDataContext";
 import AttendanceSummaryCard from "@/components/AttendanceCalculator/AttendanceSummaryCard";
 import AttendanceSubjectForm, { type AttendanceFormState } from "@/components/AttendanceCalculator/AttendanceSubjectForm";
 import AttendanceSubjectList from "@/components/AttendanceCalculator/AttendanceSubjectList";
@@ -13,7 +13,7 @@ import type { AttendanceSubject } from "@bhemu/shared";
 
 const EMPTY_FORM: AttendanceFormState = { id: "", name: "", totalClasses: "", attended: "", threshold: "" };
 
-export default function AttendanceScreen() {
+function AttendanceScreenContent() {
 	const { attendanceData, loading, saving, addOrUpdateSubject, deleteSubject, updateDefaultThreshold } =
 		useAttendanceData();
 
@@ -57,7 +57,9 @@ export default function AttendanceScreen() {
 	const handleSubmit = useCallback(async () => {
 		const totalClasses = Number(form.totalClasses);
 		const attended = Number(form.attended);
-		const thresholdVal = form.threshold !== "" ? Number(form.threshold) : defaultThreshold;
+		const parsedThreshold = Number(form.threshold);
+		const thresholdVal =
+			!isNaN(parsedThreshold) && form.threshold.trim() !== "" ? parsedThreshold : defaultThreshold;
 		if (!form.name.trim() || isNaN(totalClasses) || isNaN(attended) || attended > totalClasses) return;
 
 		const subject: AttendanceSubject = {
@@ -79,7 +81,10 @@ export default function AttendanceScreen() {
 			name: subject.name,
 			totalClasses: String(subject.totalClasses),
 			attended: String(subject.attended),
-			threshold: String(subject.threshold),
+			threshold:
+				subject.threshold !== undefined && !isNaN(subject.threshold)
+					? String(subject.threshold)
+					: "",
 		});
 		setEditingId(subject.id);
 		setFocusField("total");
@@ -162,6 +167,14 @@ export default function AttendanceScreen() {
 				type="danger"
 			/>
 		</SafeAreaView>
+	);
+}
+
+export default function AttendanceScreen() {
+	return (
+		<AttendanceDataProvider>
+			<AttendanceScreenContent />
+		</AttendanceDataProvider>
 	);
 }
 

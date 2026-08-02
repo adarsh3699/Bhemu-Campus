@@ -1,26 +1,25 @@
 import { useState, useEffect, useRef } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
-import { UserCog, Pencil, Share2, Trash2, Eye, EyeOff, Info } from "lucide-react-native";
+import { View, Text, Pressable, StyleSheet, ActivityIndicator } from "react-native";
+import { UserCog, Pencil, Share2, Eye, EyeOff, Info } from "lucide-react-native";
 import { Colors, Spacing, Radius, FontSize, FontWeight } from "@/constants/Theme";
 import { useAuth } from "@/contexts/AuthContext";
-import { useGpaData } from "@/contexts/GpaDataContext";
+import { useGpaProfiles } from "@/contexts/GpaDataContext";
 import { useMessage } from "@/contexts/MessageContext";
 import { LeaderboardService } from "@/firebase/services";
 import { db } from "@/firebase/config";
 import InputModal from "@/components/ui/InputModal";
 import ShareModal from "@/components/profile/ShareModal";
-import ConfirmModal from "@/components/ui/ConfirmModal";
+import { SettingsCard, SettingsDivider, SettingsHeader } from "@/components/Settings/SettingsPrimitives";
 import type { ShareItem } from "@bhemu/shared";
 
 export default function ProfileSettings() {
 	const { currentUser } = useAuth();
-	const { currentProfile, profiles, renameProfile, deleteProfile, shareProfileWithUser, mySharedProfiles } =
-		useGpaData();
+	const { currentProfile, renameProfile, shareProfileWithUser, mySharedProfiles } =
+		useGpaProfiles();
 	const { showMessage } = useMessage();
 
 	const [showRename, setShowRename] = useState(false);
 	const [showShare, setShowShare] = useState(false);
-	const [showDelete, setShowDelete] = useState(false);
 
 	const [optOut, setOptOut] = useState(false);
 	const [leaderboardLoaded, setLeaderboardLoaded] = useState(false);
@@ -28,7 +27,6 @@ export default function ProfileSettings() {
 
 	const isOwnProfile = !currentProfile?.isShared;
 	const isEligible = !!currentProfile?.umsVerified && isOwnProfile;
-	const canDelete = isOwnProfile && profiles.length > 1 && !currentProfile?.isDefault;
 
 	const currentShares = (mySharedProfiles as (ShareItem & { profileId: string | number })[]).filter(
 		(s) => s.profileId === currentProfile?.id && s.isActive
@@ -40,7 +38,6 @@ export default function ProfileSettings() {
 		prevProfileId.current = currentProfile?.id;
 		if (showRename) setShowRename(false);
 		if (showShare) setShowShare(false);
-		if (showDelete) setShowDelete(false);
 	}
 
 	// Load leaderboard opt-out state
@@ -58,19 +55,13 @@ export default function ProfileSettings() {
 		return () => {
 			cancelled = true;
 		};
-	}, [currentUser, currentProfile?.id, isEligible]);
+	}, [currentUser, currentProfile, isEligible]);
 
 	const handleRename = async (newName: string) => {
 		if (!currentProfile) return;
 		setShowRename(false);
 		await renameProfile(currentProfile.id, newName);
 		showMessage("Profile renamed", "success");
-	};
-
-	const handleDelete = async () => {
-		if (!currentProfile) return;
-		setShowDelete(false);
-		await deleteProfile(currentProfile.id);
 	};
 
 	const handleShareWithUser = async (emailOrAction: string, permission: string, action?: string) => {
@@ -97,21 +88,15 @@ export default function ProfileSettings() {
 
 	return (
 		<>
-			<View style={local.card}>
-				{/* Header */}
-				<View style={local.header}>
-					<View style={local.headerIcon}>
-						<UserCog size={15} color={Colors.indigo} />
-					</View>
-					<View style={local.headerText}>
-						<Text style={local.headerTitle}>Profile Settings</Text>
-						<Text style={local.headerSub} numberOfLines={1}>
-							Manage <Text style={local.profileName}>{currentProfile.name}</Text>
-						</Text>
-					</View>
-				</View>
+			<SettingsCard>
+				<SettingsHeader
+					icon={<UserCog size={19} color={Colors.indigo} />}
+					title="Profile Settings"
+					subtitle={`Manage ${currentProfile.name}`}
+					tone="indigo"
+				/>
 
-				<View style={local.divider} />
+				<SettingsDivider />
 
 				{/* Shared profile notice */}
 				{!isOwnProfile ? (
@@ -126,7 +111,9 @@ export default function ProfileSettings() {
 						{/* Rename */}
 						<View style={local.row}>
 							<View style={local.rowLeft}>
-								<Pencil size={14} color={Colors.textSubtle} />
+								<View style={local.rowIcon}>
+									<Pencil size={16} color={Colors.textSubtle} />
+								</View>
 								<View style={local.rowContent}>
 									<Text style={local.rowTitle}>
 										Profile Name
@@ -137,13 +124,14 @@ export default function ProfileSettings() {
 									</Text>
 								</View>
 							</View>
-							<TouchableOpacity
-								style={local.actionBtn}
+							<Pressable
+								style={({ pressed }) => [local.actionBtn, pressed && local.pressed]}
 								onPress={() => setShowRename(true)}
-								activeOpacity={0.7}
+								accessibilityRole="button"
+								accessibilityLabel="Rename profile"
 							>
 								<Text style={local.actionBtnText}>Rename</Text>
-							</TouchableOpacity>
+							</Pressable>
 						</View>
 
 						<View style={local.rowDivider} />
@@ -151,7 +139,9 @@ export default function ProfileSettings() {
 						{/* Share */}
 						<View style={local.row}>
 							<View style={local.rowLeft}>
-								<Share2 size={14} color={Colors.textSubtle} />
+								<View style={local.rowIcon}>
+									<Share2 size={16} color={Colors.textSubtle} />
+								</View>
 								<View style={local.rowContent}>
 									<Text style={local.rowTitle}>Share Profile</Text>
 									<Text style={local.rowSub}>
@@ -161,39 +151,15 @@ export default function ProfileSettings() {
 									</Text>
 								</View>
 							</View>
-							<TouchableOpacity
-								style={local.actionBtn}
+							<Pressable
+								style={({ pressed }) => [local.actionBtn, pressed && local.pressed]}
 								onPress={() => setShowShare(true)}
-								activeOpacity={0.7}
+								accessibilityRole="button"
+								accessibilityLabel="Share profile"
 							>
 								<Text style={local.actionBtnText}>Share</Text>
-							</TouchableOpacity>
+							</Pressable>
 						</View>
-
-						{/* Delete */}
-						{canDelete && (
-							<>
-								<View style={local.rowDivider} />
-								<View style={local.row}>
-									<View style={local.rowLeft}>
-										<Trash2 size={14} color={Colors.destructive} style={{ opacity: 0.9 }} />
-										<View style={local.rowContent}>
-											<Text style={local.rowTitle}>Delete Profile</Text>
-											<Text style={local.rowSub}>
-												Permanently remove this profile and all data
-											</Text>
-										</View>
-									</View>
-									<TouchableOpacity
-										style={local.deleteBtn}
-										onPress={() => setShowDelete(true)}
-										activeOpacity={0.7}
-									>
-										<Text style={local.deleteBtnText}>Delete</Text>
-									</TouchableOpacity>
-								</View>
-							</>
-						)}
 
 						{/* Leaderboard visibility */}
 						{isEligible && (
@@ -201,11 +167,13 @@ export default function ProfileSettings() {
 								<View style={local.rowDivider} />
 								<View style={local.row}>
 									<View style={local.rowLeft}>
-										{optOut ? (
-											<EyeOff size={14} color={Colors.textSubtle} />
-										) : (
-											<Eye size={14} color={Colors.primary} />
-										)}
+										<View style={local.rowIcon}>
+											{optOut ? (
+												<EyeOff size={16} color={Colors.textSubtle} />
+											) : (
+												<Eye size={16} color={Colors.primary} />
+											)}
+										</View>
 										<View style={local.rowContent}>
 											<Text style={local.rowTitle}>
 												{optOut ? "Hidden from leaderboard" : "Visible on leaderboard"}
@@ -220,11 +188,13 @@ export default function ProfileSettings() {
 									{!leaderboardLoaded ? (
 										<ActivityIndicator size="small" color={Colors.textSubtle} />
 									) : (
-										<TouchableOpacity
+										<Pressable
 											onPress={handleLeaderboardToggle}
-											activeOpacity={0.8}
+											style={({ pressed }) => [local.toggle, !optOut && local.toggleOn, pressed && local.pressed]}
 											disabled={saving}
-											style={[local.toggle, !optOut && local.toggleOn]}
+											accessibilityRole="switch"
+											accessibilityLabel="Leaderboard visibility"
+											accessibilityState={{ checked: !optOut, disabled: saving }}
 										>
 											{saving ? (
 												<ActivityIndicator
@@ -235,14 +205,14 @@ export default function ProfileSettings() {
 											) : (
 												<View style={[local.toggleThumb, !optOut && local.toggleThumbOn]} />
 											)}
-										</TouchableOpacity>
+										</Pressable>
 									)}
 								</View>
 							</>
 						)}
 					</>
 				)}
-			</View>
+			</SettingsCard>
 
 			<InputModal
 				isOpen={showRename}
@@ -262,64 +232,11 @@ export default function ProfileSettings() {
 				currentShares={currentShares}
 			/>
 
-			<ConfirmModal
-				isOpen={showDelete}
-				onClose={() => setShowDelete(false)}
-				onConfirm={handleDelete}
-				title="Delete Profile"
-				message={`Delete "${currentProfile.name}"? This will permanently remove all semesters, marks, and attendance data.`}
-				confirmText="Delete Profile"
-				type="danger"
-			/>
 		</>
 	);
 }
 
 const local = StyleSheet.create({
-	card: {
-		backgroundColor: Colors.surface,
-		borderRadius: Radius.xl,
-		borderWidth: StyleSheet.hairlineWidth,
-		borderColor: "rgba(255,255,255,0.08)",
-		overflow: "hidden",
-	},
-	header: {
-		flexDirection: "row",
-		alignItems: "center",
-		gap: Spacing.md,
-		padding: Spacing.lg,
-	},
-	headerIcon: {
-		width: 32,
-		height: 32,
-		borderRadius: 10,
-		backgroundColor: "rgba(129,140,248,0.1)",
-		borderWidth: StyleSheet.hairlineWidth,
-		borderColor: "rgba(129,140,248,0.2)",
-		alignItems: "center",
-		justifyContent: "center",
-	},
-	headerText: {
-		flex: 1,
-		gap: 2,
-	},
-	headerTitle: {
-		fontSize: FontSize.base,
-		fontWeight: FontWeight.semibold,
-		color: Colors.textPrimary,
-	},
-	headerSub: {
-		fontSize: FontSize.xs,
-		color: Colors.textSubtle,
-	},
-	profileName: {
-		color: "rgba(255,255,255,0.75)",
-		fontWeight: FontWeight.medium,
-	},
-	divider: {
-		height: StyleSheet.hairlineWidth,
-		backgroundColor: "rgba(255,255,255,0.06)",
-	},
 	notice: {
 		flexDirection: "row",
 		alignItems: "flex-start",
@@ -338,17 +255,23 @@ const local = StyleSheet.create({
 		lineHeight: 16,
 	},
 	row: {
+		minHeight: 72,
 		flexDirection: "row",
 		alignItems: "center",
 		gap: Spacing.md,
-		paddingHorizontal: Spacing.lg,
-		paddingVertical: Spacing.md,
+		paddingHorizontal: Spacing.xl,
+		paddingVertical: Spacing.sm,
 	},
 	rowLeft: {
 		flex: 1,
 		flexDirection: "row",
 		alignItems: "center",
 		gap: Spacing.md,
+	},
+	rowIcon: {
+		width: 32,
+		alignItems: "center",
+		justifyContent: "center",
 	},
 	rowContent: {
 		flex: 1,
@@ -370,34 +293,22 @@ const local = StyleSheet.create({
 	},
 	rowDivider: {
 		height: StyleSheet.hairlineWidth,
-		backgroundColor: "rgba(255,255,255,0.04)",
-		marginHorizontal: Spacing.lg,
+		backgroundColor: Colors.border,
+		marginHorizontal: Spacing.xl,
 	},
 	actionBtn: {
-		paddingHorizontal: Spacing.md,
-		paddingVertical: Spacing.xs + 2,
+		minWidth: 64,
+		minHeight: 44,
+		alignItems: "center",
+		justifyContent: "center",
+		paddingHorizontal: Spacing.sm,
 		borderRadius: Radius.md,
-		backgroundColor: "rgba(255,255,255,0.07)",
-		borderWidth: StyleSheet.hairlineWidth,
-		borderColor: "rgba(255,255,255,0.1)",
+		borderCurve: "continuous",
 	},
 	actionBtnText: {
 		fontSize: FontSize.xs,
-		fontWeight: FontWeight.medium,
-		color: Colors.textPrimary,
-	},
-	deleteBtn: {
-		paddingHorizontal: Spacing.md,
-		paddingVertical: Spacing.xs + 2,
-		borderRadius: Radius.md,
-		backgroundColor: "rgba(239,68,68,0.1)",
-		borderWidth: StyleSheet.hairlineWidth,
-		borderColor: "rgba(239,68,68,0.2)",
-	},
-	deleteBtnText: {
-		fontSize: FontSize.xs,
-		fontWeight: FontWeight.medium,
-		color: Colors.destructive,
+		fontWeight: FontWeight.semibold,
+		color: Colors.primary,
 	},
 	toggle: {
 		width: 44,
@@ -407,6 +318,7 @@ const local = StyleSheet.create({
 		justifyContent: "center",
 		paddingHorizontal: 2,
 	},
+	pressed: { opacity: 0.78 },
 	toggleOn: {
 		backgroundColor: Colors.primary,
 	},

@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { useAuth } from "@/contexts/AuthContext";
 import { attendanceService as createAttendanceService } from "@/firebase/services";
 import type { AttendanceService } from "@bhemu/firebase";
-import { useGpaData } from "@/contexts/GpaDataContext";
+import { useGpaProfiles } from "@/contexts/GpaDataContext";
 import { useMessage } from "@/contexts/MessageContext";
 import type { AttendanceSubject, AttendanceData } from "@bhemu/shared";
 
@@ -25,7 +25,7 @@ export function useAttendanceData(): AttendanceDataContextValue {
 
 export function AttendanceDataProvider({ children }: { children: React.ReactNode }) {
 	const { currentUser } = useAuth();
-	const { activeProfile, currentProfile } = useGpaData();
+	const { activeProfile, currentProfile } = useGpaProfiles();
 	const { showMessage } = useMessage();
 
 	const [attendanceData, setAttendanceData] = useState<AttendanceData | null>(null);
@@ -61,7 +61,7 @@ export function AttendanceDataProvider({ children }: { children: React.ReactNode
 			unsub();
 			unsubscribeRef.current = null;
 		};
-	}, [activeProfile, ownerUserId]);
+	}, [currentUser, activeProfile, ownerUserId]);
 
 	const addOrUpdateSubject = useCallback(
 		async (subject: AttendanceSubject) => {

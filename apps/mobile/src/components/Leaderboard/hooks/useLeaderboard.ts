@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useGpaData } from "@/contexts/GpaDataContext";
+import { useGpaProfiles } from "@/contexts/GpaDataContext";
 import { LeaderboardService } from "@/firebase/services";
 import { db } from "@/firebase/config";
 import type { LeaderboardData, LeaderboardEntry } from "@bhemu/shared";
 
 export function useLeaderboard() {
 	const { currentUser } = useAuth();
-	const { currentProfile, loading: profileLoading } = useGpaData();
+	const { currentProfile, loading: profileLoading } = useGpaProfiles();
 
 	const [leaderboardData, setLeaderboardData] = useState<LeaderboardData | null>(null);
 	const [loading, setLoading] = useState(false);

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal } from "rea
 import { Check, Plus, Share2, Trash2, Pencil, Copy, MoreVertical } from "lucide-react-native";
 import { Colors, Spacing, Radius, FontSize, FontWeight } from "@/constants/Theme";
 import { useAuth } from "@/contexts/AuthContext";
-import { useGpaData } from "@/contexts/GpaDataContext";
+import { useGpaProfiles } from "@/contexts/GpaDataContext";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import InputModal from "@/components/ui/InputModal";
 import type { ShareData } from "@bhemu/firebase";
@@ -62,7 +62,7 @@ export default function ProfileDrawer({ visible, onClose, onShareProfile }: Prop
 		copySharedProfile,
 		mySharedProfiles,
 		sharedWithMeShareIds,
-	} = useGpaData();
+	} = useGpaProfiles();
 
 	const [showCreateModal, setShowCreateModal] = useState(false);
 	const [profileToDelete, setProfileToDelete] = useState<{ id: string | number; name: string } | null>(null);
@@ -133,7 +133,6 @@ export default function ProfileDrawer({ visible, onClose, onShareProfile }: Prop
 													{initials(profile.name || "?")}
 												</Text>
 											</View>
-
 											{/* Info */}
 											<View style={local.cardInfo}>
 												<Text
@@ -158,23 +157,16 @@ export default function ProfileDrawer({ visible, onClose, onShareProfile }: Prop
 													{date && <Text style={local.cardDate}>{date}</Text>}
 												</View>
 											</View>
-
-											{/* Right: checkmark or menu */}
-											{isActive ? (
-												<View style={local.checkWrap}>
-													<Check size={16} color={Colors.primary} />
-												</View>
-											) : (
-												<TouchableOpacity
-													style={local.menuBtn}
-													onPress={() =>
-														setMenuTarget({ id: profile.id, name: profile.name, canDelete })
-													}
-													hitSlop={12}
-												>
-													<MoreVertical size={16} color={Colors.textSubtle} />
-												</TouchableOpacity>
-											)}
+											{/* profile menu */}
+											<TouchableOpacity
+												style={local.menuBtn}
+												onPress={() =>
+													setMenuTarget({ id: profile.id, name: profile.name, canDelete })
+												}
+												hitSlop={12}
+											>
+												<MoreVertical size={16} color={Colors.textSubtle} />
+											</TouchableOpacity>
 										</TouchableOpacity>
 									);
 								})}

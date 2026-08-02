@@ -21,15 +21,16 @@ import {
 } from "firebase/auth";
 import {
 	doc,
-	setDoc,
 	serverTimestamp,
 	collection,
 	getDocs,
 	writeBatch,
+	updateDoc,
 } from "firebase/firestore";
 import { auth, googleProvider, db } from "./config";
 import type { FirebaseError, AuthContextType } from "@/types";
 import { STORAGE_KEYS } from "@bhemu/shared";
+import { provisionNewUserProfile } from "@bhemu/firebase";
 
 // Re-export auth types for consumers of this module
 export type { AuthContextType };
@@ -48,20 +49,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	const [currentUser, setCurrentUser] = useState<User | null>(null);
 	const [loading, setLoading] = useState(true);
 
-	// isNewUser=true only on signup — writes createdAt once. All other calls only update lastLoginAt.
+	// New-user provisioning is the only place that may create a default profile.
+	// Normal login only updates an already-provisioned user document.
 	async function saveUserData(user: User, isNewUser = false) {
+		if (isNewUser) {
+			await provisionNewUserProfile(db, {
+				uid: user.uid,
+				email: user.email,
+				displayName: user.displayName,
+				photoURL: user.photoURL,
+			});
+			return;
+		}
+
 		try {
 			const userRef = doc(db, "users", user.uid);
-			await setDoc(
+			await updateDoc(
 				userRef,
 				{
 					email: user.email,
 					displayName: user.displayName || user.email?.split("@")[0] || "User",
 					photoURL: user.photoURL || null,
 					lastLoginAt: serverTimestamp(),
-					...(isNewUser ? { createdAt: serverTimestamp() } : {}),
-				},
-				{ merge: true }
+				}
 			);
 		} catch (error) {
 			console.error("Error saving user data:", error);
@@ -118,13 +128,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 			// Update in Firestore
 			const userRef = doc(db, "users", auth.currentUser.uid);
-			await setDoc(
+			await updateDoc(
 				userRef,
 				{
 					displayName: newDisplayName,
 					updatedAt: serverTimestamp(),
-				},
-				{ merge: true }
+				}
 			);
 
 			return { success: true };
@@ -144,13 +153,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 			// Update user data to indicate password was created
 			const userRef = doc(db, "users", auth.currentUser.uid);
-			await setDoc(
+			await updateDoc(
 				userRef,
 				{
 					hasPassword: true,
 					updatedAt: serverTimestamp(),
-				},
-				{ merge: true }
+				}
 			);
 
 			return { success: true };
@@ -431,13 +439,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 			// Update user data to indicate password was updated
 			const userRef = doc(db, "users", auth.currentUser.uid);
-			await setDoc(
+			await updateDoc(
 				userRef,
 				{
 					passwordUpdatedAt: serverTimestamp(),
 					updatedAt: serverTimestamp(),
-				},
-				{ merge: true }
+				}
 			);
 
 			return { success: true };
@@ -459,11 +466,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	}
 
 	useEffect(() => {
-		const unsubscribe = onAuthStateChanged(auth, async (user) => {
-			if (user) {
-				// Update user data on auth state change
-				await saveUserData(user);
-			}
+		const unsubscribe = onAuthStateChanged(auth, (user) => {
 			setCurrentUser(user);
 			setLoading(false);
 		});

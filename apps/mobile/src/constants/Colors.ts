@@ -19,6 +19,7 @@ export const Colors = {
 
 	// ── Text ───────────────────────────────────────────────────────────────
 	textPrimary:     "#FFFFFF",   // Headings, main content
+	textBody:        "#B5B5B5",   // Body text in cards (messages, announcements)
 	textMuted:       "#A3A3A3",   // Secondary text, descriptions
 	textSubtle:      "#737373",   // Placeholders, disabled text
 

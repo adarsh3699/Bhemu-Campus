@@ -1,7 +1,9 @@
 /session-export-1781855805490
+.DS_Store
 node_modules/
 test/
 marketing/
+.pnpm-store/
 
 # Environment variables (never commit — use .env.example as template)
 .env

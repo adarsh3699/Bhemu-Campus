@@ -1,14 +1,56 @@
-import { useMemo, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
+import { memo, useMemo, useState, useEffect, useCallback } from "react";
+import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Trophy, TrendingUp, RotateCcw, ChevronDown } from "lucide-react-native";
+import {
+	Trophy,
+	TrendingUp,
+	RotateCcw,
+	ChevronDown,
+	Bell,
+	Megaphone,
+	ClipboardList,
+	CalendarClock,
+} from "lucide-react-native";
 import { useAuth } from "@/contexts/AuthContext";
-import { useGpaData } from "@/contexts/GpaDataContext";
+import { useGpaProfiles, useGpaSemesters } from "@/contexts/GpaDataContext";
 import { Colors, Spacing, Radius, FontSize, FontWeight } from "@/constants/Theme";
 import { Layout } from "@/styles";
 import ProfileDrawer from "@/components/profile/ProfileDrawer";
 import ShareModal from "@/components/profile/ShareModal";
+import { getMessagesLastSeenCount } from "@/features/ums-data/storage";
+import { useUmsData } from "@/features/ums-data/useUmsData";
+import { markStartup } from "@/features/startup/performance";
+
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const MONTH_MAP: Record<string, number> = {
+	Jan: 0,
+	Feb: 1,
+	Mar: 2,
+	Apr: 3,
+	May: 4,
+	Jun: 5,
+	Jul: 6,
+	Aug: 7,
+	Sep: 8,
+	Oct: 9,
+	Nov: 10,
+	Dec: 11,
+};
+
+// LPU format: "Wed, Jul 29, 2026"
+function isTodayStr(dateStr: string): boolean {
+	if (!dateStr) return false;
+	// Split: ["Wed", "Jul 29", "2026"]
+	const parts = dateStr.split(", ");
+	if (parts.length < 3) return false;
+	const [mon, day] = parts[1].split(" ");
+	const year = parseInt(parts[2], 10);
+	const month = MONTH_MAP[mon];
+	if (month === undefined || !day || !year) return false;
+	const now = new Date();
+	return parseInt(day, 10) === now.getDate() && month === now.getMonth() && year === now.getFullYear();
+}
 
 interface QuickAction {
 	title: string;
@@ -17,80 +59,180 @@ interface QuickAction {
 	route?: string;
 	tab?: string;
 	color: string;
+	badge?: number;
 }
+
+const QuickActionCard = memo(function QuickActionCardView({
+	action,
+	onPress,
+}: {
+	action: QuickAction;
+	onPress: (action: QuickAction) => void;
+}) {
+	return (
+		<Pressable style={local.actionCard} onPress={() => onPress(action)}>
+			<View style={local.actionIconWrap}>
+				<View style={[local.actionIcon, { borderColor: action.color + "40" }]}>
+					{action.icon}
+				</View>
+				{action.badge ? (
+					<View style={[local.actionBadge, { backgroundColor: action.color }]}>
+						<Text style={local.actionBadgeText}>{action.badge > 99 ? "99+" : action.badge}</Text>
+					</View>
+				) : null}
+			</View>
+			<Text style={local.actionTitle}>{action.title}</Text>
+			<Text style={local.actionSubtitle}>{action.subtitle}</Text>
+		</Pressable>
+	);
+});
 
 export default function HomeTab() {
 	const router = useRouter();
-	const { currentUser } = useAuth();
-	const { semesters, currentProfile, profiles, shareProfileWithUser, mySharedProfiles } = useGpaData();
+	const { currentUser, launchUser } = useAuth();
+	const { currentProfile, activeProfile, profiles, shareProfileWithUser, mySharedProfiles } = useGpaProfiles();
+	const { semesters } = useGpaSemesters();
+	useEffect(() => {
+		markStartup("home_interactive");
+	}, []);
+	const isSharedProfile = !!currentProfile?.isShared;
+	const { data: umsData } = useUmsData();
+
+	const todayName = DAY_NAMES[new Date().getDay()];
+	const todayClassCount = isSharedProfile
+		? 0
+		: (umsData?.timetable?.filter((e) => e.dayOfWeek === todayName).length ?? 0);
+	const announcementCount = isSharedProfile
+		? 0
+		: (umsData?.announcements?.filter((a) => isTodayStr(a.date)).length ?? 0);
+	const examCount = isSharedProfile ? 0 : (umsData?.seatingPlan?.length ?? 0);
 
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const [shareProfileId, setShareProfileId] = useState<string | number | null>(null);
+	const [lastSeenCount, setLastSeenCount] = useState(0);
+
+	useEffect(() => {
+		if (!activeProfile || isSharedProfile) {
+			setLastSeenCount(0);
+			return;
+		}
+		getMessagesLastSeenCount(activeProfile).then(setLastSeenCount);
+	}, [activeProfile, isSharedProfile]);
+
+	const unreadCount = isSharedProfile ? 0 : Math.max(0, (umsData?.messages?.length ?? 0) - lastSeenCount);
 
 	const totalSubjects = useMemo(() => semesters.reduce((acc, s) => acc + s.subjects.length, 0), [semesters]);
-	const totalCredits = useMemo(() => semesters.reduce((acc, s) => acc + s.subjects.reduce((a, sub) => a + sub.credit, 0), 0), [semesters]);
+	const totalCredits = useMemo(
+		() => semesters.reduce((acc, s) => acc + s.subjects.reduce((a, sub) => a + sub.credit, 0), 0),
+		[semesters]
+	);
 
-	const quickActions = useMemo<QuickAction[]>(() => [
-		{
-			title: "Leaderboard",
-			subtitle: "Compare with peers",
-			icon: <Trophy size={22} color={Colors.warning} />,
-			tab: "/leaderboard",
-			color: Colors.warning,
-		},
-		{
-			title: "Goal Planner",
-			subtitle: "Set target GPA goals",
-			icon: <TrendingUp size={22} color={Colors.accent} />,
-			route: "/goal-planner",
-			color: Colors.accent,
-		},
-		{
-			title: "Reappear Calculator",
-			subtitle: "Calculate reappear marks",
-			icon: <RotateCcw size={22} color={Colors.destructive} />,
-			route: "/reappear-calculator",
-			color: Colors.destructive,
-		},
-	], []);
+	const quickActions = useMemo<QuickAction[]>(() => {
+		const all: QuickAction[] = [
+			{
+				title: "Timetable",
+				subtitle: "Weekly class schedule",
+				icon: <CalendarClock size={22} color={Colors.secondary} />,
+				route: "/timetable",
+				color: Colors.secondary,
+				badge: todayClassCount,
+			},
+			{
+				title: "Leaderboard",
+				subtitle: "Compare with peers",
+				icon: <Trophy size={22} color={Colors.warning} />,
+				tab: "/leaderboard",
+				color: Colors.warning,
+			},
+			{
+				title: "Goal Planner",
+				subtitle: "Set target GPA goals",
+				icon: <TrendingUp size={22} color={Colors.accent} />,
+				route: "/goal-planner",
+				color: Colors.accent,
+			},
+			{
+				title: "Reappear Calculator",
+				subtitle: "Calculate reappear marks",
+				icon: <RotateCcw size={22} color={Colors.destructive} />,
+				route: "/reappear-calculator",
+				color: Colors.destructive,
+			},
+			{
+				title: "Announcements",
+				subtitle: "University announcements",
+				icon: <Megaphone size={22} color={Colors.primary} />,
+				route: "/announcements",
+				color: Colors.primary,
+				badge: announcementCount,
+			},
+			{
+				title: "Seating Plan",
+				subtitle: "Exam room & seat details",
+				icon: <ClipboardList size={22} color={Colors.success} />,
+				route: "/seating-plan",
+				color: Colors.success,
+				badge: examCount,
+			},
+		];
+		const UMS_ACTIONS = ["Timetable", "Announcements", "Seating Plan"];
+		return isSharedProfile ? all.filter((a) => !UMS_ACTIONS.includes(a.title)) : all;
+	}, [isSharedProfile, todayClassCount, announcementCount, examCount]);
 
-	const handlePress = (action: QuickAction) => {
+	const handlePress = useCallback((action: QuickAction) => {
 		if (action.tab) router.push(action.tab as never);
 		else if (action.route) router.push(action.route as never);
-	};
+	}, [router]);
 
-	const profileForShare = shareProfileId != null
-		? profiles.find(p => p.id === shareProfileId)
-		: undefined;
+	const profileForShare = shareProfileId != null ? profiles.find((p) => p.id === shareProfileId) : undefined;
 
-	const currentSharesForProfile = (mySharedProfiles as Array<{ profileId: string | number; shareId: string; targetUserEmail: string; permission: "read" | "edit"; isActive: boolean }>)
-		.filter(s => s.profileId === shareProfileId && s.isActive);
+	const currentSharesForProfile = (
+		mySharedProfiles as Array<{
+			profileId: string | number;
+			shareId: string;
+			targetUserEmail: string;
+			permission: "read" | "edit";
+			isActive: boolean;
+		}>
+	).filter((s) => s.profileId === shareProfileId && s.isActive);
 
 	return (
 		<SafeAreaView style={Layout.flex} edges={["top"]}>
 			<ScrollView contentContainerStyle={local.scroll} showsVerticalScrollIndicator={false}>
-
 				{/* Greeting + profile chip */}
 				<View style={local.greetingSection}>
-					<Text style={local.greeting}>
-						Hello, {currentUser?.displayName?.split(" ")[0] || "Student"}
-					</Text>
+					<View style={local.greetingRow}>
+						<Text style={local.greeting}>
+							Hello, {(currentUser?.displayName || launchUser?.displayName)?.split(" ")[0] || "Student"}
+						</Text>
+						{!isSharedProfile && (
+							<Pressable
+								style={local.bellBtn}
+								onPress={() => router.push("/messages" as never)}
+							>
+								<View style={local.bellWrap}>
+									<Bell size={22} color={Colors.textPrimary} />
+									{unreadCount > 0 && (
+										<View style={local.badge}>
+											<Text style={local.badgeText}>{unreadCount > 99 ? "99" : unreadCount}</Text>
+										</View>
+									)}
+								</View>
+							</Pressable>
+						)}
+					</View>
 					<Text style={local.greetingSub}>
 						{totalCredits} credits across {semesters.length} semesters
 					</Text>
 
 					{/* Profile switcher chip */}
-					<TouchableOpacity
-						style={local.profileChip}
-						onPress={() => setDrawerOpen(true)}
-						activeOpacity={0.7}
-					>
+					<Pressable style={local.profileChip} onPress={() => setDrawerOpen(true)}>
 						<View style={local.profileDot} />
 						<Text style={local.profileChipName} numberOfLines={1}>
 							{currentProfile?.name ?? "Select Profile"}
 						</Text>
 						<ChevronDown size={13} color={Colors.textSubtle} />
-					</TouchableOpacity>
+					</Pressable>
 				</View>
 
 				{/* Quick Stats */}
@@ -117,33 +259,21 @@ export default function HomeTab() {
 				</View>
 
 				<View style={local.actionsGrid}>
-					{quickActions.map((action) => (
-						<TouchableOpacity
-							key={action.title}
-							style={local.actionCard}
-							onPress={() => handlePress(action)}
-							activeOpacity={0.7}
-						>
-							<View style={[local.actionIcon, { borderColor: action.color + "40" }]}>
-								{action.icon}
-							</View>
-							<Text style={local.actionTitle}>{action.title}</Text>
-							<Text style={local.actionSubtitle}>{action.subtitle}</Text>
-						</TouchableOpacity>
-					))}
+					{quickActions.map((action) => <QuickActionCard key={action.title} action={action} onPress={handlePress} />)}
 				</View>
-
 			</ScrollView>
 
 			{/* Profile Drawer */}
-			<ProfileDrawer
-				visible={drawerOpen}
-				onClose={() => setDrawerOpen(false)}
-				onShareProfile={(id) => {
-					setDrawerOpen(false);
-					setShareProfileId(id);
-				}}
-			/>
+			{drawerOpen ? (
+				<ProfileDrawer
+					visible
+					onClose={() => setDrawerOpen(false)}
+					onShareProfile={(id) => {
+						setDrawerOpen(false);
+						setShareProfileId(id);
+					}}
+				/>
+			) : null}
 
 			{/* Share Modal */}
 			{profileForShare && (
@@ -153,7 +283,12 @@ export default function HomeTab() {
 					profileName={profileForShare.name}
 					currentShares={currentSharesForProfile}
 					onShareWithUser={async (emailOrId, permissionOrAction, actionType) => {
-						await shareProfileWithUser(profileForShare, emailOrId, permissionOrAction as "read" | "edit" | "unshare", actionType);
+						await shareProfileWithUser(
+							profileForShare,
+							emailOrId,
+							permissionOrAction as "read" | "edit" | "unshare",
+							actionType
+						);
 					}}
 				/>
 			)}
@@ -165,7 +300,23 @@ const local = StyleSheet.create({
 	scroll: { padding: Spacing.lg, paddingBottom: Spacing.xxxl, gap: Spacing.xl },
 
 	greetingSection: { paddingTop: Spacing.sm, gap: Spacing.sm },
-	greeting: { fontSize: FontSize.xxxl, fontWeight: FontWeight.bold, color: Colors.textPrimary },
+	greetingRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+	greeting: { fontSize: FontSize.xxxl, fontWeight: FontWeight.bold, color: Colors.textPrimary, flex: 1 },
+	bellBtn: { padding: Spacing.sm },
+	bellWrap: { position: "relative", width: 22, height: 22 },
+	badge: {
+		position: "absolute",
+		top: -8,
+		right: -8,
+		backgroundColor: Colors.destructive,
+		borderRadius: 10,
+		minWidth: 18,
+		height: 18,
+		alignItems: "center",
+		justifyContent: "center",
+		paddingHorizontal: 4,
+	},
+	badgeText: { fontSize: 10, fontWeight: FontWeight.semibold, color: Colors.textPrimary },
 	greetingSub: { fontSize: FontSize.base, color: Colors.textMuted },
 
 	profileChip: {
@@ -221,6 +372,7 @@ const local = StyleSheet.create({
 		padding: Spacing.lg,
 		gap: Spacing.sm,
 	},
+	actionIconWrap: { position: "relative", alignSelf: "flex-start" },
 	actionIcon: {
 		width: 42,
 		height: 42,
@@ -230,6 +382,18 @@ const local = StyleSheet.create({
 		alignItems: "center",
 		justifyContent: "center",
 	},
+	actionBadge: {
+		position: "absolute",
+		top: -6,
+		right: -8,
+		borderRadius: 10,
+		minWidth: 18,
+		height: 18,
+		alignItems: "center",
+		justifyContent: "center",
+		paddingHorizontal: 4,
+	},
+	actionBadgeText: { fontSize: 10, fontWeight: FontWeight.bold, color: Colors.textPrimary },
 	actionTitle: { fontSize: FontSize.sm, fontWeight: FontWeight.bold, color: Colors.textPrimary },
 	actionSubtitle: { fontSize: FontSize.xs, color: Colors.textMuted },
 });

@@ -39,7 +39,10 @@ export function useAttendanceCalculator() {
 				name: subject.name,
 				totalClasses: String(subject.totalClasses),
 				attended: String(subject.attended),
-				threshold: String(subject.threshold),
+				threshold:
+					subject.threshold !== undefined && !isNaN(subject.threshold)
+						? String(subject.threshold)
+						: "",
 			});
 			setEditingId(subject.id);
 		},
@@ -56,8 +59,11 @@ export function useAttendanceCalculator() {
 			e.preventDefault();
 			const totalClasses = Number(form.totalClasses);
 			const attended = Number(form.attended);
+			const parsedThreshold = Number(form.threshold);
 			const threshold =
-				form.threshold !== "" ? Number(form.threshold) : attendanceCtx.attendanceData?.defaultThreshold ?? 75;
+				!isNaN(parsedThreshold) && form.threshold.trim() !== ""
+					? parsedThreshold
+					: attendanceCtx.attendanceData?.defaultThreshold ?? 75;
 
 			if (!form.name.trim() || isNaN(totalClasses) || isNaN(attended)) return;
 			if (attended > totalClasses) return;

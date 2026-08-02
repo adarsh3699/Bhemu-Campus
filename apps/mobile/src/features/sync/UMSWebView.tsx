@@ -5,6 +5,7 @@ import { X, RefreshCw } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors, Spacing, FontSize, Radius } from "@/constants/Theme";
 import type { UMSSyncResult } from "@bhemu/firebase";
+import type { UMSLocalData } from "@bhemu/shared";
 import { WEBVIEW_SYNC_SCRIPT } from "./webviewSyncScript";
 
 const DASHBOARD_URL = "https://ums.lpu.in/lpuums/StudentDashboard.aspx";
@@ -61,6 +62,7 @@ export interface UMSWebViewHandle {
 interface Props {
 	loginVisible: boolean;
 	onSyncData: (data: UMSSyncResult) => void;
+	onUmsLocalData: (data: UMSLocalData) => void;
 	onProgress: (msg: string) => void;
 	onNeedsLogin: () => void;
 	onLoginDone: () => void;
@@ -68,106 +70,112 @@ interface Props {
 	onClose: () => void;
 }
 
-const UMSWebView = forwardRef<UMSWebViewHandle, Props>(function UMSWebView(
-	{ loginVisible, onSyncData, onProgress, onNeedsLogin, onLoginDone, onError, onClose },
-	ref
-) {
-	const webViewRef = useRef<WebView>(null);
-	const syncStartedRef = useRef(false);
-	const loginShownRef = useRef(false);
-	const [loading, setLoading] = useState(true);
-	const [currentUrl, setCurrentUrl] = useState(DASHBOARD_URL);
+const UMSWebView = forwardRef<UMSWebViewHandle, Props>(
+	({ loginVisible, onSyncData, onUmsLocalData, onProgress, onNeedsLogin, onLoginDone, onError, onClose }, ref) => {
+		const webViewRef = useRef<WebView>(null);
+		const syncStartedRef = useRef(false);
+		const loginShownRef = useRef(false);
+		const [loading, setLoading] = useState(true);
+		const [currentUrl, setCurrentUrl] = useState(DASHBOARD_URL);
 
-	useImperativeHandle(ref, () => ({
-		reload: () => {
-			syncStartedRef.current = false;
-			loginShownRef.current = false;
-			webViewRef.current?.reload();
-		},
-	}));
+		useImperativeHandle(ref, () => ({
+			reload: () => {
+				syncStartedRef.current = false;
+				loginShownRef.current = false;
+				webViewRef.current?.reload();
+			},
+		}));
 
-	const handleNavigationChange = (nav: WebViewNavigation) => {
-		const url = nav.url.toLowerCase();
-		setCurrentUrl(nav.url);
+		const handleNavigationChange = (nav: WebViewNavigation) => {
+			const url = nav.url.toLowerCase();
+			setCurrentUrl(nav.url);
 
-		if (url.includes("login") && !loginShownRef.current) {
-			loginShownRef.current = true;
-			onNeedsLogin();
-		} else if (url.includes("studentdashboard") && !nav.loading && !syncStartedRef.current) {
-			syncStartedRef.current = true;
-			if (loginShownRef.current) {
-				// User just logged in — hide browser, sync silently
-				onLoginDone();
-			}
-			setTimeout(() => {
-				webViewRef.current?.injectJavaScript(WEBVIEW_SYNC_SCRIPT);
-			}, 800);
-		}
-	};
-
-	const handleMessage = (event: { nativeEvent: { data: string } }) => {
-		try {
-			const msg = JSON.parse(event.nativeEvent.data) as { type: string; payload: unknown };
-			if (msg.type === "progress") {
-				onProgress(msg.payload as string);
-			} else if (msg.type === "syncData") {
-				onSyncData(msg.payload as UMSSyncResult);
-			} else if (msg.type === "error") {
-				if (msg.payload === "SESSION_EXPIRED") {
-					onNeedsLogin();
-				} else {
-					onError(msg.payload as string);
+			if (url.includes("login") && !loginShownRef.current) {
+				loginShownRef.current = true;
+				onNeedsLogin();
+			} else if (url.includes("studentdashboard") && !nav.loading && !syncStartedRef.current) {
+				syncStartedRef.current = true;
+				if (loginShownRef.current) {
+					// User just logged in — hide browser, sync silently
+					onLoginDone();
 				}
+				setTimeout(() => {
+					webViewRef.current?.injectJavaScript(WEBVIEW_SYNC_SCRIPT);
+				}, 800);
 			}
-		} catch {}
-	};
+		};
 
-	const displayUrl = currentUrl.replace(/^https?:\/\//, "").slice(0, 42);
+		const handleMessage = (event: { nativeEvent: { data: string } }) => {
+			try {
+				const msg = JSON.parse(event.nativeEvent.data) as { type: string; payload: unknown };
+				if (msg.type === "progress") {
+					onProgress(msg.payload as string);
+				} else if (msg.type === "syncData") {
+					onSyncData(msg.payload as UMSSyncResult);
+				} else if (msg.type === "umsLocalData") {
+					onUmsLocalData(msg.payload as UMSLocalData);
+				} else if (msg.type === "error") {
+					if (msg.payload === "SESSION_EXPIRED") {
+						onNeedsLogin();
+					} else {
+						onError(msg.payload as string);
+					}
+				}
+			} catch {
+				// malformed WebView messages are silently ignored
+			}
+		};
 
-	return (
-		<>
-			{loginVisible && (
-				<SafeAreaView style={local.header} edges={["top"]}>
-					<View style={local.headerRow}>
-						<TouchableOpacity onPress={onClose} hitSlop={10} style={local.navBtn}>
-							<X size={20} color={Colors.textMuted} />
-						</TouchableOpacity>
-						<View style={local.urlBar}>
-							<Text style={local.urlText} numberOfLines={1}>{displayUrl}</Text>
+		const displayUrl = currentUrl.replace(/^https?:\/\//, "").slice(0, 42);
+
+		return (
+			<>
+				{loginVisible && (
+					<SafeAreaView style={local.header} edges={["top"]}>
+						<View style={local.headerRow}>
+							<TouchableOpacity onPress={onClose} hitSlop={10} style={local.navBtn}>
+								<X size={20} color={Colors.textMuted} />
+							</TouchableOpacity>
+							<View style={local.urlBar}>
+								<Text style={local.urlText} numberOfLines={1}>
+									{displayUrl}
+								</Text>
+							</View>
+							<TouchableOpacity
+								onPress={() => webViewRef.current?.reload()}
+								hitSlop={10}
+								style={local.navBtn}
+							>
+								{loading ? (
+									<ActivityIndicator size="small" color={Colors.primary} />
+								) : (
+									<RefreshCw size={18} color={Colors.textMuted} />
+								)}
+							</TouchableOpacity>
 						</View>
-						<TouchableOpacity
-							onPress={() => webViewRef.current?.reload()}
-							hitSlop={10}
-							style={local.navBtn}
-						>
-							{loading
-								? <ActivityIndicator size="small" color={Colors.primary} />
-								: <RefreshCw size={18} color={Colors.textMuted} />
-							}
-						</TouchableOpacity>
-					</View>
-					{loading && <View style={local.progressBar} />}
-				</SafeAreaView>
-			)}
-			<WebView
-				ref={webViewRef}
-				source={{ uri: DASHBOARD_URL }}
-				onNavigationStateChange={handleNavigationChange}
-				onMessage={handleMessage}
-				onLoadStart={() => setLoading(true)}
-				onLoadEnd={() => setLoading(false)}
-				style={local.webview}
-				javaScriptEnabled
-				domStorageEnabled
-				sharedCookiesEnabled
-				thirdPartyCookiesEnabled
-				userAgent={CHROME_ANDROID_UA}
-				mixedContentMode="always"
-				injectedJavaScriptBeforeContentLoaded={STEALTH_JS}
-			/>
-		</>
-	);
-});
+						{loading && <View style={local.progressBar} />}
+					</SafeAreaView>
+				)}
+				<WebView
+					ref={webViewRef}
+					source={{ uri: DASHBOARD_URL }}
+					onNavigationStateChange={handleNavigationChange}
+					onMessage={handleMessage}
+					onLoadStart={() => setLoading(true)}
+					onLoadEnd={() => setLoading(false)}
+					style={local.webview}
+					javaScriptEnabled
+					domStorageEnabled
+					sharedCookiesEnabled
+					thirdPartyCookiesEnabled
+					userAgent={CHROME_ANDROID_UA}
+					mixedContentMode="always"
+					injectedJavaScriptBeforeContentLoaded={STEALTH_JS}
+				/>
+			</>
+		);
+	}
+);
 
 export default UMSWebView;
 

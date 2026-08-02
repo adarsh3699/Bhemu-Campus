@@ -63,7 +63,10 @@ Returns an array with one element. Used for `studentInfo` on the profile.
 **Body:** `{}`  
 **Response:** `{ d: "<html table>" }` — HTML string, not JSON
 
-Parse `<tr>` rows. Each row: `CourseCode:CourseName | ExamDate | Slot | TotalDuty | Present | Percentage`
+Parse `<tr>` rows. Each row: `CourseCode:CourseName | LastAttended | DutyLeave | TotalDelivered | TotalAttended | Percentage`
+
+> [!IMPORTANT]
+> **Attendance Percentage Calculation:** UMS considers Duty Leave as an officially attended class. To match the UMS `Percentage`, the correct math is `(TotalAttended + DutyLeave) / TotalDelivered`. Sync scripts must add `DutyLeave` to `TotalAttended` before passing data to the Bhemu Calculator.
 
 Skip rows containing "Aggregate".
 
@@ -145,23 +148,25 @@ Returns string `"NA"` (not HTML) when no current seating plan exists — guard w
 
 ## 7. Messages — JSON API (HTML response)
 
-**URL:** `https://ums.lpu.in/lpuums/StudentDashboard.aspx/GetStudentMessages`  
+**URL:** `https://ums.lpu.in/lpuums/StudentDashboard.aspx/ViewAllMessages`  
 **Method:** POST  
 **Body:** `{}`  
-**Response:** `{ d: "<html>" }` — HTML with `.mycoursesdiv` Bootstrap rows
+**Response:** `{ d: "<html>" }` — flat HTML list of `div.d-flex.flex-row.border-bottom` rows
 
-### HTML structure per `.mycoursesdiv`
+### HTML structure per message div
 
 ```html
-<div class="row d-flex flex-row border-bottom mycoursesdiv ml-3 ...">
-	<div class="col-sm-12 p-0 font-weight-medium right-arrow">Subject - By SenderName (Date)</div>
-	<div class="col-sm-12 p-0">
-		<p class="text-small text-muted">Body text...</p>
-	</div>
+<div class="d-flex flex-row border-bottom">
+  <p class="font-weight-medium mr-4">...</p>
+  <div class="pl-3">
+    <p class="font-weight-bold mb-1 mr-1"><bold>Subject   </bold></p>
+    <p class="text-dark mb-0 text-small">Body text...</p>
+    <p class="text-dark mb-0 text-small">Date : 28-07-2026</p>
+  </div>
 </div>
 ```
 
-Parse: header `.right-arrow` text → split on `- By` → subject + `SenderName (Date)`. Body from `p.text-muted` innerHTML (preserve for links).  
+Parse: subject from `p.font-weight-bold`, body from first `p.text-dark` not starting with `Date :`, date from `p.text-dark` starting with `Date :`. No sender name field in this response.  
 **Data viewer only — not needed for sync.**
 
 ---

@@ -306,8 +306,10 @@ function parseHeadsHtml(html: string): HeadCard[] {
 		const school = item.querySelector(".text-muted.text-small:not(.h20)")?.textContent?.trim() ?? "";
 
 		// Contacts from href attributes (reliable vs textContent which includes icon chars)
-		const emailHref = (item.querySelector("a[href^='mailto:']") as HTMLAnchorElement | null)?.getAttribute("href") ?? "";
-		const phoneHref = (item.querySelector("a[href^='tel:']") as HTMLAnchorElement | null)?.getAttribute("href") ?? "";
+		const emailHref =
+			(item.querySelector("a[href^='mailto:']") as HTMLAnchorElement | null)?.getAttribute("href") ?? "";
+		const phoneHref =
+			(item.querySelector("a[href^='tel:']") as HTMLAnchorElement | null)?.getAttribute("href") ?? "";
 		const email = emailHref.replace("mailto:", "").trim();
 		const phone = phoneHref.replace("tel:", "").trim();
 
@@ -417,13 +419,9 @@ function HeadsTab({ html }: { html?: string }) {
 						{/* Name */}
 						<div style={{ fontWeight: 700, fontSize: 14, color: "#111827" }}>{c.name || "—"}</div>
 						{/* Designation */}
-						{c.designation && (
-							<div style={{ fontSize: 12, color: "#6b7280" }}>{c.designation}</div>
-						)}
+						{c.designation && <div style={{ fontSize: 12, color: "#6b7280" }}>{c.designation}</div>}
 						{/* School */}
-						{c.school && (
-							<div style={{ fontSize: 11, color: "#9ca3af" }}>{c.school}</div>
-						)}
+						{c.school && <div style={{ fontSize: 11, color: "#9ca3af" }}>{c.school}</div>}
 						{/* Contact */}
 						{(c.email || c.phone) && (
 							<div
@@ -796,15 +794,16 @@ export default function DataViewer() {
 				{tab === "timetable" && (
 					<Section title="Timetable" count={data.timetable.length}>
 						<Table
-							headers={["Day", "Start", "End", "Course Code", "Course Name", "Room", "Faculty"]}
+							headers={["Day", "Start", "End", "Course Code", "Room", "Faculty", "Section", "Group"]}
 							rows={data.timetable.map((e) => [
 								e.dayOfWeek,
 								e.startTime,
 								e.endTime,
 								e.courseCode || "—",
-								e.courseName,
 								e.room,
 								e.faculty || "—",
+								e.section,
+								e.group,
 							])}
 						/>
 						<RawJson label="timetable" data={data.timetable} />
@@ -1011,9 +1010,7 @@ export default function DataViewer() {
 				)}
 
 				{/* HEADS (mentor/TPC faculty cards) */}
-				{tab === "heads" && (
-					<HeadsTab html={data.apiData?.headsHtml} />
-				)}
+				{tab === "heads" && <HeadsTab html={data.apiData?.headsHtml} />}
 
 				{/* RAW HTML (dev mode only) */}
 				{tab === "raw-html" && (

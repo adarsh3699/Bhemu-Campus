@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { memo, useCallback } from "react";
+import { FlatList, View, Text, Pressable, StyleSheet } from "react-native";
 import { Pencil, Trash2, CheckCircle2, AlertCircle, AlertTriangle } from "lucide-react-native";
 import { Colors, Spacing, Radius, FontSize, FontWeight } from "@/constants/Theme";
 import type { AttendanceSubject } from "@bhemu/shared";
@@ -72,7 +73,63 @@ interface Props {
 	onDelete: (s: AttendanceSubject) => void;
 }
 
+interface RowProps {
+	subject: AttendanceSubject;
+	defaultThreshold: number;
+	onEdit: (subject: AttendanceSubject) => void;
+	onDelete: (subject: AttendanceSubject) => void;
+}
+
+const AttendanceRow = memo(function AttendanceRowView({ subject, defaultThreshold, onEdit, onDelete }: RowProps) {
+	const { threshold, pct, status, needed, safeToSkip } = computeRow(subject, defaultThreshold);
+	const st = STATUS[status];
+
+	return (
+		<View style={[local.card, { backgroundColor: st.bg, borderColor: st.border }]}>
+			<View style={local.topRow}>
+				<View style={local.nameRow}>
+					{st.icon(16)}
+					<Text style={local.name} numberOfLines={1}>{subject.name}</Text>
+				</View>
+				<View style={local.actions}>
+					<Pressable style={local.editBtn} onPress={() => onEdit(subject)} accessibilityLabel={`Edit ${subject.name}`}>
+						<Pencil size={13} color={Colors.accent} />
+					</Pressable>
+					<Pressable style={local.deleteBtn} onPress={() => onDelete(subject)} accessibilityLabel={`Delete ${subject.name}`}>
+						<Trash2 size={13} color={Colors.destructive} />
+					</Pressable>
+				</View>
+			</View>
+
+			<View style={local.barBg}>
+				<View style={[local.barFill, { width: `${Math.min(pct, 100)}%` as `${number}%`, backgroundColor: st.barColor }]} />
+			</View>
+
+			<View style={local.bottomRow}>
+				<Text style={local.fraction}>
+					<Text style={local.fracMain}>{subject.attended}</Text>
+					<Text style={local.fracSep}>/{subject.totalClasses}</Text>
+				</Text>
+				<Text style={[local.pctBadge, { color: st.pctColor }]}>{pct}%</Text>
+				<Text style={local.threshBadge}>≥{threshold}%</Text>
+				{status !== "safe" && needed > 0 ? (
+					<Text style={[local.hint, { color: st.pctColor }]}>Attend <Text style={local.hintBold}>{needed}</Text> more</Text>
+				) : status === "safe" && safeToSkip > 0 ? (
+					<Text style={[local.hint, { color: Colors.primary }]}>Can skip <Text style={local.hintBold}>{safeToSkip}</Text></Text>
+				) : null}
+			</View>
+		</View>
+	);
+});
+
 export default function AttendanceSubjectList({ subjects, defaultThreshold, onEdit, onDelete }: Props) {
+	const renderItem = useCallback(
+		({ item }: { item: AttendanceSubject }) => (
+			<AttendanceRow subject={item} defaultThreshold={defaultThreshold} onEdit={onEdit} onDelete={onDelete} />
+		),
+		[defaultThreshold, onEdit, onDelete]
+	);
+
 	if (subjects.length === 0) {
 		return (
 			<View style={local.empty}>
@@ -83,67 +140,14 @@ export default function AttendanceSubjectList({ subjects, defaultThreshold, onEd
 	}
 
 	return (
-		<View style={local.list}>
-			{subjects.map((subject) => {
-				const { threshold, pct, status, needed, safeToSkip } = computeRow(subject, defaultThreshold);
-				const st = STATUS[status];
-
-				return (
-					<View key={subject.id} style={[local.card, { backgroundColor: st.bg, borderColor: st.border }]}>
-						{/* Top row: icon + name + actions */}
-						<View style={local.topRow}>
-							<View style={local.nameRow}>
-								{st.icon(16)}
-								<Text style={local.name} numberOfLines={1}>{subject.name}</Text>
-							</View>
-							<View style={local.actions}>
-								<TouchableOpacity style={local.editBtn} onPress={() => onEdit(subject)} activeOpacity={0.7}>
-									<Pencil size={13} color={Colors.accent} />
-								</TouchableOpacity>
-								<TouchableOpacity style={local.deleteBtn} onPress={() => onDelete(subject)} activeOpacity={0.7}>
-									<Trash2 size={13} color={Colors.destructive} />
-								</TouchableOpacity>
-							</View>
-						</View>
-
-						{/* Progress bar */}
-						<View style={local.barBg}>
-							<View
-								style={[
-									local.barFill,
-									{
-										width: `${Math.min(pct, 100)}%` as `${number}%`,
-										backgroundColor: st.barColor,
-									},
-								]}
-							/>
-						</View>
-
-						{/* Bottom row: attended/total · pct · threshold · hint */}
-						<View style={local.bottomRow}>
-							<Text style={local.fraction}>
-								<Text style={local.fracMain}>{subject.attended}</Text>
-								<Text style={local.fracSep}>/{subject.totalClasses}</Text>
-							</Text>
-
-							<Text style={[local.pctBadge, { color: st.pctColor }]}>{pct}%</Text>
-
-							<Text style={local.threshBadge}>≥{threshold}%</Text>
-
-							{status !== "safe" && needed > 0 ? (
-								<Text style={[local.hint, { color: st.pctColor }]}>
-									Attend <Text style={local.hintBold}>{needed}</Text> more
-								</Text>
-							) : status === "safe" && safeToSkip > 0 ? (
-								<Text style={[local.hint, { color: Colors.primary }]}>
-									Can skip <Text style={local.hintBold}>{safeToSkip}</Text>
-								</Text>
-							) : null}
-						</View>
-					</View>
-				);
-			})}
-		</View>
+		<FlatList
+			data={subjects}
+			renderItem={renderItem}
+			keyExtractor={(item) => String(item.id)}
+			contentContainerStyle={local.list}
+			scrollEnabled={false}
+			removeClippedSubviews
+		/>
 	);
 }
 
