@@ -57,7 +57,9 @@ function AttendanceScreenContent() {
 	const handleSubmit = useCallback(async () => {
 		const totalClasses = Number(form.totalClasses);
 		const attended = Number(form.attended);
-		const thresholdVal = form.threshold !== "" ? Number(form.threshold) : defaultThreshold;
+		const parsedThreshold = Number(form.threshold);
+		const thresholdVal =
+			!isNaN(parsedThreshold) && form.threshold.trim() !== "" ? parsedThreshold : defaultThreshold;
 		if (!form.name.trim() || isNaN(totalClasses) || isNaN(attended) || attended > totalClasses) return;
 
 		const subject: AttendanceSubject = {
@@ -79,7 +81,10 @@ function AttendanceScreenContent() {
 			name: subject.name,
 			totalClasses: String(subject.totalClasses),
 			attended: String(subject.attended),
-			threshold: String(subject.threshold),
+			threshold:
+				subject.threshold !== undefined && !isNaN(subject.threshold)
+					? String(subject.threshold)
+					: "",
 		});
 		setEditingId(subject.id);
 		setFocusField("total");

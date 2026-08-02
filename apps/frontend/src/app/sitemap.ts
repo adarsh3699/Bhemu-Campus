@@ -4,7 +4,7 @@ import { SITE_CONFIG } from "@/lib/seo";
 
 export default function sitemap(): MetadataRoute.Sitemap {
 	const base = SITE_CONFIG.url;
-	const now = new Date();
+	const now = new Date().toISOString().split("T")[0];
 
 	return [
 		// ── Primary tool pages ──────────────────────────────────────────────

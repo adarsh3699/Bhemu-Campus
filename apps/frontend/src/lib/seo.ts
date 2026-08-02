@@ -24,6 +24,9 @@ export const SITE_CONFIG = {
 		"CGPA planner",
 		"university grades",
 		"student grade tracker",
+		"LPU",
+		"adarsh3699",
+		"Adarsh Suman"
 	],
 	authors: [{ name: "Adarsh Suman", url: "https://bhemu.in" }],
 	openGraph: {
