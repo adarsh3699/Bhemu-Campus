@@ -11,7 +11,7 @@ import LogoutButton from "@/components/Settings/LogoutButton";
 import NotificationSettings from "@/components/Settings/NotificationSettings";
 import { SettingsCardPressable } from "@/components/Settings/SettingsPrimitives";
 
-const SHOW_UMS_DATA_VIEWER = process.env.EXPO_PUBLIC_SHOW_UMS_DATA_VIEWER === "true";
+const SHOW_UMS_DATA_VIEWER = process.env.EXPO_PUBLIC_DEVELOPER_MODE === "true";
 
 export default function SettingsTab() {
 	const router = useRouter();

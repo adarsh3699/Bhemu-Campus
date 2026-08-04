@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet } from "react-native";
 import { MapPin, UserRound } from "lucide-react-native";
 import { Colors, Spacing, Radius, FontSize, FontWeight } from "@/constants/Theme";
-import type { TimetableEntry } from "@bhemu/shared";
+import { formatTimeToAmPm, parseTimeMinutes, type TimetableEntry } from "@bhemu/shared";
 
 interface Props {
 	day: string;
@@ -9,34 +9,6 @@ interface Props {
 	showLabel?: boolean;
 	currentDay?: string;
 	currentTimeMinutes?: number;
-}
-
-// LPU timetable field mapping: R=room, C=courseCode, S=section, G=group, Teacher=faculty
-function to12h(time: string): string {
-	const minutes = toMinutes(time);
-	if (minutes === null) return time;
-	const hours24 = Math.floor(minutes / 60);
-	const h12 = hours24 % 12 || 12;
-	return `${h12}:${String(minutes % 60).padStart(2, "0")} ${hours24 >= 12 ? "PM" : "AM"}`;
-}
-
-function toMinutes(time: string): number | null {
-	const match = time.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
-	if (!match) return null;
-
-	let hours = Number(match[1]);
-	const minutes = Number(match[2]);
-	const meridiem = match[3]?.toUpperCase();
-	if (minutes > 59) return null;
-
-	if (meridiem) {
-		if (hours < 1 || hours > 12) return null;
-		hours = (hours % 12) + (meridiem === "PM" ? 12 : 0);
-	} else if (hours > 23) {
-		return null;
-	}
-
-	return hours * 60 + minutes;
 }
 
 export default function TimetableDay({ day, entries, showLabel = true, currentDay, currentTimeMinutes }: Props) {
@@ -47,8 +19,8 @@ export default function TimetableDay({ day, entries, showLabel = true, currentDa
 				{entries.map((entry, i) => {
 					const courseCode = entry.courseCode;
 					const room = entry.room || null;
-					const startMinutes = toMinutes(entry.startTime);
-					const endMinutes = toMinutes(entry.endTime);
+					const startMinutes = parseTimeMinutes(entry.startTime);
+					const endMinutes = parseTimeMinutes(entry.endTime);
 					const isCurrent =
 						day === currentDay &&
 						startMinutes !== null &&
@@ -62,9 +34,9 @@ export default function TimetableDay({ day, entries, showLabel = true, currentDa
 							style={[local.slot, isCurrent && local.slotCurrent]}
 						>
 							<View style={local.timeCol}>
-								<Text style={local.timeText}>{to12h(entry.startTime)}</Text>
+								<Text style={local.timeText}>{formatTimeToAmPm(entry.startTime)}</Text>
 								<View style={local.timeDivider} />
-								<Text style={local.timeText}>{to12h(entry.endTime)}</Text>
+								<Text style={local.timeText}>{formatTimeToAmPm(entry.endTime)}</Text>
 							</View>
 
 							<View style={local.dividerV} />

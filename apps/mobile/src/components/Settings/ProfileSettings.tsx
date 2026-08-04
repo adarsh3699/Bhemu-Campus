@@ -14,8 +14,7 @@ import type { ShareItem } from "@bhemu/shared";
 
 export default function ProfileSettings() {
 	const { currentUser } = useAuth();
-	const { currentProfile, renameProfile, shareProfileWithUser, mySharedProfiles } =
-		useGpaProfiles();
+	const { currentProfile, renameProfile, shareProfileWithUser, mySharedProfiles } = useGpaProfiles();
 	const { showMessage } = useMessage();
 
 	const [showRename, setShowRename] = useState(false);
@@ -76,7 +75,6 @@ export default function ProfileSettings() {
 			const next = !optOut;
 			await LeaderboardService.setOptOut(db, currentUser.uid, String(currentProfile.id), next);
 			setOptOut(next);
-			showMessage(next ? "Hidden from leaderboard" : "Visible on leaderboard", "success");
 		} catch {
 			showMessage("Failed to update leaderboard visibility", "error");
 		} finally {
@@ -117,7 +115,7 @@ export default function ProfileSettings() {
 								<View style={local.rowContent}>
 									<Text style={local.rowTitle}>
 										Profile Name
-										{isEligible && <Text style={local.rowTitleNote}> · Leaderboard name</Text>}
+										{isEligible && <Text style={local.rowTitleNote}> · Leaderboard</Text>}
 									</Text>
 									<Text style={local.rowSub} numberOfLines={1}>
 										{currentProfile.name}
@@ -190,7 +188,11 @@ export default function ProfileSettings() {
 									) : (
 										<Pressable
 											onPress={handleLeaderboardToggle}
-											style={({ pressed }) => [local.toggle, !optOut && local.toggleOn, pressed && local.pressed]}
+											style={({ pressed }) => [
+												local.toggle,
+												!optOut && local.toggleOn,
+												pressed && local.pressed,
+											]}
 											disabled={saving}
 											accessibilityRole="switch"
 											accessibilityLabel="Leaderboard visibility"
@@ -231,7 +233,6 @@ export default function ProfileSettings() {
 				profileName={currentProfile.name}
 				currentShares={currentShares}
 			/>
-
 		</>
 	);
 }

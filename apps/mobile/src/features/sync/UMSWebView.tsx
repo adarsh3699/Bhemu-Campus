@@ -171,6 +171,7 @@ const UMSWebView = forwardRef<UMSWebViewHandle, Props>(
 					userAgent={CHROME_ANDROID_UA}
 					mixedContentMode="always"
 					injectedJavaScriptBeforeContentLoaded={STEALTH_JS}
+					pullToRefreshEnabled={true}
 				/>
 			</>
 		);

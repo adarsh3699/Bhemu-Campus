@@ -13,16 +13,18 @@ import {
 	CalendarClock,
 } from "lucide-react-native";
 import { useAuth } from "@/contexts/AuthContext";
-import { useGpaProfiles, useGpaSemesters } from "@/contexts/GpaDataContext";
+import { useGpaProfiles } from "@/contexts/GpaDataContext";
+
 import { Colors, Spacing, Radius, FontSize, FontWeight } from "@/constants/Theme";
 import { Layout } from "@/styles";
 import ProfileDrawer from "@/components/profile/ProfileDrawer";
 import ShareModal from "@/components/profile/ShareModal";
+import TodayTimeline from "@/components/Home/TodayTimeline";
 import { getMessagesLastSeenCount } from "@/features/ums-data/storage";
 import { useUmsData } from "@/features/ums-data/useUmsData";
 import { markStartup } from "@/features/startup/performance";
 
-const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const DAY_NAMES_ANNOUNCE = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONTH_MAP: Record<string, number> = {
 	Jan: 0,
 	Feb: 1,
@@ -72,9 +74,7 @@ const QuickActionCard = memo(function QuickActionCardView({
 	return (
 		<Pressable style={local.actionCard} onPress={() => onPress(action)}>
 			<View style={local.actionIconWrap}>
-				<View style={[local.actionIcon, { borderColor: action.color + "40" }]}>
-					{action.icon}
-				</View>
+				<View style={[local.actionIcon, { borderColor: action.color + "40" }]}>{action.icon}</View>
 				{action.badge ? (
 					<View style={[local.actionBadge, { backgroundColor: action.color }]}>
 						<Text style={local.actionBadgeText}>{action.badge > 99 ? "99+" : action.badge}</Text>
@@ -87,18 +87,17 @@ const QuickActionCard = memo(function QuickActionCardView({
 	);
 });
 
-export default function HomeTab() {
+function HomeTabContent() {
 	const router = useRouter();
 	const { currentUser, launchUser } = useAuth();
 	const { currentProfile, activeProfile, profiles, shareProfileWithUser, mySharedProfiles } = useGpaProfiles();
-	const { semesters } = useGpaSemesters();
 	useEffect(() => {
 		markStartup("home_interactive");
 	}, []);
 	const isSharedProfile = !!currentProfile?.isShared;
 	const { data: umsData } = useUmsData();
 
-	const todayName = DAY_NAMES[new Date().getDay()];
+	const todayName = DAY_NAMES_ANNOUNCE[new Date().getDay()];
 	const todayClassCount = isSharedProfile
 		? 0
 		: (umsData?.timetable?.filter((e) => e.dayOfWeek === todayName).length ?? 0);
@@ -106,6 +105,7 @@ export default function HomeTab() {
 		? 0
 		: (umsData?.announcements?.filter((a) => isTodayStr(a.date)).length ?? 0);
 	const examCount = isSharedProfile ? 0 : (umsData?.seatingPlan?.length ?? 0);
+	const hasTimetableData = !isSharedProfile && (umsData?.timetable?.length ?? 0) > 0;
 
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const [shareProfileId, setShareProfileId] = useState<string | number | null>(null);
@@ -120,12 +120,6 @@ export default function HomeTab() {
 	}, [activeProfile, isSharedProfile]);
 
 	const unreadCount = isSharedProfile ? 0 : Math.max(0, (umsData?.messages?.length ?? 0) - lastSeenCount);
-
-	const totalSubjects = useMemo(() => semesters.reduce((acc, s) => acc + s.subjects.length, 0), [semesters]);
-	const totalCredits = useMemo(
-		() => semesters.reduce((acc, s) => acc + s.subjects.reduce((a, sub) => a + sub.credit, 0), 0),
-		[semesters]
-	);
 
 	const quickActions = useMemo<QuickAction[]>(() => {
 		const all: QuickAction[] = [
@@ -179,10 +173,13 @@ export default function HomeTab() {
 		return isSharedProfile ? all.filter((a) => !UMS_ACTIONS.includes(a.title)) : all;
 	}, [isSharedProfile, todayClassCount, announcementCount, examCount]);
 
-	const handlePress = useCallback((action: QuickAction) => {
-		if (action.tab) router.push(action.tab as never);
-		else if (action.route) router.push(action.route as never);
-	}, [router]);
+	const handlePress = useCallback(
+		(action: QuickAction) => {
+			if (action.tab) router.push(action.tab as never);
+			else if (action.route) router.push(action.route as never);
+		},
+		[router]
+	);
 
 	const profileForShare = shareProfileId != null ? profiles.find((p) => p.id === shareProfileId) : undefined;
 
@@ -199,58 +196,59 @@ export default function HomeTab() {
 	return (
 		<SafeAreaView style={Layout.flex} edges={["top"]}>
 			<ScrollView contentContainerStyle={local.scroll} showsVerticalScrollIndicator={false}>
-				{/* Greeting + profile chip */}
+				{/* Greeting + profile header */}
 				<View style={local.greetingSection}>
-					<View style={local.greetingRow}>
-						<Text style={local.greeting}>
-							Hello, {(currentUser?.displayName || launchUser?.displayName)?.split(" ")[0] || "Student"}
-						</Text>
-						{!isSharedProfile && (
+					<View style={local.headerLeft}>
+						<Pressable
+							style={local.avatar}
+							onPress={() => setDrawerOpen(true)}
+							accessibilityLabel="Switch profile"
+						>
+							<Text style={local.avatarText}>{(currentProfile?.name || "S")[0].toUpperCase()}</Text>
+						</Pressable>
+						<View style={local.headerTextCol}>
+							<Text style={local.greeting} numberOfLines={1}>
+								Hello,{" "}
+								{(currentUser?.displayName || launchUser?.displayName)?.split(" ")[0] || "Student"} 👋
+							</Text>
 							<Pressable
-								style={local.bellBtn}
-								onPress={() => router.push("/messages" as never)}
+								style={local.profileSwitcher}
+								onPress={() => setDrawerOpen(true)}
+								accessibilityLabel="Switch profile"
+								hitSlop={8}
 							>
-								<View style={local.bellWrap}>
-									<Bell size={22} color={Colors.textPrimary} />
-									{unreadCount > 0 && (
-										<View style={local.badge}>
-											<Text style={local.badgeText}>{unreadCount > 99 ? "99" : unreadCount}</Text>
-										</View>
-									)}
-								</View>
+								<Text style={local.profileSwitcherText} numberOfLines={1}>
+									{currentProfile?.name ?? "Select Profile"}
+								</Text>
+								<ChevronDown size={14} color={Colors.primary} />
 							</Pressable>
-						)}
+						</View>
 					</View>
-					<Text style={local.greetingSub}>
-						{totalCredits} credits across {semesters.length} semesters
-					</Text>
 
-					{/* Profile switcher chip */}
-					<Pressable style={local.profileChip} onPress={() => setDrawerOpen(true)}>
-						<View style={local.profileDot} />
-						<Text style={local.profileChipName} numberOfLines={1}>
-							{currentProfile?.name ?? "Select Profile"}
-						</Text>
-						<ChevronDown size={13} color={Colors.textSubtle} />
-					</Pressable>
+					{/* Notification bell */}
+					{!isSharedProfile && (
+						<Pressable
+							style={local.bellBtn}
+							onPress={() => router.push("/messages" as never)}
+							accessibilityLabel="Notifications"
+						>
+							<Bell size={20} color={Colors.textPrimary} />
+							{unreadCount > 0 && (
+								<View style={local.badge}>
+									<Text style={local.badgeText}>{unreadCount > 99 ? "99+" : unreadCount}</Text>
+								</View>
+							)}
+						</Pressable>
+					)}
 				</View>
 
-				{/* Quick Stats */}
-				{semesters.length > 0 && (
-					<View style={local.statsRow}>
-						<View style={local.statCard}>
-							<Text style={local.statValue}>{semesters.length}</Text>
-							<Text style={local.statLabel}>Semesters</Text>
-						</View>
-						<View style={local.statCard}>
-							<Text style={local.statValue}>{totalSubjects}</Text>
-							<Text style={local.statLabel}>Subjects</Text>
-						</View>
-						<View style={local.statCard}>
-							<Text style={local.statValue}>{totalCredits}</Text>
-							<Text style={local.statLabel}>Credits</Text>
-						</View>
-					</View>
+				{/* Today's Timeline */}
+				{!isSharedProfile && (
+					<TodayTimeline
+						timetable={umsData?.timetable ?? []}
+						seatingPlan={umsData?.seatingPlan ?? []}
+						hasTimetableData={hasTimetableData}
+					/>
 				)}
 
 				{/* Quick Actions */}
@@ -259,7 +257,9 @@ export default function HomeTab() {
 				</View>
 
 				<View style={local.actionsGrid}>
-					{quickActions.map((action) => <QuickActionCard key={action.title} action={action} onPress={handlePress} />)}
+					{quickActions.map((action) => (
+						<QuickActionCard key={action.title} action={action} onPress={handlePress} />
+					))}
 				</View>
 			</ScrollView>
 
@@ -296,68 +296,92 @@ export default function HomeTab() {
 	);
 }
 
+export default HomeTabContent;
+
 const local = StyleSheet.create({
 	scroll: { padding: Spacing.lg, paddingBottom: Spacing.xxxl, gap: Spacing.xl },
 
-	greetingSection: { paddingTop: Spacing.sm, gap: Spacing.sm },
-	greetingRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-	greeting: { fontSize: FontSize.xxxl, fontWeight: FontWeight.bold, color: Colors.textPrimary, flex: 1 },
-	bellBtn: { padding: Spacing.sm },
-	bellWrap: { position: "relative", width: 22, height: 22 },
+	greetingSection: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "space-between",
+		paddingTop: Spacing.xs,
+		marginBottom: Spacing.xs,
+	},
+	headerLeft: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: Spacing.md,
+		flex: 1,
+	},
+	avatar: {
+		width: 48,
+		height: 48,
+		borderRadius: 24,
+		backgroundColor: Colors.primary + "15",
+		alignItems: "center",
+		justifyContent: "center",
+		borderWidth: 1,
+		borderColor: Colors.primary + "30",
+	},
+	avatarText: {
+		fontSize: 20,
+		fontWeight: FontWeight.bold,
+		color: Colors.primary,
+	},
+	headerTextCol: {
+		flex: 1,
+		justifyContent: "center",
+		gap: 2,
+	},
+	greeting: {
+		fontSize: FontSize.xl,
+		fontWeight: FontWeight.bold,
+		color: Colors.textPrimary,
+	},
+	profileSwitcher: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 4,
+		alignSelf: "flex-start",
+	},
+	profileSwitcherText: {
+		fontSize: FontSize.sm,
+		fontWeight: FontWeight.medium,
+		color: Colors.textMuted,
+	},
+	bellBtn: {
+		width: 44,
+		height: 44,
+		borderRadius: 22,
+		backgroundColor: Colors.surfaceElevated,
+		borderWidth: 1,
+		borderColor: Colors.border,
+		alignItems: "center",
+		justifyContent: "center",
+		position: "relative",
+		marginLeft: Spacing.md,
+	},
 	badge: {
 		position: "absolute",
-		top: -8,
-		right: -8,
+		top: -2,
+		right: -2,
 		backgroundColor: Colors.destructive,
 		borderRadius: 10,
-		minWidth: 18,
-		height: 18,
+		minWidth: 20,
+		height: 20,
+		borderWidth: 2,
+		borderColor: Colors.background,
 		alignItems: "center",
 		justifyContent: "center",
 		paddingHorizontal: 4,
 	},
-	badgeText: { fontSize: 10, fontWeight: FontWeight.semibold, color: Colors.textPrimary },
-	greetingSub: { fontSize: FontSize.base, color: Colors.textMuted },
-
-	profileChip: {
-		flexDirection: "row",
-		alignItems: "center",
-		gap: Spacing.xs + 2,
-		alignSelf: "flex-start",
-		paddingHorizontal: Spacing.md,
-		paddingVertical: Spacing.xs + 2,
-		borderRadius: Radius.full,
-		backgroundColor: Colors.surfaceElevated,
-		borderWidth: 1,
-		borderColor: Colors.border,
-		marginTop: Spacing.xs,
+	badgeText: {
+		fontSize: 10,
+		fontWeight: FontWeight.bold,
+		color: "#FFFFFF",
+		fontVariant: ["tabular-nums"],
 	},
-	profileDot: {
-		width: 7,
-		height: 7,
-		borderRadius: 4,
-		backgroundColor: Colors.primary,
-	},
-	profileChipName: {
-		fontSize: FontSize.xs,
-		fontWeight: FontWeight.semibold,
-		color: Colors.textMuted,
-		maxWidth: 180,
-	},
-
-	statsRow: { flexDirection: "row", gap: Spacing.sm },
-	statCard: {
-		flex: 1,
-		backgroundColor: Colors.surface,
-		borderRadius: Radius.lg,
-		borderWidth: 1,
-		borderColor: Colors.border,
-		padding: Spacing.md,
-		alignItems: "center",
-		gap: 2,
-	},
-	statValue: { fontSize: FontSize.xl, fontWeight: FontWeight.bold, color: Colors.primary },
-	statLabel: { fontSize: FontSize.xs, color: Colors.textMuted },
 
 	sectionHeader: { marginBottom: -Spacing.sm },
 	sectionTitle: { fontSize: FontSize.lg, fontWeight: FontWeight.semibold, color: Colors.textPrimary },

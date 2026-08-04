@@ -1,13 +1,15 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, View, Text } from "react-native";
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from "react-native-reanimated";
 import { Tabs } from "expo-router";
 import { Home, Calculator, RefreshCw, CalendarCheck, Settings } from "lucide-react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Colors } from "@/constants/Theme";
+import { Colors, Radius, FontSize, FontWeight } from "@/constants/Theme";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGpaProfiles } from "@/contexts/GpaDataContext";
 import { db } from "@/firebase/config";
 import { saveUmsData, getUmsData } from "@/features/ums-data/storage";
+import { useUmsData } from "@/features/ums-data/useUmsData";
 import type { NotificationProfileData } from "@/features/notifications/notificationService";
 import { STORAGE_KEYS, type UMSLocalData } from "@bhemu/shared";
 import type { UMSWebViewHandle } from "@/features/sync/UMSWebView";
@@ -60,6 +62,18 @@ function SyncButton({
 				? Colors.destructive
 				: Colors.primary;
 
+	const rotation = useSharedValue(0);
+
+	useEffect(() => {
+		rotation.value = isBusy
+			? withRepeat(withTiming(360, { duration: 1000, easing: Easing.linear }), -1)
+			: withTiming(0);
+	}, [isBusy, rotation]);
+
+	const animatedStyle = useAnimatedStyle(() => ({
+		transform: [{ rotate: `${rotation.value}deg` }],
+	}));
+
 	return (
 		<Pressable
 			accessibilityRole="button"
@@ -69,13 +83,36 @@ function SyncButton({
 			style={local.syncBtnOuter}
 		>
 			<View style={[local.syncBtn, { backgroundColor: buttonColor }]}>
-				{isBusy ? (
-					<ActivityIndicator color={Colors.textPrimary} />
-				) : (
+				<Animated.View style={animatedStyle}>
 					<RefreshCw size={22} color={Colors.textPrimary} />
-				)}
+				</Animated.View>
 			</View>
 		</Pressable>
+	);
+}
+
+function AnimatedTooltip({ message, color = Colors.primary }: { message: string; color?: string }) {
+	const translateY = useSharedValue(0);
+
+	useEffect(() => {
+		translateY.value = withRepeat(
+			withTiming(-6, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+			-1,
+			true // reverse
+		);
+	}, [translateY]);
+
+	const style = useAnimatedStyle(() => ({ transform: [{ translateY: translateY.value }] }));
+
+	return (
+		<Animated.View
+			style={[local.syncTooltip, { backgroundColor: color }, style]}
+			accessibilityRole="text"
+			accessible={true}
+		>
+			<Text style={local.syncTooltipText}>{message}</Text>
+			<View style={[local.syncTooltipTriangle, { borderTopColor: color }]} />
+		</Animated.View>
 	);
 }
 
@@ -83,6 +120,8 @@ export default function TabsLayout() {
 	const { currentUser, authLoading } = useAuth();
 	const { activeProfile, currentProfile, allProfiles } = useGpaProfiles();
 	const isSharedProfile = !!currentProfile?.isShared;
+	const { data: umsData, loading: umsLoading } = useUmsData();
+	const hasSynced = !!umsData?.lastSyncedAt;
 	const webViewRef = useRef<UMSWebViewHandle>(null);
 
 	const [syncState, setSyncState] = useState<SyncState>("idle");
@@ -97,7 +136,12 @@ export default function TabsLayout() {
 			allowPermissionPrompt: boolean
 		) => {
 			const requestId = ++notificationRequestRef.current;
-			void rescheduleNotifications(profileId, profiles, allowPermissionPrompt, () => notificationRequestRef.current === requestId);
+			void rescheduleNotifications(
+				profileId,
+				profiles,
+				allowPermissionPrompt,
+				() => notificationRequestRef.current === requestId
+			);
 		},
 		[]
 	);
@@ -160,7 +204,7 @@ export default function TabsLayout() {
 					new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
 				);
 				setSyncState("success");
-				setTimeout(() => setSyncState("idle"), 2500);
+				setTimeout(() => setSyncState("idle"), 3000);
 			} catch {
 				setSyncState("error");
 				setTimeout(() => setSyncState("idle"), 3000);
@@ -254,11 +298,22 @@ export default function TabsLayout() {
 						name="sync"
 						options={{
 							tabBarButton: () => (
-								<SyncButton
-									onPress={startSync}
-									syncState={syncState}
-									disabled={isSharedProfile || authLoading || !currentUser || activeProfile == null}
-								/>
+								<View style={local.syncBtnContainer}>
+									{syncState === "success" ? (
+										<AnimatedTooltip message="Sync Successful!" color={Colors.success} />
+									) : syncState === "error" ? (
+										<AnimatedTooltip message="Sync Failed!" color={Colors.destructive} />
+									) : !hasSynced && !umsLoading && !isSharedProfile ? (
+										<AnimatedTooltip message="Sync with UMS" color={Colors.primary} />
+									) : null}
+									<SyncButton
+										onPress={startSync}
+										syncState={syncState}
+										disabled={
+											isSharedProfile || authLoading || !currentUser || activeProfile == null
+										}
+									/>
+								</View>
 							),
 						}}
 					/>
@@ -313,6 +368,11 @@ const local = StyleSheet.create({
 		justifyContent: "center",
 		backgroundColor: Colors.background,
 	},
+	syncBtnContainer: {
+		flex: 1,
+		alignItems: "center",
+		justifyContent: "flex-start",
+	},
 	syncBtnOuter: {
 		top: -18,
 		alignItems: "center",
@@ -330,5 +390,42 @@ const local = StyleSheet.create({
 		shadowOpacity: 0.5,
 		shadowRadius: 14,
 		elevation: 10,
+	},
+	syncTooltip: {
+		position: "absolute",
+		top: -55,
+		backgroundColor: Colors.primary,
+		paddingHorizontal: 12,
+		paddingVertical: 6,
+		borderRadius: Radius.lg,
+		alignItems: "center",
+		justifyContent: "center",
+		shadowColor: "#000",
+		shadowOffset: { width: 0, height: 4 },
+		shadowOpacity: 0.3,
+		shadowRadius: 6,
+		elevation: 8,
+		zIndex: 10,
+		width: 120,
+	},
+	syncTooltipText: {
+		color: Colors.background,
+		fontSize: FontSize.xs,
+		fontWeight: FontWeight.bold,
+		textAlign: "center",
+	},
+	syncTooltipTriangle: {
+		position: "absolute",
+		bottom: -6,
+		width: 0,
+		height: 0,
+		borderLeftWidth: 6,
+		borderRightWidth: 6,
+		borderTopWidth: 6,
+		borderStyle: "solid",
+		backgroundColor: "transparent",
+		borderLeftColor: "transparent",
+		borderRightColor: "transparent",
+		borderTopColor: Colors.primary,
 	},
 });

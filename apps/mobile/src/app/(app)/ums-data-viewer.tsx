@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ChevronDown, ChevronRight, Trash2 } from "lucide-react-native";
 import ScreenHeader from "@/components/ui/ScreenHeader";
 import { useGpaProfiles, useGpaSemesters } from "@/contexts/GpaDataContext";
-import { useAttendanceData, AttendanceDataProvider } from "@/contexts/AttendanceDataContext";
+import { useAttendanceData } from "@/contexts/AttendanceDataContext";
 import { useUmsData } from "@/features/ums-data/useUmsData";
 import { clearUmsData } from "@/features/ums-data/storage";
 import { Layout } from "@/styles";
@@ -28,11 +28,15 @@ function DataSection({ title, count, data }: SectionProps) {
 				<Text style={local.count}>{count}</Text>
 			</TouchableOpacity>
 			{open && (
-				<ScrollView horizontal style={local.jsonScroll}>
-					<Text style={local.json} selectable>
-						{JSON.stringify(data, null, 2)}
-					</Text>
-				</ScrollView>
+				<View style={local.jsonContainer}>
+					<ScrollView nestedScrollEnabled={true}>
+						<ScrollView horizontal nestedScrollEnabled={true}>
+							<Text style={local.json} selectable>
+								{JSON.stringify(data, null, 2)}
+							</Text>
+						</ScrollView>
+					</ScrollView>
+				</View>
 			)}
 		</View>
 	);
@@ -82,11 +86,7 @@ function UmsDataViewerContent() {
 }
 
 export default function UmsDataViewerScreen() {
-	return (
-		<AttendanceDataProvider>
-			<UmsDataViewerContent />
-		</AttendanceDataProvider>
-	);
+	return <UmsDataViewerContent />;
 }
 
 const local = StyleSheet.create({
@@ -116,8 +116,8 @@ const local = StyleSheet.create({
 		color: Colors.primary,
 		fontWeight: FontWeight.bold,
 	},
-	jsonScroll: {
-		maxHeight: 300,
+	jsonContainer: {
+		maxHeight: 350,
 		borderTopWidth: 1,
 		borderTopColor: Colors.border,
 	},
