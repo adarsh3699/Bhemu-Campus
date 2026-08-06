@@ -13,6 +13,7 @@ allowBuilds:
   protobufjs: true
   sharp: true
   unrs-resolver: true
+  workerd: true
 
 minimumReleaseAgeExclude:
   - "@expo/cli@57.0.10"
@@ -40,6 +41,8 @@ minimumReleaseAgeExclude:
   - expo-dev-client@57.0.8
   - expo-dev-launcher@57.0.8
   - expo-dev-menu@57.0.8
+  - miniflare@5.20260801.0-alpha
+  - wrangler@4.119.0
 
 patchedDependencies:
   react-native-webview@13.16.1: patches/react-native-webview@13.16.1.patch

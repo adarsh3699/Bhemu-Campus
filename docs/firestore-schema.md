@@ -63,6 +63,7 @@ Last updated: 2026-07-22 (leaderboard: switched `name` to profile display name, 
 | id          | string     | same as doc ID                                   |
 | name        | string     |                                                  |
 | isDefault   | boolean    |                                                  |
+| groupKey    | string?    | `"{batchYear}_{programCode}"` e.g. `"2024_P132"`. Written by UMS sync. Used by chat to resolve the user's batchmate room. `null` until first UMS sync. |
 | createdAt   | Timestamp  |                                                  |
 | updatedAt   | Timestamp  |                                                  |
 | lastOpened  | Timestamp? | only written for own profiles — never for shared |

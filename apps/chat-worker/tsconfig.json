@@ -1,0 +1,40 @@
+{
+  "compilerOptions": {
+    // ---- Output target ----
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022"],
+
+    // ---- Cloudflare Workers types ----
+    // @cloudflare/workers-types v4 — "latest" always tracks the current stable runtime.
+    // Package version: 4.20260702.1 (published 2026-07-02)
+    "types": ["@cloudflare/workers-types/latest"],
+
+    // ---- Strictness ----
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "exactOptionalPropertyTypes": false,
+
+    // ---- Module interop ----
+    "esModuleInterop": false,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+
+    // ---- Paths ----
+    "baseUrl": ".",
+    "paths": {
+      "@src/*": ["src/*"]
+    }
+  },
+  "include": [
+    "src/**/*",
+    "test/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

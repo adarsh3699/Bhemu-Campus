@@ -16,3 +16,29 @@ marketing/
 # Build outputs
 dist/
 packages/shared/dist/
+build/
+out/
+.next/
+
+# Cloudflare Workers
+.wrangler/
+.dev.vars
+
+# Expo / React Native
+.expo/
+android/
+ios/
+
+# Testing & Coverage
+coverage/
+.nyc_output/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS Files
+.DS_Store
+Thumbs.db
