@@ -6,3 +6,5 @@ export * from "./report.routes";
 export * from "./attachment.routes";
 export * from "./moderation.routes";
 export * from "./websocket.routes";
+export * from "./session.routes";
+export * from "./event.routes";

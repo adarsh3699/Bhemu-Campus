@@ -7,22 +7,21 @@
 // FRD §4.8 message creation order:
 //   1. Auth + write-block
 //   2. Content validation (fast, no DB)
-//   3. Spam check (fast, uses recent cache)
-//   4. Membership + room policy (DB load)
-//   5. Reply validation (DB)
-//   6. Persist (transaction)
-//   7. Update room counters
-//   8. Broadcast
+//   3. Membership + room policy (DB load)
+//   4. Reply validation (DB)
+//   5. Persist message, attachments, room counter, and event (HTTP batch)
+//   6. Broadcast
 
 import {
 	MessageRepository,
 	type MessageWithAttachments,
+	type CreateRoomEventInput,
+	type CreateMessageIdempotencyInput,
 } from "../repositories/message.repository";
 import { RoomRepository } from "../repositories/room.repository";
 import type { Database } from "../../db/drizzle";
 import { RoomService } from "./room.service";
 import { enforceRoomPolicy } from "../policies/room.policy";
-import { checkDuplicateSpam } from "../spam/spam.detector";
 import { requireAuthor } from "../../auth/permissions";
 import { Errors } from "../../lib/errors";
 import { decodeCursor, buildPaginatedResult, type PaginatedResult } from "../../lib/pagination";
@@ -47,6 +46,8 @@ export interface CreateMessageInput {
 	attachments?: AttachmentInput[];
 	/** FRD §5.16 — client-generated key for idempotent retries */
 	idempotencyKey?: string | null;
+	/** Allocated by the Room DO before the transactional event write. */
+	roomSeq?: number | null;
 }
 
 export interface BroadcastPayload {
@@ -63,6 +64,13 @@ function assertCanWrite(user: AuthUser): void {
 	if (user.moderation.status === "suspended") {
 		throw Errors.accountSuspended(user.moderation.expiresAt);
 	}
+}
+
+/** PostgreSQL SQLSTATE 23505, including drivers that wrap the cause. */
+function isUniqueViolation(error: unknown): boolean {
+	if (!error || typeof error !== "object") return false;
+	const candidate = error as { code?: unknown; cause?: { code?: unknown } };
+	return candidate.code === "23505" || candidate.cause?.code === "23505";
 }
 
 export class MessageService {
@@ -120,12 +128,8 @@ export class MessageService {
 			throw Errors.attachmentLimitExceeded(MAX_ATTACHMENTS_PER_MESSAGE);
 		}
 
-		// Step 3 — Spam check against recent DB messages (before expensive policy load)
-		const recentRows = await this.msgRepo.listByRoom(input.roomId, 10);
-		const recentByAuthor = recentRows.filter((m) => m.authorUid === user.uid);
-		checkDuplicateSpam({ content: input.content, recentMessages: recentByAuthor });
-
-		// Step 4 — Membership + room policy
+		// Step 3 — duplicate admission already happened in the serialized Room
+		// DO. This service remains the final membership/policy authority.
 		const room = await this.roomService.requireMembership(input.roomId, user.uid);
 
 		if (msgType === "TEXT") {
@@ -146,35 +150,103 @@ export class MessageService {
 			if (parent.roomId !== input.roomId) throw Errors.replyAcrossRooms();
 		}
 
-		// Step 6 — Persist (transaction when attachments present — FRD §3.8)
+		// Step 5 — Persist message, attachments, counter, and immutable room event
+		// in one DB batch.
 		const id = crypto.randomUUID();
-		const msg = await this.msgRepo.createWithAttachments(
-			{
-				id,
+		const createdAt = new Date().toISOString();
+		const event = msgType === "ANNOUNCEMENT" ? "announcement.created" : "message.created";
+		const attachmentRows = attachments.map((a) => ({
+			messageId: id,
+			id: crypto.randomUUID(),
+			type: a.type,
+			displayOrder: a.displayOrder,
+			originalFileName: a.originalFileName,
+			mimeType: a.mimeType,
+			fileSize: a.fileSize,
+			storageKey: a.storageKey,
+			createdAt,
+		}));
+		const eventId = input.roomSeq ? crypto.randomUUID() : null;
+		const eventInput: CreateRoomEventInput | undefined =
+			input.roomSeq && eventId
+				? {
+					roomId: input.roomId,
+					roomSeq: input.roomSeq,
+					eventId,
+					eventType: event,
+					aggregateId: id,
+					payload: {
+						version: 1,
+						message: {
+							id,
+							roomId: input.roomId,
+							authorUid: user.uid,
+							idempotencyKey: input.idempotencyKey,
+							replyToMessageId: input.replyToMessageId,
+							type: msgType,
+							visibility: "VISIBLE",
+							content: input.content,
+							editedAt: null,
+							deletedAt: null,
+							createdAt,
+							updatedAt: createdAt,
+							attachments: attachmentRows,
+						},
+					},
+				}
+				: undefined;
+		const idempotencyInput: CreateMessageIdempotencyInput | undefined =
+			input.idempotencyKey
+			? {
 				roomId: input.roomId,
 				authorUid: user.uid,
-				replyToMessageId: input.replyToMessageId,
-				type: msgType,
-				content: input.content,
-			},
-			attachments.map((a) => ({
+				key: input.idempotencyKey,
 				messageId: id,
-				type: a.type,
-				displayOrder: a.displayOrder,
-				originalFileName: a.originalFileName,
-				mimeType: a.mimeType,
-				fileSize: a.fileSize,
-				storageKey: a.storageKey,
-			})),
-		);
+			}
+			: undefined;
+		let msg: MessageWithAttachments;
+		try {
+			msg = await this.msgRepo.createWithAttachmentsAndRoomCounter(
+				{
+					id,
+					roomId: input.roomId,
+					authorUid: user.uid,
+					replyToMessageId: input.replyToMessageId,
+					type: msgType,
+					content: input.content,
+					createdAt,
+					updatedAt: createdAt,
+				},
+				attachmentRows,
+				eventInput,
+				idempotencyInput,
+			);
+		} catch (error) {
+			// A concurrent retry can lose the unique idempotency insert after its
+			// message transaction is rolled back. Return the winner's committed
+			// message instead of surfacing a transient 500 or creating a duplicate.
+			if (input.idempotencyKey && isUniqueViolation(error)) {
+				const existing = await this.msgRepo.findByIdempotencyKey(
+					input.roomId,
+					user.uid,
+					input.idempotencyKey,
+				);
+				if (existing) return existing;
+			}
+			throw error;
+		}
 
-		// Step 7 — Update room counters
-		await this.roomRepo.incrementMessageCount(input.roomId, msg.createdAt);
-
-		// Step 8 — Broadcast AFTER commit (FRD §6.2 Principle 1)
+		// Step 7 — Broadcast AFTER the message + counter batch completes
 		// Announcements get their own dedicated event (FRD §6.10)
-		const event = msgType === "ANNOUNCEMENT" ? "announcement.created" : "message.created";
-		await broadcast(input.roomId, { event, data: msg });
+		// Inject idempotencyKey so the client can reliably match optimistic UI
+		await broadcast(input.roomId, {
+			event,
+			data: {
+				...msg,
+				idempotencyKey: input.idempotencyKey,
+				...(eventId && input.roomSeq ? { eventId, roomSeq: input.roomSeq } : {}),
+			},
+		});
 
 		return msg;
 	}

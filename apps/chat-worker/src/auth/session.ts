@@ -1,11 +1,13 @@
 // ============================================================
 // bCampus Chat Worker — Session Resolution
 // ============================================================
-// Combines Firebase token verification with Firestore profile
-// lookup to produce a fully resolved AuthUser for every request.
+// Resolves Firebase tokens during session bootstrap and short-lived local
+// chat sessions on the chat hot path into a fully populated AuthUser.
 
 import { verifyFirebaseToken } from "./firebase";
+import { verifyChatSession } from "./chat-session";
 import { Errors } from "../lib/errors";
+import { metric } from "../lib/metrics";
 import type { AuthUser, Env } from "../types";
 
 // ---- Firestore REST API helpers ----
@@ -57,13 +59,18 @@ async function fetchFirestoreDoc(
  * 3. Enforces account moderation state.
  */
 export async function resolveSession(token: string, env: Env): Promise<AuthUser> {
+	const startedAt = Date.now();
 	const projectId = env.FIREBASE_PROJECT_ID;
 
+	const verificationStartedAt = Date.now();
 	const payload = await verifyFirebaseToken(token, projectId);
+	const verificationDurationMs = Date.now() - verificationStartedAt;
 	const { uid, email } = payload;
 
 	// Fetch Firestore profile for role + moderation
+	const profileStartedAt = Date.now();
 	const doc = await fetchFirestoreDoc(projectId, `users/${uid}`, token);
+	const profileDurationMs = Date.now() - profileStartedAt;
 
 	const fields = doc?.fields ?? {};
 	const role = (getStr(fields["role"]) as AuthUser["role"] | null) ?? "STUDENT";
@@ -101,7 +108,7 @@ export async function resolveSession(token: string, env: Env): Promise<AuthUser>
 			? "active"
 			: moderationStatus;
 
-	return {
+	const user = {
 		uid,
 		email,
 		role,
@@ -110,6 +117,42 @@ export async function resolveSession(token: string, env: Env): Promise<AuthUser>
 			expiresAt: moderationExpiresAt,
 		},
 	};
+	metric("chat.auth.session", {
+		source: "firebase",
+		durationMs: Date.now() - startedAt,
+		verificationDurationMs,
+		profileDurationMs,
+	});
+	return user;
+}
+
+/**
+ * Resolves the canonical chat credential.
+ *
+ * Firebase tokens are accepted only by POST /api/v1/session. Normal chat
+ * REST and WebSocket requests must use the short-lived local session so
+ * authentication has one hot-path contract and never silently downgrades to
+ * a Firestore lookup.
+ */
+export async function resolveRequestSession(
+	token: string,
+	env: Env,
+): Promise<AuthUser> {
+	const startedAt = Date.now();
+	const chatUser = await verifyChatSession(token, env);
+	if (!chatUser) {
+		metric("chat.auth.session", {
+			source: "chat_session_rejected",
+			durationMs: Date.now() - startedAt,
+		});
+		throw Errors.chatSessionRequired();
+	}
+
+	metric("chat.auth.session", {
+		source: "chat_session",
+		durationMs: Date.now() - startedAt,
+	});
+	return chatUser;
 }
 
 /**
@@ -119,6 +162,6 @@ export async function resolveSession(token: string, env: Env): Promise<AuthUser>
 export function extractBearerToken(authHeader: string | null): string | null {
 	if (!authHeader) return null;
 	const parts = authHeader.split(" ");
-	if (parts.length !== 2 || parts[0].toLowerCase() !== "bearer") return null;
+	if (parts.length !== 2 || parts[0]?.toLowerCase() !== "bearer") return null;
 	return parts[1] ?? null;
 }

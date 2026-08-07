@@ -1,7 +1,7 @@
 {
 	"name": "bcampus-ums-sync",
 	"displayName": "bCampus - UMS Sync",
-	"version": "1.2.3",
+	"version": "1.2.4",
 	"description": "Sync your LPU UMS grades, marks, and attendance to bCampus with one click.",
 	"private": true,
 	"scripts": {

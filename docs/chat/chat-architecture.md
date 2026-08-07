@@ -64,15 +64,17 @@ Proposed stack:
 
 # Authentication
 
-Authentication remains unchanged.
+Firebase Authentication remains the upstream identity provider. The client
+exchanges its Firebase ID token once at `POST /api/v1/session`; the Worker
+resolves the Firestore profile and returns a short-lived signed chat session.
 
-Users authenticate using Firebase Authentication.
+All normal chat REST requests and WebSocket connections send only that chat
+session. The Worker verifies it locally and uses the embedded Firebase UID as
+the application's identity, so message traffic never falls back to a
+Firebase/Firestore lookup.
 
-Clients send Firebase ID Tokens to the backend.
-
-Workers verify Firebase tokens and use Firebase UID as the application's identity.
-
-No separate authentication system should be introduced.
+The Durable Object receives only trusted user information and never verifies
+Firebase or chat-session tokens itself.
 
 ---
 
@@ -126,9 +128,15 @@ Durable Objects will manage:
 - Presence
 - Typing indicators
 - Live room state
-- Message broadcasting
+- Message admission, room sequencing, and low-latency broadcasting
 
 Persistent chat history should always be stored in PostgreSQL.
+
+PostgreSQL stores the immutable `room_events` record in the same message
+transaction. WebSockets are the fast delivery path; reconnects and sequence
+gaps recover through the membership-protected replay endpoint. The REST
+message-create endpoint is intentionally removed, while REST history remains
+available for snapshots and expired replay recovery.
 
 ---
 

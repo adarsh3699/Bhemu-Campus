@@ -11,8 +11,9 @@
 		"clean": "rm -rf .next && rm -rf node_modules && pnpm install"
 	},
 	"dependencies": {
-		"@bhemu/shared": "workspace:*",
+		"@bhemu/chat": "workspace:*",
 		"@bhemu/firebase": "workspace:*",
+		"@bhemu/shared": "workspace:*",
 		"firebase": "^12.13.0",
 		"html2canvas": "^1.4.1",
 		"jspdf": "^4.2.1",

@@ -5,10 +5,10 @@
 // attaches it to the Hono context.
 
 import type { MiddlewareHandler } from "hono";
-import { resolveSession, extractBearerToken } from "../../auth/session";
+import { resolveRequestSession, resolveSession, extractBearerToken } from "../../auth/session";
 import { Errors } from "../../lib/errors";
 import { errorResponse } from "../../lib/response";
-import type { Env } from "../../types";
+import type { AuthUser, Env } from "../../types";
 
 declare module "hono" {
 	interface ContextVariableMap {
@@ -16,19 +16,32 @@ declare module "hono" {
 	}
 }
 
-export const authMiddleware: MiddlewareHandler<{ Bindings: Env }> = async (c, next) => {
-	const authHeader = c.req.header("Authorization") ?? null;
-	const token = extractBearerToken(authHeader);
+type SessionResolver = (token: string, env: Env) => Promise<AuthUser>;
 
-	if (!token) {
-		return errorResponse(c, Errors.missingToken());
-	}
+function createAuthMiddleware(resolve: SessionResolver): MiddlewareHandler<{ Bindings: Env }> {
+	return async (c, next) => {
+		const authHeader = c.req.header("Authorization") ?? null;
+		const token = extractBearerToken(authHeader);
 
-	try {
-		const user = await resolveSession(token, c.env);
-		c.set("user", user);
-		await next();
-	} catch (err) {
-		return errorResponse(c, err);
-	}
-};
+		if (!token) {
+			return errorResponse(c, Errors.missingToken());
+		}
+
+		try {
+			c.set("user", await resolve(token, c.env));
+			await next();
+		} catch (err) {
+			return errorResponse(c, err);
+		}
+	};
+}
+
+/** Canonical middleware for all chat REST endpoints. */
+export const authMiddleware = createAuthMiddleware(resolveRequestSession);
+
+/**
+ * Explicit Firebase middleware for the report route's Firestore REST write.
+ * This is not a chat-auth fallback; it is a narrow integration boundary until
+ * that write moves to a Worker service credential.
+ */
+export const firebaseAuthMiddleware = createAuthMiddleware(resolveSession);

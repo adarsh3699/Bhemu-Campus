@@ -12,6 +12,7 @@ import type { Env } from "../types";
 const REQUIRED_BINDINGS: Array<keyof Env> = [
 	"DATABASE_URL",
 	"FIREBASE_PROJECT_ID",
+	"CHAT_SESSION_SECRET",
 	"CHAT_ROOM",
 ];
 

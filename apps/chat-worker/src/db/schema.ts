@@ -19,6 +19,7 @@ import {
 	index,
 	primaryKey,
 	text,
+	jsonb,
 	unique,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
@@ -195,6 +196,63 @@ export const messages = pgTable(
 		})
 			.onDelete("set null")
 			.onUpdate("cascade"),
+	],
+);
+
+// ---- Message idempotency records ----
+//
+// The Room DO is a fast duplicate-admission cache, but PostgreSQL remains the
+// final authority. The unique room/user/key constraint makes concurrent REST,
+// retry, and WebSocket commands converge on one committed message even when
+// the DO has not recorded its post-write cache entry yet.
+export const messageIdempotency = pgTable(
+	"message_idempotency",
+	{
+		roomId: uuid("room_id")
+			.notNull()
+			.references(() => rooms.id, { onDelete: "cascade", onUpdate: "cascade" }),
+		authorUid: varchar("author_uid", { length: 128 }).notNull(),
+		key: varchar("key", { length: 128 }).notNull(),
+		messageId: uuid("message_id")
+			.notNull()
+			.references(() => messages.id, { onDelete: "cascade", onUpdate: "cascade" }),
+		createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
+			.defaultNow()
+			.notNull(),
+	},
+	(table) => [
+		primaryKey({ columns: [table.roomId, table.authorUid, table.key] }),
+		unique("uq_message_idempotency_message").on(table.messageId),
+		index("idx_message_idempotency_created").on(table.createdAt),
+	],
+);
+
+// ---- Durable room event stream ----
+//
+// The Room Durable Object allocates roomSeq values for its serialized room
+// command stream. PostgreSQL stores the immutable event payload alongside
+// the message transaction, so the DO remains a delivery coordinator rather
+// than a second source of truth.
+export const roomEvents = pgTable(
+	"room_events",
+	{
+		roomId: uuid("room_id")
+			.notNull()
+			.references(() => rooms.id, { onDelete: "cascade", onUpdate: "cascade" }),
+		roomSeq: bigint("room_seq", { mode: "number" }).notNull(),
+		eventId: uuid("event_id").notNull().unique(),
+		eventType: varchar("event_type", { length: 64 }).notNull(),
+		aggregateId: uuid("aggregate_id"),
+		version: integer("version").default(1).notNull(),
+		payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
+			.defaultNow()
+			.notNull(),
+	},
+	(table) => [
+		primaryKey({ columns: [table.roomId, table.roomSeq] }),
+		index("idx_room_events_created").on(table.roomId, table.createdAt),
+		index("idx_room_events_aggregate").on(table.aggregateId),
 	],
 );
 

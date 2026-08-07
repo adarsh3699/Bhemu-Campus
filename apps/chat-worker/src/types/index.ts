@@ -20,6 +20,8 @@ export interface AuthUser {
 export interface Env {
 	DATABASE_URL: string;
 	FIREBASE_PROJECT_ID: string;
+	/** HMAC secret used for short-lived chat session tokens. */
+	CHAT_SESSION_SECRET: string;
 	CHAT_ROOM: DurableObjectNamespace;
 	/** Cloudflare R2 bucket for media (optional until R2 binding is added). */
 	MEDIA_BUCKET?: R2Bucket;

@@ -12,7 +12,7 @@
 //   - connectedAt
 //   - lastHeartbeat
 
-import type { AppRole } from "../types";
+import type { AppRole, ModerationStatus } from "../types";
 
 export interface ConnectionMeta {
 	/** Unique per socket — not per user (FRD §6.6) */
@@ -23,6 +23,10 @@ export interface ConnectionMeta {
 	deviceType: string;
 	connectedAt: number;
 	lastHeartbeat: number;
+	/** Auth state copied from the verified short-lived chat session. */
+	moderationStatus?: ModerationStatus;
+	moderationExpiresAt?: string | null;
+	authExpiresAt?: number;
 }
 
 export interface PresenceEntry {
@@ -38,7 +42,13 @@ export class ConnectionManager {
 	// Lifecycle
 	// ----------------------------------------------------------------
 
-	add(ws: WebSocket, uid: string, role: AppRole, deviceType = "unknown"): ConnectionMeta {
+	add(
+		ws: WebSocket,
+		uid: string,
+		role: AppRole,
+		deviceType = "unknown",
+		auth?: Pick<ConnectionMeta, "moderationStatus" | "moderationExpiresAt" | "authExpiresAt">,
+	): ConnectionMeta {
 		const meta: ConnectionMeta = {
 			connectionId: crypto.randomUUID(),
 			uid,
@@ -46,9 +56,20 @@ export class ConnectionManager {
 			deviceType,
 			connectedAt: Date.now(),
 			lastHeartbeat: Date.now(),
+			...auth,
 		};
 		this.connections.set(ws, meta);
 		return meta;
+	}
+
+	/**
+	 * Restores a connection which survived Durable Object hibernation.
+	 *
+	 * The WebSocket Hibernation API keeps the socket alive, but the DO's
+	 * in-memory Map is recreated with the next constructor invocation.
+	 */
+	restore(ws: WebSocket, meta: ConnectionMeta): void {
+		this.connections.set(ws, { ...meta });
 	}
 
 	remove(ws: WebSocket): ConnectionMeta | null {
@@ -69,9 +90,10 @@ export class ConnectionManager {
 	// Heartbeat
 	// ----------------------------------------------------------------
 
-	refreshHeartbeat(ws: WebSocket): void {
+	refreshHeartbeat(ws: WebSocket): ConnectionMeta | null {
 		const meta = this.connections.get(ws);
 		if (meta) meta.lastHeartbeat = Date.now();
+		return meta ?? null;
 	}
 
 	staleConnections(timeoutMs: number): WebSocket[] {

@@ -34,6 +34,8 @@ export const WS_EVENTS = {
 	// Session
 	ROOM_SYNCED: "room.synced",
 	HEARTBEAT_ACK: "heartbeat.ack",
+	MESSAGE_ACK: "message.ack",
+	MESSAGE_ERROR: "message.error",
 
 	// Typing (FRD §1.4 non-goal for v1 history, but relay is ok)
 	TYPING_START: "typing.start",
@@ -46,11 +48,12 @@ export const WS_EVENTS = {
 export type WsEventName = (typeof WS_EVENTS)[keyof typeof WS_EVENTS];
 
 // ---- Incoming event names (FRD §6.9) ----
-// Clients send these; the Worker handles them via REST.
-// The DO only handles heartbeat and typing indicators directly.
+// Message creation is handled by the durable WebSocket command path. REST is
+// intentionally limited to reads and non-create mutations.
 
 export const CLIENT_EVENTS = {
 	HEARTBEAT: "heartbeat",
+	MESSAGE_SEND: "message.send",
 	TYPING_START: "typing.start",
 	TYPING_STOP: "typing.stop",
 } as const;

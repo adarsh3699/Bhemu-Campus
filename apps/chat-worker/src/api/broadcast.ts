@@ -2,15 +2,11 @@
 // bCampus Chat Worker — DO Communication Helpers
 // ============================================================
 // All communication with the ChatRoomDO is centralized here.
-// Three operations:
-//   broadcastToRoom   — send event after DB commit
-//   checkRateLimit    — check per-user message rate limit
-//   checkIdempotency  — look up existing messageId by key
-//   recordIdempotency — store new messageId against key
+// Mutation operations use this helper only after their database commit.
 
 import type { Env } from "../types";
 import type { BroadcastPayload } from "../chat/services/message.service";
-import { Errors } from "../lib/errors";
+import { metric } from "../lib/metrics";
 
 function getStub(env: Env, roomId: string) {
 	return env.CHAT_ROOM.get(env.CHAT_ROOM.idFromName(roomId));
@@ -22,79 +18,37 @@ export async function broadcastToRoom(
 	roomId: string,
 	payload: BroadcastPayload,
 ): Promise<void> {
+	const startedAt = Date.now();
 	try {
-		await getStub(env, roomId).fetch(
+		const res = await getStub(env, roomId).fetch(
 			new Request("https://internal/broadcast", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ roomId, event: payload.event, data: payload.data }),
 			}),
 		);
+		await res.text(); // ALWAYS consume response body to prevent hanging in CF Workers
+		if (!res.ok) {
+			metric("chat.ws.broadcast_failed", {
+				roomId,
+				event: payload.event,
+				statusCode: res.status,
+				durationMs: Date.now() - startedAt,
+			});
+			return;
+		}
+		metric("chat.ws.broadcast", {
+			roomId,
+			event: payload.event,
+			statusCode: res.status,
+			durationMs: Date.now() - startedAt,
+		});
 	} catch {
 		// Non-fatal — DB committed, client will recover via pagination on reconnect
-	}
-}
-
-/**
- * Checks per-user rate limit in the DO.
- * Throws AppError(RATE_LIMITED) if the bucket is exhausted.
- */
-export async function checkRateLimit(env: Env, roomId: string, uid: string): Promise<void> {
-	try {
-		const res = await getStub(env, roomId).fetch(
-			new Request("https://internal/ratelimit/check", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ uid }),
-			}),
-		);
-		if (res.status === 429) throw Errors.rateLimited();
-	} catch (err) {
-		if (err instanceof Error && err.message === "RATE_LIMITED") throw err;
-		// DO unreachable — fail open (don't block the user)
-	}
-}
-
-/**
- * Looks up an idempotency key in the DO.
- * Returns the existing messageId if already processed, else null.
- */
-export async function checkIdempotency(
-	env: Env,
-	roomId: string,
-	key: string,
-): Promise<string | null> {
-	try {
-		const res = await getStub(env, roomId).fetch(
-			new Request("https://internal/idempotency/check", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ roomId, key }),
-			}),
-		);
-		const body = await res.json<{ messageId: string | null }>();
-		return body.messageId;
-	} catch {
-		return null; // fail open
-	}
-}
-
-/** Records a new messageId against an idempotency key. */
-export async function recordIdempotency(
-	env: Env,
-	roomId: string,
-	key: string,
-	messageId: string,
-): Promise<void> {
-	try {
-		await getStub(env, roomId).fetch(
-			new Request("https://internal/idempotency/set", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ roomId, key, messageId }),
-			}),
-		);
-	} catch {
-		// Non-fatal
+		metric("chat.ws.broadcast_failed", {
+			roomId,
+			event: payload.event,
+			durationMs: Date.now() - startedAt,
+		});
 	}
 }

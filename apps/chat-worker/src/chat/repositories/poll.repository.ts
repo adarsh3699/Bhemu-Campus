@@ -4,7 +4,7 @@
 
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { Database } from "../../db/drizzle";
-import { polls, pollOptions, pollVotes, messages } from "../../db/schema";
+import { polls, pollOptions, pollVotes } from "../../db/schema";
 import type { Poll, PollOption, PollVote } from "../../db/schema";
 
 export interface PollWithOptions extends Poll {
@@ -28,7 +28,7 @@ export class PollRepository {
 	/**
 	 * Creates poll + options.
 	 * The parent message must already exist before calling this.
-	 * Inserts are sequential — poll FK from options ensures no orphans.
+	 * Inserts are sequential so the generated poll ID can be used by options.
 	 */
 	async create(input: CreatePollInput): Promise<PollWithOptions> {
 		const [poll] = await this.db
@@ -57,30 +57,10 @@ export class PollRepository {
 		};
 	}
 
-	async findByMessageId(messageId: string): Promise<PollWithOptions | null> {
-		const pollRows = await this.db
-			.select()
-			.from(polls)
-			.where(eq(polls.messageId, messageId))
-			.limit(1);
-
-		if (pollRows.length === 0) return null;
-		return this.loadWithOptions(pollRows[0]!);
-	}
-
 	async findById(id: string): Promise<PollWithOptions | null> {
 		const pollRows = await this.db.select().from(polls).where(eq(polls.id, id)).limit(1);
 		if (pollRows.length === 0) return null;
 		return this.loadWithOptions(pollRows[0]!);
-	}
-
-	async findOptionById(optionId: string): Promise<PollOption | null> {
-		const rows = await this.db
-			.select()
-			.from(pollOptions)
-			.where(eq(pollOptions.id, optionId))
-			.limit(1);
-		return rows[0] ?? null;
 	}
 
 	/** Returns all vote option IDs the user has cast for this poll. */
@@ -173,6 +153,3 @@ export class PollRepository {
 		};
 	}
 }
-
-// Re-export so callers don't need two imports
-export { messages };

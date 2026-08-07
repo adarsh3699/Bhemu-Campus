@@ -15,7 +15,15 @@
 
 import { and, eq, lt, notInArray, sql, inArray } from "drizzle-orm";
 import { createDb } from "../db/drizzle";
-import { messages, messageAttachments, roomPins, rooms, roomPolicies } from "../db/schema";
+import {
+	messages,
+	messageAttachments,
+	messageIdempotency,
+	roomEvents,
+	roomPins,
+	rooms,
+	roomPolicies,
+} from "../db/schema";
 import { logger } from "../lib/logger";
 import { CLEANUP_BATCH_SIZE } from "../constants";
 import type { Env } from "../types";
@@ -148,4 +156,45 @@ export async function runRetentionCleanup(env: Env): Promise<void> {
 		totalDeleted,
 		durationMs: Date.now() - startedAt,
 	});
+}
+
+/**
+ * Removes database idempotency keys after the same 24-hour window used by the
+ * Durable Object cache.
+ */
+export async function runMessageIdempotencyCleanup(env: Env): Promise<void> {
+	const db = createDb(env.DATABASE_URL);
+	const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+	const deleted = await db
+		.delete(messageIdempotency)
+		.where(lt(messageIdempotency.createdAt, cutoff))
+		.returning({ messageId: messageIdempotency.messageId });
+
+	if (deleted.length > 0) {
+		logger.info("cleanup.idempotency", {
+			job: "message_idempotency",
+			deleted: deleted.length,
+		});
+	}
+}
+
+/**
+ * Keeps the replay window bounded. A client whose cursor predates this window
+ * falls back to the normal message snapshot; event replay is not archival
+ * storage.
+ */
+export async function runRoomEventCleanup(env: Env): Promise<void> {
+	const db = createDb(env.DATABASE_URL);
+	const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+	const deleted = await db
+		.delete(roomEvents)
+		.where(lt(roomEvents.createdAt, cutoff))
+		.returning({ eventId: roomEvents.eventId });
+
+	if (deleted.length > 0) {
+		logger.info("cleanup.room_events", {
+			job: "room_events",
+			deleted: deleted.length,
+		});
+	}
 }

@@ -6,6 +6,7 @@ export type ErrorCode =
 	// Auth
 	| "INVALID_TOKEN"
 	| "MISSING_TOKEN"
+	| "CHAT_SESSION_REQUIRED"
 	| "ACCOUNT_SUSPENDED"
 	| "ACCOUNT_BANNED"
 	// Rooms
@@ -70,6 +71,12 @@ export class AppError extends Error {
 export const Errors = {
 	invalidToken: () => new AppError("INVALID_TOKEN", "Invalid or expired token.", 401),
 	missingToken: () => new AppError("MISSING_TOKEN", "Authorization token is required.", 401),
+	chatSessionRequired: () =>
+		new AppError(
+			"CHAT_SESSION_REQUIRED",
+			"A valid chat session is required. Please refresh your chat session.",
+			401,
+		),
 	accountSuspended: (expiresAt: string | null) =>
 		new AppError(
 			"ACCOUNT_SUSPENDED",

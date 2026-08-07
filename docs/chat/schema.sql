@@ -320,6 +320,24 @@ ON messages(reply_to_message_id);
 CREATE INDEX idx_messages_author
 ON messages(author_uid);
 
+-- Idempotency is persisted separately from the message payload so the same
+-- client command can be retried safely across REST and WebSocket transports.
+CREATE TABLE message_idempotency (
+    room_id UUID NOT NULL,
+    author_uid VARCHAR(128) NOT NULL,
+    key VARCHAR(128) NOT NULL,
+    message_id UUID NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (room_id, author_uid, key),
+    CONSTRAINT uq_message_idempotency_message UNIQUE (message_id),
+    FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE INDEX idx_message_idempotency_created
+ON message_idempotency(created_at);
+
 CREATE INDEX idx_messages_visibility
 ON messages(visibility);
 

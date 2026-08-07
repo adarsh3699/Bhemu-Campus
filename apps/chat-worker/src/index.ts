@@ -15,12 +15,18 @@ import {
 	attachmentRoutes,
 	moderationRoutes,
 	websocketRoutes,
+	sessionRoutes,
+	eventRoutes,
 } from "./api/routes";
 import { createDb } from "./db/drizzle";
 import { logger, createTimer } from "./lib/logger";
 import { generateRequestId } from "./lib/utils";
 import { validateEnv } from "./lib/env";
-import { runRetentionCleanup } from "./jobs/cleanup";
+import {
+	runMessageIdempotencyCleanup,
+	runRetentionCleanup,
+	runRoomEventCleanup,
+} from "./jobs/cleanup";
 import { runPollAutoClose } from "./jobs/polls";
 import { runSuspensionExpiry } from "./jobs/moderation";
 
@@ -34,7 +40,7 @@ const app = new Hono<{ Bindings: Env }>();
 app.use(
 	"*",
 	cors({
-		origin: ["http://localhost:3000", "https://bcampus.app"],
+		origin: ["http://localhost:3000", "https://campus.bhemu.in"],
 		allowHeaders: ["Authorization", "Content-Type", "X-Idempotency-Key"],
 		allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
 	}),
@@ -62,9 +68,8 @@ app.use("*", async (c, next) => {
 		endpoint: c.req.path,
 		statusCode: c.res.status,
 		durationMs: totalTimer(),
-		// dbDurationMs and doDurationMs are set per-operation in
-		// lib/transaction.ts and api/broadcast.ts respectively —
-		// they appear in the child log entries for each request.
+		// dbDurationMs and doDurationMs are set per-operation in the
+		// repository and broadcast helpers; they appear in child log entries.
 	});
 });
 
@@ -120,12 +125,14 @@ app.get("/ready", async (c) => {
 
 // ---- API v1 Routes ----
 app.route("/api/v1/rooms", roomRoutes);
+app.route("/api/v1/session", sessionRoutes);
 app.route("/api/v1/messages", messageRoutes);
 app.route("/api/v1/reactions", reactionRoutes);
 app.route("/api/v1/polls", pollRoutes);
 app.route("/api/v1/reports", reportRoutes);
 app.route("/api/v1/attachments", attachmentRoutes);
 app.route("/api/v1/moderation", moderationRoutes);
+app.route("/api/v1/rooms", eventRoutes);
 app.route("/ws", websocketRoutes);
 
 app.onError(globalErrorHandler);
@@ -148,6 +155,8 @@ async function scheduled(
 			ctx.waitUntil(
 				Promise.allSettled([
 					runRetentionCleanup(env),
+					runMessageIdempotencyCleanup(env),
+					runRoomEventCleanup(env),
 					runPollAutoClose(env),
 					runSuspensionExpiry(env),
 				]).then((results) => {

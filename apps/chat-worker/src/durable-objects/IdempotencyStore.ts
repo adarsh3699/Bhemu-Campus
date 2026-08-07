@@ -3,9 +3,9 @@
 // ============================================================
 // FRD §5.16
 //
-// Tracks client-supplied idempotency keys so that duplicate
-// POST /messages retries return the already-created message
-// instead of inserting a new one.
+// Tracks client-supplied idempotency keys so that duplicate WebSocket
+// message.send retries return the already-created message instead of
+// inserting a new one.
 //
 // Storage: Durable Object persistent storage (survives restarts).
 // TTL:     24 hours — after which keys are evicted.

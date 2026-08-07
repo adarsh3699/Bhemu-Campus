@@ -4,9 +4,10 @@
 // Neon serverless driver works inside Cloudflare Workers via HTTP.
 // One db instance per request is fine — no persistent pool needed.
 //
-// NOTE: neon-http supports transactions via .transaction() — each
-// statement in the callback is batched in a single HTTP call to
-// Neon's HTTP transaction API.
+// Multi-statement writes use the driver's supported db.batch() API at the
+// repository boundary. Do not add a generic transaction helper here: the
+// neon-http driver does not expose the callback transaction semantics used by
+// the old helper.
 
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";

@@ -17,8 +17,8 @@
 //
 // For Version 1 the job is wired and logs correctly but the
 // actual Firestore write is gated on GOOGLE_SERVICE_ACCOUNT_KEY
-// being present. Without it, expiry still works because
-// session.ts auto-resolves expired suspensions on each request.
+// being present. Without it, session.ts still normalizes expired
+// suspensions when a request creates a fresh chat session.
 
 import { logger } from "../lib/logger";
 import type { Env } from "../types";
@@ -34,7 +34,7 @@ export async function runSuspensionExpiry(env: ModerationEnv): Promise<void> {
 	if (!env.GOOGLE_SERVICE_ACCOUNT_KEY) {
 		logger.info("moderation.expiry.skipped", {
 			reason: "GOOGLE_SERVICE_ACCOUNT_KEY not configured — " +
-				"session.ts handles expiry per-request as fallback",
+				"fresh session resolution handles expiry normalization",
 			durationMs: Date.now() - start,
 		});
 		return;

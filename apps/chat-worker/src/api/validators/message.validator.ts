@@ -32,6 +32,12 @@ export const ListMessagesSchema = z.object({
 	limit: z.coerce.number().int().min(1).max(100).optional().default(MESSAGE_PAGE_SIZE),
 });
 
+export const ListRoomEventsSchema = z.object({
+	after: z.coerce.number().int().min(0).optional().default(0),
+	limit: z.coerce.number().int().min(1).max(100).optional().default(100),
+});
+
 export type CreateMessageDto = z.infer<typeof CreateMessageSchema>;
 export type EditMessageDto = z.infer<typeof EditMessageSchema>;
 export type ListMessagesDto = z.infer<typeof ListMessagesSchema>;
+export type ListRoomEventsDto = z.infer<typeof ListRoomEventsSchema>;

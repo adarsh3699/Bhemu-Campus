@@ -461,11 +461,19 @@ Client
 
 ↓
 
-Firebase JWT
+Firebase ID token (session bootstrap only)
 
 ↓
 
-Cloudflare Worker
+POST /api/v1/session
+
+↓
+
+Short-lived chat session
+
+↓
+
+Cloudflare Worker (normal chat request)
 
 ↓
 
@@ -511,7 +519,7 @@ User
 
 ↓
 
-POST /messages
+WebSocket `message.send`
 
 ↓
 
@@ -756,6 +764,7 @@ src/
 ├── auth/
 │
 │   ├── firebase.ts
+│   ├── chat-session.ts
 │   ├── permissions.ts
 │   └── session.ts
 │
@@ -787,7 +796,6 @@ src/
 │   ├── logger.ts
 │   ├── errors.ts
 │   ├── pagination.ts
-│   ├── transaction.ts
 │   └── utils.ts
 │
 ├── jobs/
@@ -1889,7 +1897,7 @@ Bad
 Good
 
 ```
-POST /messages
+POST /reactions
 ```
 
 ---
@@ -1924,18 +1932,18 @@ Never modify existing API behavior.
 
 # 5.3 Authentication
 
-Every endpoint requires Firebase JWT except:
+Every normal chat endpoint requires a short-lived chat-session JWT. The session
+bootstrap endpoint (`POST /api/v1/session`) specifically requires a Firebase
+ID token, and the health endpoint is unauthenticated.
 
-- Health endpoint
-
-Authentication Flow
+Normal chat authentication flow
 
 ```
 Client
 
 ↓
 
-Firebase JWT
+Chat-session JWT
 
 ↓
 
@@ -1947,7 +1955,7 @@ Worker
 
 ↓
 
-Firebase Verify
+Local session verification
 
 ↓
 
@@ -2066,11 +2074,11 @@ limit = 50
 
 ## Create Message
 
-```
-POST /api/v1/messages
-```
+Message creation is a WebSocket `message.send` command. The Worker does not
+expose a REST create endpoint; this prevents a message from being committed
+without its room event and idempotency record.
 
-Body
+Command payload
 
 ```json
 {
@@ -2338,6 +2346,8 @@ Examples
 ```
 INVALID_TOKEN
 
+CHAT_SESSION_REQUIRED
+
 ROOM_NOT_FOUND
 
 MESSAGE_NOT_FOUND
@@ -2559,7 +2569,7 @@ Client
 
 ↓
 
-Firebase JWT
+Chat-session JWT (query parameter for the upgrade)
 
 ↓
 
@@ -2894,9 +2904,9 @@ Reconnect WebSocket
 
 Request missed messages using cursor pagination
 
-The server does **not** replay cached events.
-
-Recovery always uses PostgreSQL.
+The server does not rely on cached WebSocket frames. The client replays
+committed `room_events` from PostgreSQL using its last room sequence. If the
+replay window has expired, it uses the message snapshot endpoint to converge.
 
 ---
 

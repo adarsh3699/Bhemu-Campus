@@ -72,6 +72,9 @@ importers:
 
   apps/frontend:
     dependencies:
+      '@bhemu/chat':
+        specifier: workspace:*
+        version: link:../../packages/chat
       '@bhemu/firebase':
         specifier: workspace:*
         version: link:../../packages/firebase
@@ -136,6 +139,9 @@ importers:
 
   apps/mobile:
     dependencies:
+      '@bhemu/chat':
+        specifier: workspace:*
+        version: link:../../packages/chat
       '@bhemu/firebase':
         specifier: workspace:*
         version: link:../../packages/firebase
@@ -306,6 +312,19 @@ importers:
       typescript-eslint:
         specifier: ^8.34.0
         version: 8.64.0(eslint@9.39.5(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@5.9.3)
+
+  packages/chat:
+    dependencies:
+      '@bhemu/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      tsup:
+        specifier: ^8.5.0
+        version: 8.5.1(@swc/core@1.15.43(@swc/helpers@0.5.23))(jiti@2.7.0)(postcss@8.5.19)(supports-color@10.2.2)(tsx@4.23.5)(typescript@5.9.3)(yaml@2.9.0)
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
 
   packages/firebase:
     dependencies:

@@ -33,7 +33,7 @@ async function fetchPublicKeys(): Promise<GooglePublicKeys> {
 
 	const cacheControl = res.headers.get("cache-control") ?? "";
 	const match = cacheControl.match(/max-age=(\d+)/);
-	const maxAge = match ? parseInt(match[1], 10) : 3600;
+	const maxAge = match ? parseInt(match[1] ?? "3600", 10) : 3600;
 
 	const keys = (await res.json()) as GooglePublicKeys;
 	keyCache = { keys, expiresAt: Date.now() + maxAge * 1_000 };
@@ -55,7 +55,7 @@ export async function verifyFirebaseToken(
 ): Promise<FirebaseTokenPayload> {
 	let header: { kid?: string };
 	try {
-		header = JSON.parse(atob(token.split(".")[0])) as { kid?: string };
+		header = JSON.parse(atob(token.split(".")[0] ?? "")) as { kid?: string };
 	} catch {
 		throw Errors.invalidToken();
 	}

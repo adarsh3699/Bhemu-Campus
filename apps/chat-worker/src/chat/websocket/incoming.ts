@@ -4,15 +4,13 @@
 // FRD §6.9
 //
 // Defines every event a client may send to the server.
-// All mutation events (message.send, reaction.set, etc.) are
-// handled via the REST API — not directly over WebSocket.
+// Message creation is a WebSocket command. REST remains available only for
+// reads and non-create mutations such as edit/delete.
 //
-// The Durable Object (ChatRoomDO) handles only:
-//   - heartbeat       (keeps the connection alive)
-//   - typing.start    (relayed to other room members)
-//   - typing.stop     (relayed to other room members)
+// The Durable Object handles heartbeat/typing directly and can handle the
+// message.send command with durable event persistence and idempotent ACKs.
 //
-// All other operations use HTTP so they benefit from:
+// Edit/delete and other room mutations continue to use HTTP so they benefit from:
 //   - Zod validation
 //   - Full service layer
 //   - Transactional DB writes
@@ -21,6 +19,7 @@
 export type IncomingEventType =
 	// Connection
 	| "heartbeat"
+	| "message.send"
 	// Typing indicators
 	| "typing.start"
 	| "typing.stop";

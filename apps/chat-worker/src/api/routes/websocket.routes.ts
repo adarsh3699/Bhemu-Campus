@@ -7,7 +7,7 @@
 
 import { Hono } from "hono";
 import type { Env } from "../../types";
-import { resolveSession, extractBearerToken } from "../../auth/session";
+import { resolveRequestSession, extractBearerToken } from "../../auth/session";
 import { RoomService } from "../../chat/services/room.service";
 import { createDb } from "../../db/drizzle";
 import { Errors } from "../../lib/errors";
@@ -30,7 +30,7 @@ router.get("/:roomId", async (c) => {
 
 	let user;
 	try {
-		user = await resolveSession(token, c.env);
+		user = await resolveRequestSession(token, c.env);
 	} catch (err) {
 		return errorResponse(c, err);
 	}
@@ -56,6 +56,11 @@ router.get("/:roomId", async (c) => {
 				Upgrade: "websocket",
 				"X-User-Id": user.uid,
 				"X-User-Role": user.role,
+				"X-User-Moderation-Status": user.moderation.status,
+				"X-User-Moderation-Expires-At": user.moderation.expiresAt ?? "",
+				// Chat sessions are five minutes; command sockets must refresh by
+				// reconnecting before the same expiry window.
+				"X-Chat-Auth-Expires-At": String(Date.now() + 5 * 60 * 1000),
 				"X-Room-Id": roomId,
 			},
 		}),

@@ -5,7 +5,7 @@
 
 import { Hono } from "hono";
 import type { Env } from "../../types";
-import { authMiddleware } from "../middleware/auth.middleware";
+import { firebaseAuthMiddleware } from "../middleware/auth.middleware";
 import { validateBody } from "../middleware/validate";
 import { CreateReportSchema } from "../validators/report.validator";
 import { ReportService } from "../../chat/services/report.service";
@@ -14,7 +14,7 @@ import { ok, errorResponse } from "../../lib/response";
 import { extractBearerToken } from "../../auth/session";
 
 const router = new Hono<{ Bindings: Env }>();
-router.use("*", authMiddleware);
+router.use("*", firebaseAuthMiddleware);
 
 router.post("/", async (c) => {
 	try {

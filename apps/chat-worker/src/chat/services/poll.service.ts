@@ -71,7 +71,7 @@ export class PollService {
 			content: input.content,
 		});
 
-		// Step 2 — create poll + options in one transaction (FRD §3.8)
+		// Step 2 — create poll + options through the repository
 		const poll = await this.pollRepo.create({
 			messageId: msgId,
 			multipleChoice: input.multipleChoice,
