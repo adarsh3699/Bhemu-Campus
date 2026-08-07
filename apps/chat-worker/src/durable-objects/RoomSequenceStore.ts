@@ -25,4 +25,11 @@ export class RoomSequenceStore {
 	async current(roomId: string): Promise<number> {
 		return (await this.storage.get<number>(`${SEQUENCE_PREFIX}${roomId}`)) ?? 0;
 	}
+
+	/** Advances a stale local allocator without ever moving it backwards. */
+	async advanceTo(roomId: string, highWater: number): Promise<void> {
+		const key = `${SEQUENCE_PREFIX}${roomId}`;
+		const current = (await this.storage.get<number>(key)) ?? 0;
+		if (highWater > current) await this.storage.put(key, highWater);
+	}
 }

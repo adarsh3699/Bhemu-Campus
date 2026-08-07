@@ -4,6 +4,22 @@
 
 import { normalizeMessageContent } from "./utils";
 
+let cachedKey: { secret: string; key: CryptoKey } | null = null;
+
+async function getFingerprintKey(secret: string): Promise<CryptoKey> {
+	if (cachedKey?.secret === secret) return cachedKey.key;
+
+	const key = await crypto.subtle.importKey(
+		"raw",
+		new TextEncoder().encode(secret),
+		{ name: "HMAC", hash: "SHA-256" },
+		false,
+		["sign"],
+	);
+	cachedKey = { secret, key };
+	return key;
+}
+
 /**
  * Creates a keyed fingerprint without storing message content in the DO.
  * The client never supplies this value; the Worker computes it after Zod
@@ -18,13 +34,7 @@ export async function messageFingerprint(
 	const normalized = normalizeMessageContent(content);
 	if (!normalized) return null;
 
-	const key = await crypto.subtle.importKey(
-		"raw",
-		new TextEncoder().encode(secret),
-		{ name: "HMAC", hash: "SHA-256" },
-		false,
-		["sign"],
-	);
+	const key = await getFingerprintKey(secret);
 	const signature = await crypto.subtle.sign(
 		"HMAC",
 		key,

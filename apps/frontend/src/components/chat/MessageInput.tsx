@@ -2,6 +2,7 @@
 
 import React, { memo, useCallback, useRef, useState } from "react";
 import { Send, X } from "lucide-react";
+import { MAX_CHAT_MESSAGE_LENGTH } from "@bhemu/shared";
 import type { ChatMessage } from "@bhemu/shared";
 
 interface MessageInputProps {
@@ -72,6 +73,7 @@ const MessageInput = memo(function MessageInput({
 					ref={taRef}
 					rows={1}
 					value={value}
+					maxLength={MAX_CHAT_MESSAGE_LENGTH}
 					onChange={e => { setValue(e.target.value); autoResize(); }}
 					onKeyDown={onKeyDown}
 					placeholder={disabled ? "Connecting…" : placeholder}

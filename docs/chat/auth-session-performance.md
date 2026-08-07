@@ -48,5 +48,5 @@ wrangler secret put CHAT_SESSION_SECRET
 
 Observe `chat.auth.session` with `source=firebase` only on session bootstrap,
 `source=chat_session` for normal chat traffic, and
-`source=chat_session_rejected` for invalid/legacy credentials. The expected
+`source=chat_session_rejected` for invalid or rejected credentials. The expected
 result is one Firestore profile lookup per session refresh, not per message.

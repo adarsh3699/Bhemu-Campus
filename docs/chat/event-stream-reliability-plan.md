@@ -15,6 +15,13 @@ The current implementation already provides:
 - Client reconciliation from PostgreSQL after every successful `room.synced` event.
 - Idempotent message upserts that merge REST results, WebSocket events, and optimistic messages.
 - Short-lived local chat sessions keep Firestore profile reads off the message hot path.
+- PostgreSQL is the only idempotency authority; the DO does not duplicate that mapping in storage.
+- Public-room policy snapshots are carried by the verified WebSocket lease, avoiding a room-policy read per message.
+- Committed WebSocket message events use an ordered Durable Object fan-out queue;
+  the sender ACK is not held up by receiver count, while HTTP mutations wait on
+  the same queue so edit/delete/reaction events cannot overtake a message.
+- Firebase session bootstrap coalesces concurrent profile reads per UID without
+  retaining a profile cache, so moderation changes remain fresh between sessions.
 - Structured Worker metrics for auth/message timing, broadcast completion/failure, WebSocket lifecycle, fan-out size, and heartbeat timeouts.
 
 The runtime now includes the first reliability tier: a durable `room_events`
@@ -24,9 +31,10 @@ Reactions, edits, deletes, polls, pins, and moderation still use the existing
 broadcast path until their mutations are given the same transaction + event
 contract.
 
-## Why this may eventually be needed
+## Why the event stream is the canonical path
 
-The current architecture treats WebSocket broadcast as a best-effort notification:
+The pre-event-stream design treated WebSocket broadcast as a best-effort
+notification:
 
 ```text
 write message to PostgreSQL
@@ -77,6 +85,12 @@ Migration 0005 adds `message_idempotency`; it is required by the canonical
 message command.
 
 The message write and the corresponding `room_events` insert must be in the same PostgreSQL transaction. Sequence allocation must be atomic per room. Do not write the message first and create the event later; that recreates the current dual-write failure window.
+
+If a Durable Object wakes with a stale local sequence after a deployment or
+restore, the database rejects the conflicting `(room_id, room_seq)` insert.
+The message service reads the database high-water mark only on that unique
+conflict, advances the DO allocator monotonically, and retries the same
+command once. Normal sends do not pay this recovery read or retry cost.
 
 The event payload should be a versioned DTO, not an arbitrary internal database row. This allows the event contract to evolve independently from repository fields.
 
@@ -130,11 +144,14 @@ Cloudflare Queues or a database polling publisher are both valid future implemen
 
 ## Rollout plan
 
-### Phase 0 — compatibility system
+### Operational safeguards retained
 
-- Keep the hibernation restoration and reconnect reconciliation code.
-- Keep the initial structured observability already added; it does not change message delivery semantics.
-- Add fault-injection tests for disconnects and delayed REST/WebSocket responses.
+- Hibernation restoration and reconnect reconciliation remain required runtime
+  safeguards.
+- Structured observability remains enabled; it does not change message delivery
+  semantics.
+- Fault-injection tests should cover disconnects and delayed REST/WebSocket
+  responses.
 
 ### Phase 1 — implemented canonical path
 
@@ -157,7 +174,7 @@ Cloudflare Queues or a database polling publisher are both valid future implemen
   `GET /api/v1/rooms/:roomId/events?after=<seq>&limit=<n>`.
 - The web client persists one cursor per room in local storage.
 - Gap detection and replay are implemented for message-created events.
-- Snapshot/resync handling is still the fallback for expired or unavailable
+- Snapshot/resync handling remains the recovery path for expired or unavailable
   event history.
 - An hourly guarded cleanup keeps the replay window at 30 days; events are not
   archival history.
@@ -194,11 +211,13 @@ chat.ws.fanout
 chat.ws.heartbeat_timeout
 chat.message.created
 chat.message.admission
+chat.message.failed
+chat.room.sequence_repaired
 ```
 
-These are emitted through the Worker structured logger. Successful broadcast and fan-out events are deliberately separate: one measures the Worker-to-Durable-Object request, while the other records the number of sockets present inside the room.
+These are emitted through the Worker structured logger. Successful broadcast and fan-out events are deliberately separate: one measures the Worker-to-Durable-Object request, while the other records the number of sockets present inside the room. Fan-out logs include `delivery: "background_ordered"` for WebSocket message sends; the durable event is committed before that queue is scheduled, and replay/heartbeat gap recovery remains the correctness path if a receiver is unavailable.
 
-`chat.auth.session` includes `source` (`firebase` during bootstrap or `chat_session` on the hot path), plus `verificationDurationMs` and `profileDurationMs` when applicable. `chat.message.created.durationMs` measures the WebSocket command from idempotency/admission through the transactional write and ACK. The top-level `request` log remains useful for REST reads and non-create mutations. Comparing these fields identifies whether latency is coming from Firebase/Firestore, PostgreSQL, or application work.
+`chat.auth.session` includes `source` (`firebase` during bootstrap or `chat_session` on the hot path), plus `verificationDurationMs`, `profileDurationMs`, and `profileSource` (`firestore` or `inflight`) when applicable. `chat.message.created.durationMs` measures the WebSocket command from admission through the transactional write and ACK; `admissionDurationMs` and `serviceDurationMs` split the DO admission from the Worker/database portion, while `roomPolicySource` confirms whether a public socket lease avoided the room read. `chat.message.failed` records only safe database driver metadata (`errorName`, `errorCode`, and `constraint`) when available; it never logs message content or SQL. `chat.room.sequence_repaired` counts self-healing sequence recovery. The top-level `request` log remains useful for REST reads and non-create mutations. Comparing these fields identifies whether latency is coming from Firebase/Firestore, PostgreSQL, or application work.
 
 Client reconciliation outcomes are not sent to the Worker yet. Add an authenticated, rate-limited telemetry endpoint only if server-side metrics cannot explain a production gap.
 

@@ -61,11 +61,14 @@ export function useNotificationSettings() {
 	}, []);
 
 	useEffect(() => {
-		void refreshPermission();
+		const initialRefresh = setTimeout(() => void refreshPermission(), 0);
 		const subscription = AppState.addEventListener("change", (state) => {
 			if (state === "active") void refreshPermission();
 		});
-		return () => subscription.remove();
+		return () => {
+			clearTimeout(initialRefresh);
+			subscription.remove();
+		};
 	}, [refreshPermission]);
 
 	const updateSettings = useCallback(async (patch: Partial<NotificationSettings>) => {

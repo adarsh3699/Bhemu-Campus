@@ -112,14 +112,19 @@ function HomeTabContent() {
 	const [lastSeenCount, setLastSeenCount] = useState(0);
 
 	useEffect(() => {
-		if (!activeProfile || isSharedProfile) {
-			setLastSeenCount(0);
-			return;
-		}
-		getMessagesLastSeenCount(activeProfile).then(setLastSeenCount);
+		if (!activeProfile || isSharedProfile) return;
+		let cancelled = false;
+		void getMessagesLastSeenCount(activeProfile).then((count) => {
+			if (!cancelled) setLastSeenCount(count);
+		});
+		return () => {
+			cancelled = true;
+		};
 	}, [activeProfile, isSharedProfile]);
 
-	const unreadCount = isSharedProfile ? 0 : Math.max(0, (umsData?.messages?.length ?? 0) - lastSeenCount);
+	const unreadCount = !activeProfile || isSharedProfile
+		? 0
+		: Math.max(0, (umsData?.messages?.length ?? 0) - lastSeenCount);
 
 	const quickActions = useMemo<QuickAction[]>(() => {
 		const all: QuickAction[] = [

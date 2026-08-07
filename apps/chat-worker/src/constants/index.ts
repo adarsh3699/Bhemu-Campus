@@ -2,12 +2,13 @@
 // bCampus Chat Worker — Shared Constants
 // ============================================================
 
+import { MAX_CHAT_ATTACHMENTS_PER_MESSAGE, MAX_CHAT_MESSAGE_LENGTH } from "@bhemu/shared";
+
 // Pagination
 export const MESSAGE_PAGE_SIZE = 50;
-export const MAX_PAGE_SIZE = 100;
 
 // Attachments
-export const MAX_ATTACHMENTS_PER_MESSAGE = 5;
+export const MAX_ATTACHMENTS_PER_MESSAGE = MAX_CHAT_ATTACHMENTS_PER_MESSAGE;
 export const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
 export const ALLOWED_MIME_TYPES = [
 	"image/jpeg",
@@ -21,25 +22,20 @@ export const ALLOWED_MIME_TYPES = [
 ] as const;
 
 // Messages
-export const MAX_MESSAGE_LENGTH = 4000;
+export const MAX_MESSAGE_LENGTH = MAX_CHAT_MESSAGE_LENGTH;
 export const MAX_POLL_OPTIONS = 8;
 export const MIN_POLL_OPTIONS = 2;
 
 // Spam detection
 export const SPAM_WINDOW_MS = 10_000; // 10 seconds
 export const SPAM_MAX_IDENTICAL = 3;
-export const SPAM_SCORE_RESET_HOURS = 24;
 
 // Reports
 export const REPORT_AUTO_FLAG_THRESHOLD = 10; // unique reports in 24h
 export const REPORT_WINDOW_HOURS = 24;
 
-// Pins
-export const DEFAULT_PIN_LIMIT = 5;
-
 // Cleanup
-export const CLEANUP_BATCH_SIZE = 500;
-export const CLEANUP_CRON_INTERVAL_MINUTES = 60;
+export const CLEANUP_BATCH_SIZE = 1000;
 
 // WebSocket
 export const HEARTBEAT_INTERVAL_MS = 30_000;

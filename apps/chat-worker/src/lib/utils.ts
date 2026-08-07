@@ -34,14 +34,3 @@ export function roleAtLeast(userRole: AppRole, requiredRole: AppRole): boolean {
 export function generateRequestId(): string {
 	return crypto.randomUUID();
 }
-
-/**
- * Safe JSON parse — returns null on failure.
- */
-export function safeJsonParse<T = unknown>(str: string): T | null {
-	try {
-		return JSON.parse(str) as T;
-	} catch {
-		return null;
-	}
-}

@@ -25,25 +25,21 @@ interface Props {
 
 export default function AttendanceSubjectForm({ form, editingId, saving = false, onChange, onSubmit, onCancel, focusField }: Props) {
 	const [open, setOpen] = useState(false);
+	const isFormOpen = open || !!editingId;
 	const nameRef = useRef<TextInput>(null);
 	const totalRef = useRef<TextInput>(null);
 	const attendedRef = useRef<TextInput>(null);
 	const thresholdRef = useRef<TextInput>(null);
 
-	// Auto-open when editing a subject
-	useEffect(() => {
-		if (editingId) setOpen(true);
-	}, [editingId]);
-
 	// Auto-focus after open
 	useEffect(() => {
-		if (!open) return;
+		if (!isFormOpen) return;
 		const timer = setTimeout(() => {
 			if (focusField === "total") totalRef.current?.focus();
 			else nameRef.current?.focus();
 		}, 100);
 		return () => clearTimeout(timer);
-	}, [open, focusField, editingId]);
+	}, [isFormOpen, focusField, editingId]);
 
 	const handleCancel = () => {
 		onCancel();
@@ -63,11 +59,11 @@ export default function AttendanceSubjectForm({ form, editingId, saving = false,
 		<View style={local.wrap}>
 			{/* Toggle button — always shows cancel when open */}
 			<TouchableOpacity
-				style={[local.toggleBtn, open && local.toggleBtnOpen]}
-				onPress={open ? handleCancel : () => setOpen(true)}
+				style={[local.toggleBtn, isFormOpen && local.toggleBtnOpen]}
+				onPress={isFormOpen ? handleCancel : () => setOpen(true)}
 				activeOpacity={0.8}
 			>
-				{open ? (
+				{isFormOpen ? (
 					<>
 						<ChevronDown size={16} color={Colors.textMuted} />
 						<Text style={local.toggleTextMuted}>Cancel</Text>
@@ -81,7 +77,7 @@ export default function AttendanceSubjectForm({ form, editingId, saving = false,
 			</TouchableOpacity>
 
 			{/* Expandable form */}
-			{open && (
+			{isFormOpen && (
 				<View style={local.card}>
 					{/* Subject name */}
 					<AppInput

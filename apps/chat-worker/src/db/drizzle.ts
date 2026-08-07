@@ -5,9 +5,8 @@
 // One db instance per request is fine — no persistent pool needed.
 //
 // Multi-statement writes use the driver's supported db.batch() API at the
-// repository boundary. Do not add a generic transaction helper here: the
-// neon-http driver does not expose the callback transaction semantics used by
-// the old helper.
+// repository boundary. The neon-http driver does not expose callback-style
+// transaction semantics, so transaction composition stays at the repository.
 
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";

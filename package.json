@@ -19,6 +19,6 @@
 		"test": "turbo test --filter=@bhemu/shared"
 	},
 	"devDependencies": {
-		"turbo": "^2.5.4"
+		"turbo": "^2.10.8"
 	}
 }

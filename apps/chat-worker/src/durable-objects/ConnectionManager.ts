@@ -13,6 +13,7 @@
 //   - lastHeartbeat
 
 import type { AppRole, ModerationStatus } from "../types";
+import type { Room, RoomPolicy } from "../db/schema";
 
 export interface ConnectionMeta {
 	/** Unique per socket — not per user (FRD §6.6) */
@@ -27,6 +28,10 @@ export interface ConnectionMeta {
 	moderationStatus?: ModerationStatus;
 	moderationExpiresAt?: string | null;
 	authExpiresAt?: number;
+	/** Room access was verified by the Worker before the socket upgrade. */
+	roomVisibility?: Room["visibility"];
+	/** Public-room policy snapshot carried by the verified socket lease. */
+	roomPolicy?: RoomPolicy;
 }
 
 export interface PresenceEntry {
@@ -47,7 +52,14 @@ export class ConnectionManager {
 		uid: string,
 		role: AppRole,
 		deviceType = "unknown",
-		auth?: Pick<ConnectionMeta, "moderationStatus" | "moderationExpiresAt" | "authExpiresAt">,
+		auth?: Pick<
+		ConnectionMeta,
+		| "moderationStatus"
+		| "moderationExpiresAt"
+		| "authExpiresAt"
+		| "roomVisibility"
+		| "roomPolicy"
+	>,
 	): ConnectionMeta {
 		const meta: ConnectionMeta = {
 			connectionId: crypto.randomUUID(),

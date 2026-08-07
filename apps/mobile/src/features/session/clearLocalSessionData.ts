@@ -45,6 +45,6 @@ export async function clearLocalSessionData(): Promise<void> {
 		// The known keys below are still removed if enumerating storage fails.
 	}
 
-	await AsyncStorage.multiRemove([...keysToRemove]).catch(() => {});
+	await AsyncStorage.removeMany([...keysToRemove]).catch(() => {});
 	await Promise.all([...cacheUids].map((uid) => clearGpaCache(uid)));
 }

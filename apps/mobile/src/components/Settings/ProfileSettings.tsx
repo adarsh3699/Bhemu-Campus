@@ -21,11 +21,13 @@ export default function ProfileSettings() {
 	const [showShare, setShowShare] = useState(false);
 
 	const [optOut, setOptOut] = useState(false);
-	const [leaderboardLoaded, setLeaderboardLoaded] = useState(false);
+	const [loadedLeaderboardKey, setLoadedLeaderboardKey] = useState<string | null>(null);
 	const [saving, setSaving] = useState(false);
 
 	const isOwnProfile = !currentProfile?.isShared;
 	const isEligible = !!currentProfile?.umsVerified && isOwnProfile;
+	const leaderboardKey = currentUser && currentProfile ? `${currentUser.uid}:${String(currentProfile.id)}` : null;
+	const leaderboardLoaded = leaderboardKey !== null && loadedLeaderboardKey === leaderboardKey;
 
 	const currentShares = (mySharedProfiles as (ShareItem & { profileId: string | number })[]).filter(
 		(s) => s.profileId === currentProfile?.id && s.isActive
@@ -43,13 +45,13 @@ export default function ProfileSettings() {
 	useEffect(() => {
 		if (!currentUser || !currentProfile || !isEligible) return;
 		let cancelled = false;
-		setLeaderboardLoaded(false);
+		const requestKey = `${currentUser.uid}:${String(currentProfile.id)}`;
 		LeaderboardService.getUserEntry(db, currentUser.uid, String(currentProfile.id))
 			.then((entry) => {
 				if (!cancelled) setOptOut(!!entry?.optOut);
 			})
 			.finally(() => {
-				if (!cancelled) setLeaderboardLoaded(true);
+				if (!cancelled) setLoadedLeaderboardKey(requestKey);
 			});
 		return () => {
 			cancelled = true;

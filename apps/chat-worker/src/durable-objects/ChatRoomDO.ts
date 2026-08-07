@@ -9,7 +9,7 @@
 //   - Presence (joined / left / online snapshot)
 //   - Heartbeat liveness sweep via Alarm
 //   - Rate limiting per user (FRD §5.17)
-//   - Idempotency key store (FRD §5.16)
+//   - Admission sequencing and duplicate-spam reservations
 //   - Internal /broadcast POST from Worker (after DB commit)
 //
 // NOT responsible for:
@@ -20,11 +20,10 @@
 import { DurableObject } from "cloudflare:workers";
 import { ConnectionManager, type ConnectionMeta } from "./ConnectionManager";
 import { RateLimiter } from "./RateLimiter";
-import { IdempotencyStore } from "./IdempotencyStore";
 import { SpamAdmissionStore } from "../chat/spam/spam.admission";
 import { RoomSequenceStore } from "./RoomSequenceStore";
 import { createDb } from "../db/drizzle";
-import { MessageService } from "../chat/services/message.service";
+import { MessageService, RoomSequenceConflictError } from "../chat/services/message.service";
 import { CreateMessageSchema } from "../api/validators/message.validator";
 import { serializeEvent, WS_EVENTS } from "../chat/events/events";
 import { parseIncomingEvent } from "../chat/websocket/incoming";
@@ -32,6 +31,7 @@ import { HEARTBEAT_INTERVAL_MS, HEARTBEAT_TIMEOUT_MS } from "../constants";
 import { AppError } from "../lib/errors";
 import { messageFingerprint } from "../lib/fingerprint";
 import type { AppRole, AuthUser, Env, ModerationStatus } from "../types";
+import type { Room, RoomPolicy } from "../db/schema";
 import { metric } from "../lib/metrics";
 
 // ---- Rate limit config — 5 messages / 10 s burst, 1 msg/s sustained ----
@@ -54,19 +54,69 @@ function isSocketAttachment(value: unknown): value is SocketAttachment {
 		&& typeof attachment.lastHeartbeat === "number";
 }
 
+function isAppRole(value: unknown): value is AppRole {
+	return value === "STUDENT" || value === "MODERATOR" || value === "ADMIN";
+}
+
+/** Parse only the policy fields required by message authorization. */
+function parseRoomPolicy(raw: string | null): RoomPolicy | undefined {
+	if (!raw) return undefined;
+	try {
+		const value = JSON.parse(raw) as Record<string, unknown>;
+		if (
+			typeof value.id !== "string"
+			|| typeof value.name !== "string"
+			|| !isAppRole(value.sendMessageRole)
+			|| !isAppRole(value.sendAttachmentRole)
+			|| !isAppRole(value.createPollRole)
+			|| !isAppRole(value.createAnnouncementRole)
+			|| !isAppRole(value.pinMessageRole)
+			|| typeof value.pinLimit !== "number"
+		) return undefined;
+		return value as RoomPolicy;
+	} catch {
+		return undefined;
+	}
+}
+
+/** Include only safe driver metadata in observability; never raw SQL/content. */
+function dbErrorContext(error: unknown): Record<string, string> {
+	if (!error || typeof error !== "object") return {};
+	const candidate = error as Record<string, unknown>;
+	const cause = candidate.cause && typeof candidate.cause === "object"
+		? candidate.cause as Record<string, unknown>
+		: undefined;
+	const read = (key: string): string | undefined => {
+		const value = candidate[key] ?? cause?.[key];
+		return typeof value === "string" && value.length > 0 ? value : undefined;
+	};
+	const context: Record<string, string> = {};
+	const errorName = read("name");
+	const errorCode = read("code");
+	const constraint = read("constraint");
+	if (errorName) context.errorName = errorName;
+	if (errorCode) context.errorCode = errorCode;
+	if (constraint) context.constraint = constraint;
+	return context;
+}
+
 export class ChatRoomDO extends DurableObject<Env> {
 	private readonly workerEnv: Env;
 	private readonly cm = new ConnectionManager();
 	private readonly rl = new RateLimiter(MSG_RATE_CONFIG);
-	private readonly idempotency: IdempotencyStore;
 	private readonly spamAdmission: SpamAdmissionStore;
 	private readonly sequences: RoomSequenceStore;
+	/**
+	 * Serializes fan-out so a background send cannot overtake an earlier event
+	 * from an HTTP mutation. The queue is deliberately separate from message
+	 * admission: the database/event-stream commit remains the source of truth.
+	 */
+	private fanoutQueue: Promise<void> = Promise.resolve();
 	private roomId: string | null = null;
 
 	constructor(ctx: DurableObjectState, env: Env) {
 		super(ctx, env);
 		this.workerEnv = env;
-		this.idempotency = new IdempotencyStore(ctx.storage);
 		this.spamAdmission = new SpamAdmissionStore(ctx.storage);
 		this.sequences = new RoomSequenceStore(ctx.storage);
 		this.restoreHibernatingConnections();
@@ -74,7 +124,7 @@ export class ChatRoomDO extends DurableObject<Env> {
 	}
 
 	// ------------------------------------------------------------------
-	// fetch() — WS upgrades, broadcasts, presence, idempotency
+	// fetch() — WS upgrades, broadcasts, presence, and admission state
 	// ------------------------------------------------------------------
 	override async fetch(request: Request): Promise<Response> {
 		const url = new URL(request.url);
@@ -83,12 +133,10 @@ export class ChatRoomDO extends DurableObject<Env> {
 		if (request.method === "POST" && url.pathname === "/broadcast") {
 			const body = await request.json<{ roomId: string; event: string; data: unknown }>();
 			this.roomId ??= body.roomId;
-			this.cm.broadcastAll(serializeEvent(body.event as Parameters<typeof serializeEvent>[0], body.data));
-			metric("chat.ws.fanout", {
-				roomId: body.roomId,
-				event: body.event,
-				connectionCount: this.cm.size,
-			});
+			// HTTP mutations wait for the ordered fan-out to finish. This keeps
+			// edit/delete/reaction events from overtaking a queued message event,
+			// while WebSocket message sends use the same queue without waiting.
+			await this.enqueueFanout(body.roomId, { event: body.event, data: body.data }, true);
 			return new Response(null, { status: 204 });
 		}
 
@@ -106,6 +154,12 @@ export class ChatRoomDO extends DurableObject<Env> {
 		const role = (request.headers.get("X-User-Role") ?? "STUDENT") as AppRole;
 		const roomId = request.headers.get("X-Room-Id");
 		const deviceType = request.headers.get("X-Device-Type") ?? "unknown";
+		const roomVisibilityRaw = request.headers.get("X-Room-Visibility");
+		const roomVisibility: Room["visibility"] | undefined =
+			roomVisibilityRaw === "PUBLIC" || roomVisibilityRaw === "PRIVATE" || roomVisibilityRaw === "HIDDEN"
+				? roomVisibilityRaw
+				: undefined;
+		const roomPolicy = parseRoomPolicy(request.headers.get("X-Room-Policy"));
 		const moderationStatus = request.headers.get("X-User-Moderation-Status") as ModerationStatus | null;
 		const moderationExpiresAt = request.headers.get("X-User-Moderation-Expires-At");
 		const authExpiresAtRaw = request.headers.get("X-Chat-Auth-Expires-At");
@@ -124,6 +178,8 @@ export class ChatRoomDO extends DurableObject<Env> {
 			moderationStatus: moderationStatus ?? undefined,
 			moderationExpiresAt: moderationExpiresAt || null,
 			authExpiresAt: Number.isFinite(authExpiresAt) ? authExpiresAt : undefined,
+			roomVisibility,
+			roomPolicy,
 		});
 		this.persistConnection(server, meta, roomId);
 		metric("chat.ws.connected", {
@@ -287,24 +343,6 @@ export class ChatRoomDO extends DurableObject<Env> {
 		}
 
 		const key = parsed.data.idempotencyKey ?? null;
-		if (key) {
-			const existingId = await this.idempotency.get(this.roomId, key);
-			if (existingId) {
-				const existing = await new MessageService(createDb(this.workerEnv.DATABASE_URL))
-					.getMessage(existingId);
-				this.cm.send(ws, serializeEvent(WS_EVENTS.MESSAGE_ACK, {
-					clientMessageId: key,
-					message: existing,
-				}));
-				metric("chat.message.created", {
-					roomId: this.roomId,
-					transport: "websocket",
-					result: "idempotent",
-					durationMs: Date.now() - startedAt,
-				});
-				return;
-			}
-		}
 
 		if (!this.rl.consume(`msg:${meta.uid}`)) {
 			sendError("RATE_LIMITED", "You are sending too many requests. Please slow down.", key);
@@ -329,12 +367,13 @@ export class ChatRoomDO extends DurableObject<Env> {
 			}
 		}
 
-		const roomSeq = await this.sequences.next(this.roomId);
+		let roomSeq = await this.sequences.next(this.roomId);
+		const admissionDurationMs = Date.now() - startedAt;
 		metric("chat.message.admission", {
 			roomId: this.roomId,
 			transport: "websocket",
 			result: "durable_do",
-			durationMs: Date.now() - startedAt,
+			durationMs: admissionDurationMs,
 		});
 		const user: AuthUser = {
 			uid: meta.uid,
@@ -348,46 +387,73 @@ export class ChatRoomDO extends DurableObject<Env> {
 
 		try {
 			const service = new MessageService(createDb(this.workerEnv.DATABASE_URL));
-			const message = await service.createMessage(
-				user,
-				{
-					...parsed.data,
-					roomSeq,
-				},
-				async (roomId, event) => {
-					this.roomId ??= roomId;
-					this.cm.broadcastAll(
-						serializeEvent(
-							event.event as Parameters<typeof serializeEvent>[0],
-							event.data,
-						),
-					);
-				},
-			);
-
-			if (key) {
+			let result: Awaited<ReturnType<MessageService["createMessage"]>> | null = null;
+			const serviceStartedAt = Date.now();
+			for (let attempt = 0; attempt < 2; attempt += 1) {
 				try {
-					await this.idempotency.set(this.roomId, key, message.id);
-				} catch {
-					metric("chat.ws.message_idempotency_failed", {
+					result = await service.createMessage(
+						user,
+						{
+							...parsed.data,
+							roomSeq,
+							...(meta.roomVisibility === "PUBLIC" && meta.roomPolicy
+								? {
+									verifiedPublicRoom: {
+										id: this.roomId,
+										visibility: meta.roomVisibility,
+										policy: meta.roomPolicy,
+									},
+								}
+								: {}),
+						},
+						async (roomId, event) => {
+							// The message is already durable in Neon + room_events. Queue
+							// fan-out in the background so the sender ACK is not held up by
+							// the number or health of connected receivers.
+							this.enqueueFanout(roomId, event);
+						},
+					);
+					break;
+				} catch (error) {
+					if (!(error instanceof RoomSequenceConflictError) || attempt === 1) {
+						throw error;
+					}
+					await this.sequences.advanceTo(this.roomId, error.highWater);
+					roomSeq = await this.sequences.next(this.roomId);
+					metric("chat.room.sequence_repaired", {
 						roomId: this.roomId,
-						userUid: meta.uid,
+						staleSequence: error.roomSeq,
+						highWater: error.highWater,
+						newSequence: roomSeq,
 					});
 				}
 			}
+			if (!result) throw new Error("Message creation did not complete");
+			const { message, created } = result;
 			metric("chat.message.created", {
 				roomId: this.roomId,
 				transport: "websocket",
-				result: "created",
+				result: created ? "created" : "idempotent",
 				durationMs: Date.now() - startedAt,
+				admissionDurationMs,
+				serviceDurationMs: Date.now() - serviceStartedAt,
+				roomPolicySource: meta.roomVisibility === "PUBLIC" && meta.roomPolicy
+					? "socket_lease"
+					: "database",
 				roomSeq,
 			});
 			this.cm.send(ws, serializeEvent(WS_EVENTS.MESSAGE_ACK, {
 				clientMessageId: key,
 				message,
-				roomSeq,
+				...(created ? { roomSeq } : {}),
 			}));
 		} catch (err) {
+			metric("chat.message.failed", {
+				roomId: this.roomId,
+				transport: "websocket",
+				durationMs: Date.now() - startedAt,
+				...dbErrorContext(err),
+			});
 			if (fingerprint && reservationId) {
 				await this.spamAdmission.release(this.roomId, meta.uid, fingerprint, reservationId);
 			}
@@ -397,6 +463,54 @@ export class ChatRoomDO extends DurableObject<Env> {
 				sendError("INTERNAL_ERROR", "Message could not be sent.", key);
 			}
 		}
+	}
+
+	/**
+	 * Fan out committed events in order without making WebSocket ACK latency
+	 * depend on receiver count. Every job is registered with waitUntil so DO
+	 * hibernation cannot interrupt it. HTTP callers can opt into awaiting the
+	 * same queue when their endpoint promises delivery before returning.
+	 */
+	private enqueueFanout(
+		roomId: string,
+		event: { event: string; data: unknown },
+		awaitDelivery = false,
+	): Promise<void> {
+		const job = this.fanoutQueue.then(async () => {
+			// Yield once so the WebSocket message handler can send its ACK before
+			// iterating every connected receiver. The queue still preserves order.
+			await new Promise<void>((resolve) => setTimeout(resolve, 0));
+			const startedAt = Date.now();
+			try {
+				this.roomId ??= roomId;
+				this.cm.broadcastAll(
+					serializeEvent(
+						event.event as Parameters<typeof serializeEvent>[0],
+						event.data,
+					),
+				);
+				metric("chat.ws.fanout", {
+					roomId,
+					event: event.event,
+					connectionCount: this.cm.size,
+					delivery: "background_ordered",
+					durationMs: Date.now() - startedAt,
+				});
+			} catch (error) {
+				metric("chat.ws.broadcast_failed", {
+					roomId,
+					event: event.event,
+					delivery: "background_ordered",
+					durationMs: Date.now() - startedAt,
+					errorName: error instanceof Error ? error.name : "unknown",
+				});
+			}
+		});
+
+		// A failed fan-out must not poison all subsequent events in the queue.
+		this.fanoutQueue = job.catch(() => undefined);
+		this.ctx.waitUntil(this.fanoutQueue);
+		return awaitDelivery ? this.fanoutQueue : Promise.resolve();
 	}
 
 	private handleDisconnect(ws: WebSocket): void {
@@ -450,5 +564,3 @@ export class ChatRoomDO extends DurableObject<Env> {
 		return this.cm.get(ws);
 	}
 }
-
-export type { Env };

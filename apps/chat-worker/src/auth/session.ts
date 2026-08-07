@@ -6,7 +6,7 @@
 
 import { verifyFirebaseToken } from "./firebase";
 import { verifyChatSession } from "./chat-session";
-import { Errors } from "../lib/errors";
+import { AppError, Errors } from "../lib/errors";
 import { metric } from "../lib/metrics";
 import type { AuthUser, Env } from "../types";
 
@@ -37,18 +37,48 @@ interface FirestoreDoc {
 	fields?: Record<string, FirestoreValue>;
 }
 
+/**
+ * Coalesces simultaneous bootstrap requests for the same user without
+ * retaining profile data after the read completes. This protects against
+ * duplicate tabs/StrictMode/bootstrap races while keeping moderation reads
+ * fresh on every non-overlapping Firebase session exchange.
+ */
+const profileReadsInFlight = new Map<string, Promise<FirestoreDoc | null>>();
+
 async function fetchFirestoreDoc(
 	projectId: string,
 	path: string,
 	idToken: string,
 ): Promise<FirestoreDoc | null> {
-	const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${path}`;
-	const res = await fetch(url, {
-		headers: { Authorization: `Bearer ${idToken}` },
+	try {
+		const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${path}`;
+		const res = await fetch(url, {
+			headers: { Authorization: `Bearer ${idToken}` },
+			signal: AbortSignal.timeout(3_000),
+		});
+		if (res.status === 404) return null;
+		if (!res.ok) throw Errors.internal("Unable to load the account profile.");
+		return (await res.json()) as FirestoreDoc;
+	} catch (error) {
+		// Never convert a profile-service outage into an active student session.
+		if (error instanceof AppError) throw error;
+		throw Errors.internal("Unable to load the account profile.");
+	}
+}
+
+function readProfileOnce(
+	uid: string,
+	projectId: string,
+	idToken: string,
+): { promise: Promise<FirestoreDoc | null>; source: "firestore" | "inflight" } {
+	const existing = profileReadsInFlight.get(uid);
+	if (existing) return { promise: existing, source: "inflight" };
+
+	const promise = fetchFirestoreDoc(projectId, `users/${uid}`, idToken).finally(() => {
+		if (profileReadsInFlight.get(uid) === promise) profileReadsInFlight.delete(uid);
 	});
-	if (res.status === 404) return null;
-	if (!res.ok) return null;
-	return (await res.json()) as FirestoreDoc;
+	profileReadsInFlight.set(uid, promise);
+	return { promise, source: "firestore" };
 }
 
 /**
@@ -69,7 +99,8 @@ export async function resolveSession(token: string, env: Env): Promise<AuthUser>
 
 	// Fetch Firestore profile for role + moderation
 	const profileStartedAt = Date.now();
-	const doc = await fetchFirestoreDoc(projectId, `users/${uid}`, token);
+	const profileRead = readProfileOnce(uid, projectId, token);
+	const doc = await profileRead.promise;
 	const profileDurationMs = Date.now() - profileStartedAt;
 
 	const fields = doc?.fields ?? {};
@@ -122,6 +153,7 @@ export async function resolveSession(token: string, env: Env): Promise<AuthUser>
 		durationMs: Date.now() - startedAt,
 		verificationDurationMs,
 		profileDurationMs,
+		profileSource: profileRead.source,
 	});
 	return user;
 }

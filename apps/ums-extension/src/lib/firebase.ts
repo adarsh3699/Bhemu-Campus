@@ -110,7 +110,7 @@ export async function signInWithCalcSession(): Promise<User> {
 
   const waitForLoad = (tabId: number): Promise<void> =>
     new Promise((resolve) => {
-      const listener = (id: number, info: chrome.tabs.TabChangeInfo) => {
+      const listener = (id: number, info: chrome.tabs.OnUpdatedInfo) => {
         if (id === tabId && info.status === 'complete') {
           chrome.tabs.onUpdated.removeListener(listener);
           resolve();

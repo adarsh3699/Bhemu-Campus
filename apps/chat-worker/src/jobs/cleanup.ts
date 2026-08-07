@@ -92,10 +92,9 @@ export async function runRetentionCleanup(env: Env): Promise<void> {
 				.where(
 					and(
 						eq(messages.roomId, room.roomId),
-						// Either past retention cutoff, or room over capacity
+						// When over capacity, remove the oldest messages regardless of
+						// age. Otherwise, apply the room's retention cutoff.
 						overLimit ? sql`TRUE` : lt(messages.createdAt, cutoff),
-						// But never if past cutoff AND we're under limit — keep them
-						overLimit ? lt(messages.createdAt, cutoff) : sql`TRUE`,
 						pinnedIds.length > 0
 							? notInArray(messages.id, pinnedIds)
 							: sql`TRUE`,
@@ -118,8 +117,13 @@ export async function runRetentionCleanup(env: Env): Promise<void> {
 
 			await deleteR2Objects(env, attachmentRows.map((a) => a.storageKey));
 
-			// ---- Hard-delete the message batch ----
-			await db
+			// ---- Hard-delete messages and their replay records atomically ----
+			// room_events intentionally has no FK to messages: it is an immutable
+			// stream. Once a message is removed by retention/capacity, its create
+			// event must be removed too or an offline client could replay the deleted
+			// message. The resulting sequence gap makes the replay endpoint request a
+			// snapshot, which is the safe convergence path.
+			const messageDelete = db
 				.delete(messages)
 				.where(
 					and(
@@ -127,18 +131,25 @@ export async function runRetentionCleanup(env: Env): Promise<void> {
 						inArray(messages.id, ids),
 					),
 				);
-
-			roomDeleted += ids.length;
-			totalDeleted += ids.length;
-
-			// ---- FRD §8.23: update rooms.message_count per batch ----
-			await db
+			const eventDelete = db
+				.delete(roomEvents)
+				.where(
+					and(
+						eq(roomEvents.roomId, room.roomId),
+						inArray(roomEvents.aggregateId, ids),
+					),
+				);
+			const roomCountUpdate = db
 				.update(rooms)
 				.set({
 					messageCount: sql`GREATEST(${rooms.messageCount} - ${ids.length}, 0)`,
 					updatedAt: new Date().toISOString(),
 				})
 				.where(eq(rooms.id, room.roomId));
+			await db.batch([messageDelete, eventDelete, roomCountUpdate] as const);
+
+			roomDeleted += ids.length;
+			totalDeleted += ids.length;
 
 			logger.info("cleanup.batch", {
 				job: "retention",

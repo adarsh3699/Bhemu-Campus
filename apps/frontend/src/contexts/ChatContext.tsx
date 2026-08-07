@@ -37,6 +37,7 @@ import type {
 	PresenceUser,
 	ReportReason,
 } from "@bhemu/shared";
+import { MAX_CHAT_MESSAGE_LENGTH } from "@bhemu/shared";
 import type { GPAProfile } from "@bhemu/shared";
 
 export type ActiveRoom = "university" | "batchmate";
@@ -96,6 +97,7 @@ const SESSION_REFRESH_SKEW_MS = 60_000;
 const AUTH_RECOVERY_MESSAGE = "Your chat session has expired. Please sign in again.";
 const OPTIMISTIC_PREFIX = "optimistic_";
 const ROOM_SEQUENCE_STORAGE_PREFIX = "bhemu:chat:room-seq:";
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function roomSequenceStorageKey(roomId: string): string {
 	return `${ROOM_SEQUENCE_STORAGE_PREFIX}${roomId}`;
@@ -135,6 +137,16 @@ function isRecoverableChatAuthError(error: unknown): error is ChatApiError {
 
 function sortMessages(messages: DisplayMessage[]): DisplayMessage[] {
 	return messages.sort((a, b) => {
+		const aSequence = Number(a.roomSeq);
+		const bSequence = Number(b.roomSeq);
+		const aHasSequence = Number.isSafeInteger(aSequence) && aSequence > 0;
+		const bHasSequence = Number.isSafeInteger(bSequence) && bSequence > 0;
+		// Room DO sequence is the canonical total order for live/replayed events.
+		// Timestamps can be equal for concurrent sends and UUIDs are not ordered
+		// chronologically, so they are only a snapshot-order fallback.
+		if (aHasSequence && bHasSequence && aSequence !== bSequence) {
+			return aSequence - bSequence;
+		}
 		const byCreatedAt = a.createdAt.localeCompare(b.createdAt);
 		return byCreatedAt || a.id.localeCompare(b.id);
 	});
@@ -463,15 +475,27 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 				const ack = envelope.payload as {
 					clientMessageId?: string | null;
 					message?: DisplayMessage | null;
+					roomSeq?: number;
 				};
 				if (ack.clientMessageId && ack.message) {
+					const sequence = Number(ack.roomSeq);
+					if (
+						ack.message.roomId === currentRoomIdRef.current
+						&& Number.isSafeInteger(sequence)
+						&& sequence > 0
+					) {
+						setRoomSequence(ack.message.roomId, sequence);
+					}
+					const confirmedMessage: DisplayMessage = Number.isSafeInteger(sequence) && sequence > 0
+						? { ...ack.message, roomSeq: sequence }
+						: ack.message;
 					const pending = pendingSocketSendsRef.current.get(ack.clientMessageId);
 					if (pending) {
 						clearTimeout(pending.timer);
 						pendingSocketSendsRef.current.delete(ack.clientMessageId);
-						pending.resolve(ack.message);
+						pending.resolve(confirmedMessage);
 					}
-					upsertMessage({ ...ack.message, idempotencyKey: ack.clientMessageId });
+					upsertMessage({ ...confirmedMessage, idempotencyKey: ack.clientMessageId });
 				}
 				break;
 			}
@@ -808,7 +832,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 	}, [requestWithChatAuth]);
 
 	/**
-	 * Snapshot reconciliation is the compatibility source for initial history,
+	 * Snapshot reconciliation is the source for initial history,
 	 * replay expiry, and unavailable event-stream recovery. It fetches every
 	 * page from the newest message back to one already in the local store.
 	 */
@@ -912,6 +936,19 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 		// Use ref for roomId — avoids stale closure if room changes mid-send
 		const roomId = currentRoomIdRef.current;
 		if (!currentUser || !roomId) return;
+		const trimmedContent = content.trim();
+		if (!trimmedContent) {
+			setError("Message cannot be empty.");
+			return;
+		}
+		if (trimmedContent.length > MAX_CHAT_MESSAGE_LENGTH) {
+			setError(`Message exceeds ${MAX_CHAT_MESSAGE_LENGTH} characters.`);
+			return;
+		}
+		if (replyToId && !UUID_PATTERN.test(replyToId)) {
+			setError("The selected reply is no longer available.");
+			return;
+		}
 
 		const idempotencyKey = `${OPTIMISTIC_PREFIX}${crypto.randomUUID()}`;
 		const optimisticMsg: ChatMessage & { idempotencyKey?: string } = {
@@ -922,7 +959,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 			replyToMessageId: replyToId ?? null,
 			type: "TEXT",
 			visibility: "VISIBLE",
-			content,
+			content: trimmedContent,
 			editedAt: null,
 			deletedAt: null,
 			attachments: [],
@@ -933,7 +970,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
 		try {
 			await waitForMessageSocket(roomId);
-			const confirmedMsg = await sendMessageOverSocket(roomId, content, replyToId, idempotencyKey);
+			const confirmedMsg = await sendMessageOverSocket(roomId, trimmedContent, replyToId, idempotencyKey);
 			if (!confirmedMsg) {
 				setMessages(prev => prev.filter(m => m.id !== idempotencyKey));
 				return;
@@ -960,10 +997,19 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 	}, [currentUser, sendMessageOverSocket, syncRoomEvents, upsertMessage, waitForMessageSocket]);
 
 	const editMsg = useCallback(async (messageId: string, content: string) => {
+		const trimmedContent = content.trim();
+		if (!trimmedContent) {
+			setError("Message cannot be empty.");
+			return;
+		}
+		if (trimmedContent.length > MAX_CHAT_MESSAGE_LENGTH) {
+			setError(`Message exceeds ${MAX_CHAT_MESSAGE_LENGTH} characters.`);
+			return;
+		}
 		setMessages(prev => prev.map(m =>
-			m.id === messageId ? { ...m, content, editedAt: new Date().toISOString() } : m,
+			m.id === messageId ? { ...m, content: trimmedContent, editedAt: new Date().toISOString() } : m,
 		));
-		try { await requestWithChatAuth(token => apiEditMessage(token, messageId, content)); }
+		try { await requestWithChatAuth(token => apiEditMessage(token, messageId, trimmedContent)); }
 		catch (e) { if (e instanceof ChatApiError) setError(e.message); }
 	}, [requestWithChatAuth]);
 

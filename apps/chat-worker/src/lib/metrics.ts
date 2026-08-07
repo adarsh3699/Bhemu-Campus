@@ -16,9 +16,10 @@ export type ChatMetricName =
 	| "chat.ws.fanout"
 	| "chat.ws.broadcast_failed"
 	| "chat.ws.heartbeat_timeout"
-	| "chat.ws.message_idempotency_failed"
 	| "chat.message.created"
 	| "chat.message.admission"
+	| "chat.message.failed"
+	| "chat.room.sequence_repaired"
 	| "chat.room.events_replayed"
 	| "chat.room.event_replay_failed";
 

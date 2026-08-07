@@ -2,11 +2,11 @@
 // @bhemu/chat — Constants
 // ============================================================
 
-// Keep the production endpoint as the safe default, while allowing local web
+// Keep the production endpoint as the default, while allowing local web
 // development to point at a local Worker without changing application code.
 // The local declaration keeps the neutral package type-safe without requiring
 // Node typings; Next.js can still inline the public env expression at build
-// time, while runtimes without `process` safely use the production fallback.
+// time, while runtimes without `process` safely use the default endpoint.
 declare const process: { env?: Record<string, string | undefined> } | undefined;
 const configuredChatApiBase =
 	typeof process !== "undefined" && typeof process.env?.NEXT_PUBLIC_CHAT_API_BASE === "string"

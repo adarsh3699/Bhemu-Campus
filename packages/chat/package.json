@@ -14,7 +14,7 @@
 		}
 	},
 	"scripts": {
-		"build": "tsup",
+		"build": "tsup && tsc --emitDeclarationOnly",
 		"dev": "tsup --watch",
 		"typecheck": "tsc --noEmit"
 	},
@@ -22,7 +22,7 @@
 		"@bhemu/shared": "workspace:*"
 	},
 	"devDependencies": {
-		"tsup": "^8.5.0",
-		"typescript": "^5.7.0"
+		"tsup": "^8.5.1",
+		"typescript": "^6.0.3"
 	}
 }

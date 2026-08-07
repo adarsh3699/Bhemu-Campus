@@ -3,7 +3,7 @@
 // ============================================================
 // Pure DB access — no business logic, no auth.
 
-import { and, eq, lt, or, desc, inArray, sql } from "drizzle-orm";
+import { and, eq, lt, or, desc, inArray, max, sql } from "drizzle-orm";
 import type { Database } from "../../db/drizzle";
 import {
 	messages,
@@ -226,6 +226,16 @@ export class MessageRepository {
 			)
 			.limit(1);
 		return rows[0] ? this.findByIdWithAttachments(rows[0].messageId) : null;
+	}
+
+	/** Returns the committed event high-water mark for sequence repair. */
+	async getRoomEventHighWater(roomId: string): Promise<number> {
+		const rows = await this.db
+			.select({ highWater: max(roomEvents.roomSeq) })
+			.from(roomEvents)
+			.where(eq(roomEvents.roomId, roomId));
+		const value = rows[0]?.highWater;
+		return value === null || value === undefined ? 0 : Number(value);
 	}
 
 	// ----------------------------------------------------------------

@@ -72,7 +72,7 @@ interface Props {
 
 const UMSWebView = forwardRef<UMSWebViewHandle, Props>(
 	({ loginVisible, onSyncData, onUmsLocalData, onProgress, onNeedsLogin, onLoginDone, onError, onClose }, ref) => {
-		const webViewRef = useRef<WebView>(null);
+		const webViewRef = useRef<WebView<object>>(null);
 		const syncStartedRef = useRef(false);
 		const loginShownRef = useRef(false);
 		const [loading, setLoading] = useState(true);
@@ -156,7 +156,7 @@ const UMSWebView = forwardRef<UMSWebViewHandle, Props>(
 						{loading && <View style={local.progressBar} />}
 					</SafeAreaView>
 				)}
-				<WebView
+				<WebView<object>
 					ref={webViewRef}
 					source={{ uri: DASHBOARD_URL }}
 					onNavigationStateChange={handleNavigationChange}

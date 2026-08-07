@@ -4,12 +4,13 @@
     "target": "ES2022",
     "module": "ES2022",
     "moduleResolution": "Bundler",
-    "lib": ["ES2022"],
+    // Includes Web API globals used by the Node-based test helpers (WebSocket,
+    // Crypto, and their event handler types).
+    "lib": ["ES2022", "DOM"],
 
     // ---- Cloudflare Workers types ----
-    // @cloudflare/workers-types v4 — "latest" always tracks the current stable runtime.
-    // Package version: 4.20260702.1 (published 2026-07-02)
-    "types": ["@cloudflare/workers-types/latest"],
+    // v5 exposes the current runtime types at the package root.
+    "types": ["@cloudflare/workers-types"],
 
     // ---- Strictness ----
     "strict": true,
@@ -18,15 +19,15 @@
     "exactOptionalPropertyTypes": false,
 
     // ---- Module interop ----
-    "esModuleInterop": false,
     "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
     "noEmit": true,
+    // `noEmit` permits source imports that retain their `.ts` extension.
+    "allowImportingTsExtensions": true,
 
     // ---- Paths ----
-    "baseUrl": ".",
     "paths": {
-      "@src/*": ["src/*"]
+      "@src/*": ["./src/*"]
     }
   },
   "include": [

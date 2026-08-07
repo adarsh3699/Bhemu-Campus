@@ -29,6 +29,7 @@ router.get("/:roomId", async (c) => {
 	}
 
 	let user;
+	let room;
 	try {
 		user = await resolveRequestSession(token, c.env);
 	} catch (err) {
@@ -41,7 +42,7 @@ router.get("/:roomId", async (c) => {
 	try {
 		const db = createDb(c.env.DATABASE_URL);
 		const roomService = new RoomService(db);
-		await roomService.requireMembership(roomId, user.uid);
+		room = await roomService.requireMembership(roomId, user.uid);
 	} catch (err) {
 		return errorResponse(c, err);
 	}
@@ -62,6 +63,10 @@ router.get("/:roomId", async (c) => {
 				// reconnecting before the same expiry window.
 				"X-Chat-Auth-Expires-At": String(Date.now() + 5 * 60 * 1000),
 				"X-Room-Id": roomId,
+				// The Worker has already performed membership + policy loading for
+				// this socket lease. Public-room sends can reuse this snapshot.
+				"X-Room-Visibility": room.visibility,
+				"X-Room-Policy": JSON.stringify(room.policy),
 			},
 		}),
 	);

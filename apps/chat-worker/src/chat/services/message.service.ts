@@ -7,7 +7,7 @@
 // FRD §4.8 message creation order:
 //   1. Auth + write-block
 //   2. Content validation (fast, no DB)
-//   3. Membership + room policy (DB load)
+//   3. Membership + room policy (verified public WS lease or DB)
 //   4. Reply validation (DB)
 //   5. Persist message, attachments, room counter, and event (HTTP batch)
 //   6. Broadcast
@@ -27,7 +27,7 @@ import { Errors } from "../../lib/errors";
 import { decodeCursor, buildPaginatedResult, type PaginatedResult } from "../../lib/pagination";
 import type { AuthUser } from "../../types";
 import { MAX_MESSAGE_LENGTH, MAX_ATTACHMENTS_PER_MESSAGE, MESSAGE_PAGE_SIZE } from "../../constants";
-import type { Message } from "../../db/schema";
+import type { Message, Room, RoomPolicy } from "../../db/schema";
 
 export interface AttachmentInput {
 	type: "IMAGE" | "DOCUMENT" | "GIF";
@@ -48,6 +48,23 @@ export interface CreateMessageInput {
 	idempotencyKey?: string | null;
 	/** Allocated by the Room DO before the transactional event write. */
 	roomSeq?: number | null;
+	/**
+	 * Public-room authorization already verified during WebSocket upgrade.
+	 * Private rooms intentionally do not use this shortcut.
+	 */
+	verifiedPublicRoom?: VerifiedPublicRoom;
+}
+
+export interface VerifiedPublicRoom {
+	id: string;
+	visibility: Room["visibility"];
+	policy: RoomPolicy;
+}
+
+export interface CreateMessageResult {
+	message: MessageWithAttachments;
+	/** False when the DB idempotency record already existed. */
+	created: boolean;
 }
 
 export interface BroadcastPayload {
@@ -71,6 +88,25 @@ function isUniqueViolation(error: unknown): boolean {
 	if (!error || typeof error !== "object") return false;
 	const candidate = error as { code?: unknown; cause?: { code?: unknown } };
 	return candidate.code === "23505" || candidate.cause?.code === "23505";
+}
+
+/**
+ * Signals that a Room DO allocated a sequence which is already committed in
+ * the event stream. The DO can repair its local high-water mark and retry the
+ * same message without exposing a database error to the client.
+ */
+export class RoomSequenceConflictError extends Error {
+	readonly roomId: string;
+	readonly roomSeq: number;
+	readonly highWater: number;
+
+	constructor(roomId: string, roomSeq: number, highWater: number) {
+		super(`Room event sequence ${roomSeq} is behind committed high-water ${highWater}.`);
+		this.name = "RoomSequenceConflictError";
+		this.roomId = roomId;
+		this.roomSeq = roomSeq;
+		this.highWater = highWater;
+	}
 }
 
 export class MessageService {
@@ -107,7 +143,7 @@ export class MessageService {
 		user: AuthUser,
 		input: CreateMessageInput,
 		broadcast: BroadcastFn,
-	): Promise<MessageWithAttachments> {
+	): Promise<CreateMessageResult> {
 		const msgType = input.type ?? "TEXT";
 		const attachments = input.attachments ?? [];
 
@@ -130,7 +166,10 @@ export class MessageService {
 
 		// Step 3 — duplicate admission already happened in the serialized Room
 		// DO. This service remains the final membership/policy authority.
-		const room = await this.roomService.requireMembership(input.roomId, user.uid);
+		const room = input.verifiedPublicRoom?.id === input.roomId
+			&& input.verifiedPublicRoom.visibility === "PUBLIC"
+			? input.verifiedPublicRoom
+			: await this.roomService.requireMembership(input.roomId, user.uid);
 
 		if (msgType === "TEXT") {
 			enforceRoomPolicy(room.policy, user.role, "send_message");
@@ -225,17 +264,27 @@ export class MessageService {
 			// A concurrent retry can lose the unique idempotency insert after its
 			// message transaction is rolled back. Return the winner's committed
 			// message instead of surfacing a transient 500 or creating a duplicate.
-			if (input.idempotencyKey && isUniqueViolation(error)) {
-				const existing = await this.msgRepo.findByIdempotencyKey(
-					input.roomId,
-					user.uid,
-					input.idempotencyKey,
-				);
-				if (existing) return existing;
+			if (isUniqueViolation(error)) {
+				if (input.idempotencyKey) {
+					const existing = await this.msgRepo.findByIdempotencyKey(
+						input.roomId,
+						user.uid,
+						input.idempotencyKey,
+					);
+					if (existing) return { message: existing, created: false };
+				}
+				// A deployment/restart can restore a DO with a stale local
+				// sequence. Only query the event stream on a unique conflict;
+				// the normal send path remains a single write batch.
+				if (input.roomSeq !== null && input.roomSeq !== undefined) {
+					const highWater = await this.msgRepo.getRoomEventHighWater(input.roomId);
+					if (highWater >= input.roomSeq) {
+						throw new RoomSequenceConflictError(input.roomId, input.roomSeq, highWater);
+					}
+				}
 			}
 			throw error;
 		}
-
 		// Step 7 — Broadcast AFTER the message + counter batch completes
 		// Announcements get their own dedicated event (FRD §6.10)
 		// Inject idempotencyKey so the client can reliably match optimistic UI
@@ -248,7 +297,7 @@ export class MessageService {
 			},
 		});
 
-		return msg;
+		return { message: msg, created: true };
 	}
 
 	// ----------------------------------------------------------------
@@ -309,12 +358,4 @@ export class MessageService {
 		});
 	}
 
-	// ----------------------------------------------------------------
-	// Get single message
-	// ----------------------------------------------------------------
-	async getMessage(messageId: string): Promise<MessageWithAttachments> {
-		const msg = await this.msgRepo.findByIdWithAttachments(messageId);
-		if (!msg) throw Errors.messageNotFound();
-		return msg;
-	}
 }

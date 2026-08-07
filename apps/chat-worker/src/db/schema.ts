@@ -125,7 +125,7 @@ export const rooms = pgTable(
 		index("idx_rooms_type").on(table.type),
 		index("idx_rooms_last_message").on(table.lastMessageAt),
 		index("idx_rooms_group_key").on(table.groupKey),
-		// One room per (type, groupKey) pair — replaces old uq_room_type
+		// One room per (type, groupKey) pair.
 		unique("uq_room_type_group").on(table.type, table.groupKey),
 	],
 );

@@ -5,8 +5,10 @@ import { Loader2 } from "lucide-react";
 import type { ChatMessage } from "@bhemu/shared";
 import MessageBubble, { DateSeparator, shouldShowDateSeparator } from "./MessageBubble";
 
+type MessageListMessage = ChatMessage & { idempotencyKey?: string | null };
+
 interface MessageListProps {
-	messages: ChatMessage[];
+	messages: MessageListMessage[];
 	currentUserId: string | null;
 	hasMore: boolean;
 	loadingMessages: boolean;
@@ -110,7 +112,7 @@ const MessageList = memo(function MessageList({
 			)}
 
 			{messages.map((msg, i) => (
-				<React.Fragment key={(msg as any).idempotencyKey || msg.id}>
+					<React.Fragment key={msg.idempotencyKey || msg.id}>
 					{shouldShowDateSeparator(msg, messages[i - 1]) && <DateSeparator iso={msg.createdAt} />}
 					<MessageBubble
 						message={msg}
