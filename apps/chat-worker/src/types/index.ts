@@ -9,6 +9,8 @@ export type ModerationStatus = "active" | "flagged" | "suspended" | "banned";
 export interface AuthUser {
 	uid: string;
 	email: string | null;
+	/** Canonical profile display name resolved during chat-session bootstrap. */
+	displayName: string;
 	role: AppRole;
 	moderation: {
 		status: ModerationStatus;

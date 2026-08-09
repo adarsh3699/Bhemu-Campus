@@ -58,6 +58,16 @@ function isAppRole(value: unknown): value is AppRole {
 	return value === "STUDENT" || value === "MODERATOR" || value === "ADMIN";
 }
 
+function decodeDisplayName(value: string | null): string {
+	if (!value) return "Student";
+	try {
+		const decoded = decodeURIComponent(value).replace(/\s+/g, " ").trim();
+		return decoded ? decoded.slice(0, 100) : "Student";
+	} catch {
+		return "Student";
+	}
+}
+
 /** Parse only the policy fields required by message authorization. */
 function parseRoomPolicy(raw: string | null): RoomPolicy | undefined {
 	if (!raw) return undefined;
@@ -152,6 +162,7 @@ export class ChatRoomDO extends DurableObject<Env> {
 
 		const uid = request.headers.get("X-User-Id");
 		const role = (request.headers.get("X-User-Role") ?? "STUDENT") as AppRole;
+		const displayName = decodeDisplayName(request.headers.get("X-User-Display-Name"));
 		const roomId = request.headers.get("X-Room-Id");
 		const deviceType = request.headers.get("X-Device-Type") ?? "unknown";
 		const roomVisibilityRaw = request.headers.get("X-Room-Visibility");
@@ -175,6 +186,7 @@ export class ChatRoomDO extends DurableObject<Env> {
 		this.ctx.acceptWebSocket(server);
 
 		const meta = this.cm.add(server, uid, role, deviceType, {
+			displayName,
 			moderationStatus: moderationStatus ?? undefined,
 			moderationExpiresAt: moderationExpiresAt || null,
 			authExpiresAt: Number.isFinite(authExpiresAt) ? authExpiresAt : undefined,
@@ -378,6 +390,7 @@ export class ChatRoomDO extends DurableObject<Env> {
 		const user: AuthUser = {
 			uid: meta.uid,
 			email: null,
+			displayName: meta.displayName ?? "Student",
 			role: meta.role,
 			moderation: {
 				status: meta.moderationStatus,

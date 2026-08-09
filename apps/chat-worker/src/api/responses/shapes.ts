@@ -69,6 +69,7 @@ export interface MessageResponse {
 	id: string;
 	roomId: string;
 	authorUid: string;
+	authorName: string;
 	replyToMessageId: string | null;
 	type: string;
 	visibility: string;

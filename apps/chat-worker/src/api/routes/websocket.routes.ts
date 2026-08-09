@@ -57,6 +57,8 @@ router.get("/:roomId", async (c) => {
 				Upgrade: "websocket",
 				"X-User-Id": user.uid,
 				"X-User-Role": user.role,
+				// Header values must remain ASCII-safe while preserving Unicode names.
+				"X-User-Display-Name": encodeURIComponent(user.displayName),
 				"X-User-Moderation-Status": user.moderation.status,
 				"X-User-Moderation-Expires-At": user.moderation.expiresAt ?? "",
 				// Chat sessions are five minutes; command sockets must refresh by

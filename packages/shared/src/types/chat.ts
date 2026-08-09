@@ -103,6 +103,8 @@ export interface ChatMessage {
 	id: string;
 	roomId: string;
 	authorUid: string;
+	/** Immutable display-name snapshot captured when the message was sent. */
+	authorName: string;
 	replyToMessageId: string | null;
 	type: MessageType;
 	visibility: MessageVisibility;

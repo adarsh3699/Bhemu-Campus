@@ -66,6 +66,7 @@ export class PollService {
 			id: msgId,
 			roomId: input.roomId,
 			authorUid: user.uid,
+			authorName: user.displayName,
 			replyToMessageId: null,
 			type: "POLL",
 			content: input.content,

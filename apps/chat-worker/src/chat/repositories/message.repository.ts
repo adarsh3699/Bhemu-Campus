@@ -23,6 +23,8 @@ export interface CreateMessageInput {
 	id: string;
 	roomId: string;
 	authorUid: string;
+	/** Optional only for legacy repository callers; DB default remains Student. */
+	authorName?: string;
 	replyToMessageId: string | null;
 	type: Message["type"];
 	content: string;
@@ -76,6 +78,7 @@ export class MessageRepository {
 				id: input.id,
 				roomId: input.roomId,
 				authorUid: input.authorUid,
+				authorName: input.authorName ?? "Student",
 				replyToMessageId: input.replyToMessageId,
 				type: input.type,
 				content: input.content,
@@ -106,6 +109,7 @@ export class MessageRepository {
 				id: msgInput.id,
 				roomId: msgInput.roomId,
 				authorUid: msgInput.authorUid,
+				authorName: msgInput.authorName ?? "Student",
 				replyToMessageId: msgInput.replyToMessageId,
 				type: msgInput.type,
 				content: msgInput.content,

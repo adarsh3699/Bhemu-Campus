@@ -243,8 +243,12 @@ CREATE TABLE messages (
     room_id UUID
         NOT NULL,
 
-    author_uid VARCHAR(128)
-        NOT NULL,
+	author_uid VARCHAR(128)
+		NOT NULL,
+
+	author_name VARCHAR(100)
+		NOT NULL
+		DEFAULT 'Student',
 
     reply_to_message_id UUID,
 

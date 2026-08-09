@@ -3,9 +3,16 @@
 import React, { memo, useCallback, useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
 import type { ChatMessage } from "@bhemu/shared";
-import MessageBubble, { DateSeparator, shouldShowDateSeparator } from "./MessageBubble";
+import MessageBubble, { DateSeparator, shouldShowDateSeparator, getMessageTime } from "./MessageBubble";
 
 type MessageListMessage = ChatMessage & { idempotencyKey?: string | null };
+
+const MESSAGE_GROUP_GAP_MS = 5 * 60 * 1_000;
+
+function startsAuthorGroup(message: MessageListMessage, previous?: MessageListMessage): boolean {
+	if (!previous || previous.authorUid !== message.authorUid) return true;
+	return getMessageTime(message.createdAt) - getMessageTime(previous.createdAt) > MESSAGE_GROUP_GAP_MS;
+}
 
 interface MessageListProps {
 	messages: MessageListMessage[];
@@ -16,18 +23,21 @@ interface MessageListProps {
 	onReply: (msg: ChatMessage) => void;
 	onEdit: (msg: ChatMessage) => void;
 	onDelete: (messageId: string) => void;
+	onRetry: (messageId: string) => void;
 	onReport: (messageId: string) => void;
 }
 
 const MessageList = memo(function MessageList({
 	messages, currentUserId, hasMore, loadingMessages,
-	onLoadOlder, onReply, onEdit, onDelete, onReport,
+	onLoadOlder, onReply, onEdit, onDelete, onRetry, onReport,
 }: MessageListProps) {
 	const bottomRef = useRef<HTMLDivElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const isAtBottomRef = useRef(true);
 	const prevLenRef = useRef(0);
 	const scrollRafRef = useRef<number | null>(null);
+
+	const messageMap = React.useMemo(() => new Map(messages.map((m) => [m.id, m])), [messages]);
 
 	// Scroll to bottom when messages change length
 	// Keeps messages out of deps — only scroll position logic needs length
@@ -53,20 +63,67 @@ const MessageList = memo(function MessageList({
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [messages.length]);
 
-	// rAF-throttled scroll handler
+	useEffect(() => {
+		return () => {
+			if (scrollRafRef.current) cancelAnimationFrame(scrollRafRef.current);
+		};
+	}, []);
+
+	const oldFirstMsgRef = useRef<{ id: string; offsetTop: number } | null>(null);
+
+	const handleLoadOlder = useCallback(() => {
+		if (loadingMessages || !hasMore) return;
+		
+		if (messages.length > 0) {
+			const firstId = messages[0].idempotencyKey || messages[0].id;
+			const node = document.getElementById(`msg-${firstId}`);
+			if (node) {
+				oldFirstMsgRef.current = { id: firstId, offsetTop: node.offsetTop };
+			}
+		}
+		
+		onLoadOlder();
+	}, [loadingMessages, hasMore, messages, onLoadOlder]);
+
 	const handleScroll = useCallback(() => {
 		if (scrollRafRef.current) return;
 		scrollRafRef.current = requestAnimationFrame(() => {
 			scrollRafRef.current = null;
 			const el = containerRef.current;
 			if (!el) return;
+			
 			isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
 			// Trigger load-older when near the top
 			if (el.scrollTop < 80 && hasMore && !loadingMessages) {
-				onLoadOlder();
+				handleLoadOlder();
 			}
 		});
-	}, [hasMore, loadingMessages, onLoadOlder]);
+	}, [hasMore, loadingMessages, handleLoadOlder]);
+
+	// Auto-trigger load if user is stuck at the top after a background sync finishes
+	useEffect(() => {
+		if (!loadingMessages && hasMore) {
+			const el = containerRef.current;
+			if (el && el.scrollTop < 80) {
+				handleLoadOlder();
+			}
+		}
+	}, [loadingMessages, hasMore, handleLoadOlder]);
+
+	// Maintain scroll position exactly when older messages are prepended
+	React.useLayoutEffect(() => {
+		if (!loadingMessages && oldFirstMsgRef.current) {
+			const node = document.getElementById(`msg-${oldFirstMsgRef.current.id}`);
+			const el = containerRef.current;
+			if (node && el) {
+				const heightDiff = node.offsetTop - oldFirstMsgRef.current.offsetTop;
+				if (heightDiff > 0) {
+					el.scrollTop += heightDiff;
+				}
+			}
+			oldFirstMsgRef.current = null;
+		}
+	}, [loadingMessages, messages.length]);
 
 	if (!loadingMessages && messages.length === 0) {
 		return (
@@ -83,48 +140,56 @@ const MessageList = memo(function MessageList({
 		<div
 			ref={containerRef}
 			onScroll={handleScroll}
-			className="flex-1 overflow-y-auto px-4 py-2"
+			className="chat-conversation-canvas flex-1 overflow-y-auto px-3 py-4 sm:px-6 sm:py-6 relative"
 		>
-			{/* Loading older — top spinner */}
-			{loadingMessages && messages.length > 0 && (
-				<div className="flex justify-center py-2">
-					<Loader2 className="w-3.5 h-3.5 text-muted-foreground animate-spin" />
-				</div>
-			)}
+			<div className="mx-auto w-full max-w-4xl">
+				{/* Loading older — top spinner */}
+				{loadingMessages && messages.length > 0 && (
+					<div className="flex justify-center py-2" style={{ overflowAnchor: "none" }}>
+						<Loader2 className="w-4 h-4 text-muted-foreground animate-spin" aria-label="Loading older messages" />
+					</div>
+				)}
 
-			{/* Load older button */}
-			{hasMore && !loadingMessages && (
-				<div className="flex justify-center py-2">
-					<button
-						onClick={onLoadOlder}
-						className="text-xs text-muted-foreground hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-white/5"
-					>
-						Load older messages
-					</button>
-				</div>
-			)}
+				{/* Load older button */}
+				{hasMore && !loadingMessages && (
+					<div className="flex justify-center py-2">
+						<button
+							onClick={handleLoadOlder}
+							className="min-h-11 rounded-full border border-white/10 bg-black/20 px-4 text-xs font-medium text-muted-foreground transition-colors hover:border-white/20 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+						>
+							Load older messages
+						</button>
+					</div>
+				)}
 
-			{/* Initial loading spinner */}
-			{loadingMessages && messages.length === 0 && (
-				<div className="flex-1 flex items-center justify-center min-h-[200px]">
-					<Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
-				</div>
-			)}
+				{/* Initial loading spinner */}
+				{loadingMessages && messages.length === 0 && (
+					<div className="flex min-h-[200px] flex-1 items-center justify-center">
+						<Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-label="Loading messages" />
+					</div>
+				)}
 
-			{messages.map((msg, i) => (
-					<React.Fragment key={msg.idempotencyKey || msg.id}>
-					{shouldShowDateSeparator(msg, messages[i - 1]) && <DateSeparator iso={msg.createdAt} />}
-					<MessageBubble
-						message={msg}
-						currentUserId={currentUserId}
-						onReply={onReply}
-						onEdit={onEdit}
-						onDelete={onDelete}
-						onReport={onReport}
-					/>
-				</React.Fragment>
-			))}
-			<div ref={bottomRef} />
+				{messages.map((msg, i) => {
+					const msgId = msg.idempotencyKey || msg.id;
+					return (
+						<div key={msgId} id={`msg-${msgId}`}>
+							{shouldShowDateSeparator(msg, messages[i - 1]) && <DateSeparator iso={msg.createdAt} />}
+							<MessageBubble
+								message={msg}
+								repliedMessage={msg.replyToMessageId ? messageMap.get(msg.replyToMessageId) : undefined}
+								currentUserId={currentUserId}
+								showIdentity={startsAuthorGroup(msg, messages[i - 1])}
+								onReply={onReply}
+								onEdit={onEdit}
+								onDelete={onDelete}
+								onRetry={onRetry}
+								onReport={onReport}
+							/>
+						</div>
+					);
+				})}
+				<div ref={bottomRef} />
+			</div>
 		</div>
 	);
 });

@@ -53,7 +53,7 @@ const MessageInput = memo(function MessageInput({
 	}, [submit]);
 
 	return (
-		<div className="border-t border-white/5 bg-[#0a0f10]/80 backdrop-blur-xl px-4 py-3 sticky bottom-0 z-20">
+		<div className="sticky bottom-0 z-20 border-t border-white/10 bg-[#0b0d0f]/95 px-3 py-3 backdrop-blur-xl sm:px-5">
 			{replyTo && (
 				<div className="flex items-center gap-3 mb-3 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 shadow-sm backdrop-blur-md animate-in slide-in-from-bottom-2 duration-200">
 					<div className="flex-1 min-w-0 border-l-2 border-primary pl-3">
@@ -78,12 +78,12 @@ const MessageInput = memo(function MessageInput({
 					onKeyDown={onKeyDown}
 					placeholder={disabled ? "Connecting…" : placeholder}
 					disabled={disabled}
-					className="flex-1 resize-none bg-[#121718] border border-white/10 rounded-2xl px-4 py-3 text-[14px] leading-relaxed text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50 focus:bg-[#161b1c] transition-all max-h-[140px] disabled:opacity-50 shadow-inner"
+					className="min-h-11 max-h-[140px] flex-1 resize-none rounded-2xl border border-white/10 bg-[#15171a] px-4 py-3 text-[16px] leading-relaxed text-foreground placeholder:text-muted-foreground shadow-inner transition-[border-color,background-color,box-shadow] focus:border-primary/60 focus:bg-[#191c1f] focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50 sm:text-[14px]"
 				/>
 				<button
 					onClick={() => void submit()}
 					disabled={!value.trim() || disabled}
-					className="p-3 rounded-xl bg-primary text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-primary-dark hover:shadow-lg hover:shadow-primary/25 active:scale-95 transition-all shrink-0 group"
+					className="group flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary text-white transition-all hover:bg-primary-dark hover:shadow-lg hover:shadow-primary/25 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b0d0f]"
 					aria-label="Send"
 				>
 					<Send className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />

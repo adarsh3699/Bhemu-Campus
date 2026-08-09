@@ -38,6 +38,18 @@ interface FirestoreDoc {
 }
 
 /**
+ * Keep chat identity compact, display-safe, and independent of a later
+ * profile read. The resulting value is signed into the short-lived chat
+ * session and persisted as a message-author snapshot.
+ */
+function resolveDisplayName(value: string | null): string {
+	const normalized = value?.replace(/\s+/g, " ").trim();
+	if (normalized) return normalized.slice(0, 100);
+
+	return "Student";
+}
+
+/**
  * Coalesces simultaneous bootstrap requests for the same user without
  * retaining profile data after the read completes. This protects against
  * duplicate tabs/StrictMode/bootstrap races while keeping moderation reads
@@ -104,6 +116,7 @@ export async function resolveSession(token: string, env: Env): Promise<AuthUser>
 	const profileDurationMs = Date.now() - profileStartedAt;
 
 	const fields = doc?.fields ?? {};
+	const displayName = resolveDisplayName(getStr(fields["displayName"]) ?? payload.displayName);
 	const role = (getStr(fields["role"]) as AuthUser["role"] | null) ?? "STUDENT";
 
 	const modFields =
@@ -142,6 +155,7 @@ export async function resolveSession(token: string, env: Env): Promise<AuthUser>
 	const user = {
 		uid,
 		email,
+		displayName,
 		role,
 		moderation: {
 			status: effectiveStatus,

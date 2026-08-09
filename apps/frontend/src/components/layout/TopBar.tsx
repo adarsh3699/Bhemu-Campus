@@ -8,12 +8,14 @@ import { useMessage } from "@/contexts/MessageContext";
 import { useGpaData } from "@/contexts/GpaDataContext";
 import { Menu, LogOut, Info, ChevronRight, Settings, Layers, Check, Users, Plus } from "lucide-react";
 
-// Map route segments to display names
 const PAGE_LABELS: Record<string, string> = {
 	dashboard: "Dashboard",
 	"gpa-calculator": "GPA Calculator",
 	"reappear-calculator": "Reappear Calculator",
 	"gpa-goal-planner": "Goal Planner",
+	"attendance-calculator": "Attendance",
+	chat: "Chat",
+	leaderboard: "Leaderboard",
 	settings: "Settings",
 	about: "About",
 };

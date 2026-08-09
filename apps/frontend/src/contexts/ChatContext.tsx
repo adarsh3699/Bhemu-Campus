@@ -41,10 +41,11 @@ import { MAX_CHAT_MESSAGE_LENGTH } from "@bhemu/shared";
 import type { GPAProfile } from "@bhemu/shared";
 
 export type ActiveRoom = "university" | "batchmate";
-type DisplayMessage = ChatMessage & {
+export type DisplayMessage = ChatMessage & {
 	idempotencyKey?: string;
 	eventId?: string;
 	roomSeq?: number;
+	failed?: boolean;
 };
 
 interface ChatContextValue {
@@ -61,12 +62,14 @@ interface ChatContextValue {
 	sendText: (content: string, replyToId?: string) => Promise<void>;
 	editMsg: (messageId: string, content: string) => Promise<void>;
 	deleteMsg: (messageId: string) => Promise<void>;
+	retryMessage: (messageId: string) => Promise<void>;
 	react: (messageId: string, emoji: string) => Promise<void>;
 	unreact: (messageId: string) => Promise<void>;
 	report: (messageId: string, reason: ReportReason, description?: string) => Promise<void>;
 	onlineUsers: PresenceUser[];
 	connected: boolean;
 	error: string | null;
+	dismissError: () => void;
 	hasBatchmateRoom: boolean;
 }
 
@@ -123,6 +126,44 @@ function writeRoomSequence(roomId: string, sequence: number): void {
 	}
 }
 
+const ROOM_CACHE_PREFIX = "bhemu:chat:room:";
+const MESSAGES_CACHE_PREFIX = "bhemu:chat:messages:";
+
+function readCachedRoom(key: string): ChatRoom | null {
+	if (typeof window === "undefined") return null;
+	try {
+		const data = window.localStorage.getItem(`${ROOM_CACHE_PREFIX}${key}`);
+		return data ? JSON.parse(data) : null;
+	} catch {
+		return null;
+	}
+}
+
+function writeCachedRoom(key: string, room: ChatRoom): void {
+	if (typeof window === "undefined") return;
+	try {
+		window.localStorage.setItem(`${ROOM_CACHE_PREFIX}${key}`, JSON.stringify(room));
+	} catch {}
+}
+
+function readCachedMessages(roomId: string): DisplayMessage[] {
+	if (typeof window === "undefined") return [];
+	try {
+		const data = window.localStorage.getItem(`${MESSAGES_CACHE_PREFIX}${roomId}`);
+		return data ? JSON.parse(data) : [];
+	} catch {
+		return [];
+	}
+}
+
+function writeCachedMessages(roomId: string, messages: DisplayMessage[]): void {
+	if (typeof window === "undefined") return;
+	try {
+		const toCache = messages.slice(-50);
+		window.localStorage.setItem(`${MESSAGES_CACHE_PREFIX}${roomId}`, JSON.stringify(toCache));
+	} catch {}
+}
+
 interface PendingSocketSend {
 	resolve: (message: ChatMessage) => void;
 	reject: (error: ChatApiError) => void;
@@ -150,6 +191,11 @@ function sortMessages(messages: DisplayMessage[]): DisplayMessage[] {
 		const byCreatedAt = a.createdAt.localeCompare(b.createdAt);
 		return byCreatedAt || a.id.localeCompare(b.id);
 	});
+}
+
+function currentProfileName(displayName: string | null | undefined): string {
+	const normalized = displayName?.replace(/\s+/g, " ").trim();
+	return normalized || "Student";
 }
 
 /**
@@ -233,6 +279,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	useEffect(() => { stateRef.current = { setMessages, setOnlineUsers, setConnected, setError }; });
 	useEffect(() => { messagesRef.current = messages; }, [messages]);
+
+	const dismissError = useCallback(() => setError(null), []);
 
 	const groupKey = useMemo(
 		() => (currentProfile as (GPAProfile & { groupKey?: string | null }) | undefined)?.groupKey ?? null,
@@ -787,6 +835,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 		};
 
 		try {
+			const cachedUni = readCachedRoom("university");
+			if (cachedUni && !universityRoom) setUniversityRoom(cachedUni);
+
 			const university = await loadUniversity();
 			if (university) setUniversityRoom(university);
 		}
@@ -795,6 +846,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 		// Batchmate room — only fetch if groupKey changed
 		if (gk && gk !== resolvedGroupKeyRef.current) {
 			try {
+				const cachedBatch = readCachedRoom(`batchmate:${gk}`);
+				if (cachedBatch && !batchmateRoom) setBatchmateRoom(cachedBatch);
+
 				const batchmate = await loadBatchmate(gk);
 				if (batchmate) {
 					setBatchmateRoom(batchmate);
@@ -805,7 +859,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 			setBatchmateRoom(null);
 			resolvedGroupKeyRef.current = null;
 		}
-	}, [requestWithChatAuth]);
+	}, [requestWithChatAuth, universityRoom, batchmateRoom]);
 
 	// ---- Message loading ----
 	const loadMessages = useCallback(async (roomId: string, reset = false) => {
@@ -882,6 +936,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 	useEffect(() => {
 		if (!currentUid) return;
 		// This effect starts the external room-loading lifecycle.
+		// eslint-disable-next-line react-hooks/set-state-in-effect
 		void loadRooms(currentUid, groupKey);
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [currentUid, groupKey]);
@@ -899,7 +954,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 		currentRoomIdRef.current = currentRoomId;
 		cursorRef.current = null;
 		loadingOlderRef.current = false;
-		setMessages([]);
+		
+		const cachedMessages = readCachedMessages(currentRoomId);
+		setMessages(cachedMessages);
+		
 		void loadMessages(currentRoomId, true);
 		void connectWs(currentRoomId);
 		return () => {
@@ -918,6 +976,25 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 		}
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [hasBatchmateRoom]);
+
+	// Cache syncing effects
+	useEffect(() => {
+		if (universityRoom) writeCachedRoom("university", universityRoom);
+	}, [universityRoom]);
+
+	useEffect(() => {
+		if (batchmateRoom && groupKey) writeCachedRoom(`batchmate:${groupKey}`, batchmateRoom);
+	}, [batchmateRoom, groupKey]);
+
+	useEffect(() => {
+		if (currentRoomId && messages.length > 0) {
+			// Small debounce to avoid writing on every single optimistic key stroke
+			const timer = setTimeout(() => {
+				writeCachedMessages(currentRoomId, messages);
+			}, 500);
+			return () => clearTimeout(timer);
+		}
+	}, [messages, currentRoomId]);
 
 	// ---- Public actions ----
 
@@ -956,6 +1033,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 			idempotencyKey,
 			roomId,
 			authorUid: currentUser.uid,
+			authorName: currentProfileName(currentUser.displayName),
 			replyToMessageId: replyToId ?? null,
 			type: "TEXT",
 			visibility: "VISIBLE",
@@ -987,7 +1065,19 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 				&& (e.code === "MESSAGE_SOCKET_TIMEOUT" || e.code === "MESSAGE_SOCKET_CLOSED")) {
 				setError("Message delivery is being confirmed…");
 				void syncRoomEvents(roomId).catch(() => {
-					void syncLatestMessagesRef.current?.(roomId);
+					return syncLatestMessagesRef.current?.(roomId);
+				}).finally(() => {
+					setMessages(prev => {
+						const index = prev.findIndex(m => m.id === idempotencyKey);
+						if (index === -1) return prev;
+						// If the ID is still the optimistic ID, it was never confirmed
+						if (prev[index].id === idempotencyKey) {
+							const next = [...prev];
+							next[index] = { ...next[index], failed: true };
+							return next;
+						}
+						return prev;
+					});
 				});
 				return;
 			}
@@ -995,6 +1085,50 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 			if (e instanceof ChatApiError) setError(e.message);
 		}
 	}, [currentUser, sendMessageOverSocket, syncRoomEvents, upsertMessage, waitForMessageSocket]);
+
+	const retryMessage = useCallback(async (messageId: string) => {
+		const message = messagesRef.current.find(m => m.id === messageId);
+		if (!message || !message.failed) return;
+		
+		const roomId = message.roomId;
+		const content = message.content;
+		const replyToId = message.replyToMessageId;
+
+		// Reset failed state and refresh createdAt so it snaps back to bottom
+		setMessages(prev => prev.map(m => m.id === messageId ? { ...m, failed: false, createdAt: new Date().toISOString() } : m));
+		
+		try {
+			await waitForMessageSocket(roomId);
+			const confirmedMsg = await sendMessageOverSocket(roomId, content, replyToId ?? undefined, messageId);
+			if (!confirmedMsg) {
+				setMessages(prev => prev.filter(m => m.id !== messageId));
+				return;
+			}
+			upsertMessage({ ...confirmedMsg, idempotencyKey: messageId });
+		} catch (e) {
+			if (e instanceof ChatApiError
+				&& (e.code === "MESSAGE_SOCKET_TIMEOUT" || e.code === "MESSAGE_SOCKET_CLOSED")) {
+				setError("Message delivery is being confirmed…");
+				void syncRoomEvents(roomId).catch(() => {
+					return syncLatestMessagesRef.current?.(roomId);
+				}).finally(() => {
+					setMessages(prev => {
+						const index = prev.findIndex(m => m.id === messageId);
+						if (index === -1) return prev;
+						if (prev[index].id === messageId) {
+							const next = [...prev];
+							next[index] = { ...next[index], failed: true };
+							return next;
+						}
+						return prev;
+					});
+				});
+				return;
+			}
+			setMessages(prev => prev.filter(m => m.id !== messageId));
+			if (e instanceof ChatApiError) setError(e.message);
+		}
+	}, [sendMessageOverSocket, syncRoomEvents, upsertMessage, waitForMessageSocket]);
 
 	const editMsg = useCallback(async (messageId: string, content: string) => {
 		const trimmedContent = content.trim();
@@ -1039,13 +1173,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 		universityRoom, batchmateRoom, activeRoom, setActiveRoom, currentRoom,
 		currentUserId,
 		messages, hasMore, loadingMessages, loadOlderMessages,
-		sendText, editMsg, deleteMsg, react, unreact, report,
-		onlineUsers, connected, error, hasBatchmateRoom,
+		sendText, editMsg, deleteMsg, retryMessage, react, unreact, report,
+		onlineUsers, connected, error, dismissError, hasBatchmateRoom,
 	}), [
 		universityRoom, batchmateRoom, activeRoom, currentRoom, currentUserId,
 		messages, hasMore, loadingMessages, loadOlderMessages,
-		sendText, editMsg, deleteMsg, react, unreact, report,
-		onlineUsers, connected, error, hasBatchmateRoom,
+		sendText, editMsg, deleteMsg, retryMessage, react, unreact, report,
+		onlineUsers, connected, error, dismissError, hasBatchmateRoom,
 	]);
 
 	return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

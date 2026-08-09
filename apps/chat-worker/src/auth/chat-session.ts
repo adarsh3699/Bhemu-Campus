@@ -17,6 +17,7 @@ interface ChatSessionClaims extends JWTPayload {
 	kind: "chat_session";
 	uid: string;
 	email: string | null;
+	displayName: string;
 	role: AuthUser["role"];
 	moderation: AuthUser["moderation"];
 }
@@ -39,6 +40,7 @@ export async function issueChatSession(user: AuthUser, env: Env): Promise<Issued
 		kind: "chat_session",
 		uid: user.uid,
 		email: user.email,
+		displayName: user.displayName,
 		role: user.role,
 		moderation: user.moderation,
 	};
@@ -76,6 +78,11 @@ export async function verifyChatSession(
 		return {
 			uid: payload.uid,
 			email: payload.email ?? null,
+			// Sessions created before author names were added remain valid until
+			// expiry. Their next bootstrap supplies the canonical display name.
+			displayName: typeof payload.displayName === "string" && payload.displayName.trim()
+				? payload.displayName.slice(0, 100)
+				: "Student",
 			role: payload.role,
 			moderation: payload.moderation,
 		};

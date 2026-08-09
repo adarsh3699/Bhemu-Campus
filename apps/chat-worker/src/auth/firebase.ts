@@ -43,6 +43,7 @@ async function fetchPublicKeys(): Promise<GooglePublicKeys> {
 export interface FirebaseTokenPayload {
 	uid: string;
 	email: string | null;
+	displayName: string | null;
 }
 
 /**
@@ -78,6 +79,7 @@ export async function verifyFirebaseToken(
 		return {
 			uid: (payload["user_id"] ?? payload.sub) as string,
 			email: (payload["email"] as string | undefined) ?? null,
+			displayName: (payload["name"] as string | undefined) ?? null,
 		};
 	} catch {
 		throw Errors.invalidToken();

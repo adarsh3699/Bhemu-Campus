@@ -161,6 +161,8 @@ export const messages = pgTable(
 			.notNull()
 			.references(() => rooms.id, { onDelete: "cascade", onUpdate: "cascade" }),
 		authorUid: varchar("author_uid", { length: 128 }).notNull(),
+		// Snapshot avoids a profile-service lookup or join when rendering history.
+		authorName: varchar("author_name", { length: 100 }).notNull().default("Student"),
 		replyToMessageId: uuid("reply_to_message_id"),
 		type: messageTypeEnum("type").default("TEXT").notNull(),
 		visibility: messageVisibilityEnum("visibility").default("VISIBLE").notNull(),

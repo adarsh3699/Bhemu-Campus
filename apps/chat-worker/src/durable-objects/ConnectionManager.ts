@@ -19,6 +19,8 @@ export interface ConnectionMeta {
 	/** Unique per socket — not per user (FRD §6.6) */
 	connectionId: string;
 	uid: string;
+	/** Display-name snapshot from the verified short-lived chat session. */
+	displayName?: string;
 	role: AppRole;
 	/** e.g. "web" | "mobile" | "unknown" */
 	deviceType: string;
@@ -55,8 +57,9 @@ export class ConnectionManager {
 		auth?: Pick<
 		ConnectionMeta,
 		| "moderationStatus"
-		| "moderationExpiresAt"
-		| "authExpiresAt"
+			| "moderationExpiresAt"
+			| "authExpiresAt"
+			| "displayName"
 		| "roomVisibility"
 		| "roomPolicy"
 	>,

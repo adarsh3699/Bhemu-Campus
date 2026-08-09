@@ -1,15 +1,18 @@
 "use client";
 
 import React, { memo, useRef, useState, useCallback } from "react";
-import { Pencil, Trash2, Flag, Reply, MoreHorizontal, Check, Clock } from "lucide-react";
+import { Pencil, Trash2, Flag, Reply, MoreHorizontal, Check, Clock, AlertCircle } from "lucide-react";
 import type { ChatMessage } from "@bhemu/shared";
 
 interface MessageBubbleProps {
-	message: ChatMessage;
+	message: ChatMessage & { failed?: boolean; idempotencyKey?: string | null };
+	repliedMessage?: ChatMessage;
 	currentUserId: string | null; // passed from MessageList — avoids useAuth() per bubble
+	showIdentity: boolean;
 	onReply: (msg: ChatMessage) => void;
 	onEdit: (msg: ChatMessage) => void;
 	onDelete: (messageId: string) => void;
+	onRetry: (messageId: string) => void;
 	onReport: (messageId: string) => void;
 }
 
@@ -45,27 +48,82 @@ function formatDate(iso: string): string {
 	return cached;
 }
 
+const toDateStringCache = new Map<string, string>();
+export function getToDateString(iso: string): string {
+	let cached = toDateStringCache.get(iso);
+	if (!cached) {
+		cached = new Date(iso).toDateString();
+		toDateStringCache.set(iso, cached);
+		if (toDateStringCache.size > 1000) toDateStringCache.clear();
+	}
+	return cached;
+}
+
+const getTimeCache = new Map<string, number>();
+export function getMessageTime(iso: string): number {
+	let cached = getTimeCache.get(iso);
+	if (!cached) {
+		cached = new Date(iso).getTime();
+		getTimeCache.set(iso, cached);
+		if (getTimeCache.size > 1000) getTimeCache.clear();
+	}
+	return cached;
+}
+
 export function shouldShowDateSeparator(curr: ChatMessage, prev?: ChatMessage): boolean {
 	if (!prev) return true;
-	return new Date(prev.createdAt).toDateString() !== new Date(curr.createdAt).toDateString();
+	return getToDateString(prev.createdAt) !== getToDateString(curr.createdAt);
 }
 
 export function DateSeparator({ iso }: { iso: string }) {
 	return (
-		<div className="flex items-center gap-3 my-4">
-			<div className="flex-1 h-px bg-white/5" />
-			<span className="text-[11px] text-muted-foreground font-medium px-2 shrink-0">{formatDate(iso)}</span>
-			<div className="flex-1 h-px bg-white/5" />
+		<div className="my-6 flex justify-center">
+			<span className="rounded-full border border-white/10 bg-[#17151b]/90 px-3 py-1 text-[11px] font-semibold text-white/80 shadow-sm backdrop-blur-sm">
+				{formatDate(iso)}
+			</span>
 		</div>
 	);
 }
 
+const AVATAR_COLORS = [
+	"from-cyan-500 to-blue-600",
+	"from-violet-500 to-fuchsia-600",
+	"from-amber-500 to-orange-600",
+	"from-emerald-500 to-teal-600",
+	"from-rose-500 to-pink-600",
+] as const;
+
+function authorDisplayName(message: ChatMessage): string {
+	return message.authorName?.trim() || "Student";
+}
+
+function authorInitials(name: string): string {
+	const initials = name
+		.split(/\s+/)
+		.filter(Boolean)
+		.slice(0, 2)
+		.map((part) => part[0])
+		.join("");
+	return initials.toLocaleUpperCase() || "S";
+}
+
+function avatarColor(uid: string): (typeof AVATAR_COLORS)[number] {
+	let hash = 0;
+	for (let index = 0; index < uid.length; index += 1) {
+		hash = (hash * 31 + uid.charCodeAt(index)) | 0;
+	}
+	return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length] ?? AVATAR_COLORS[0];
+}
+
 const MessageBubble = memo(function MessageBubble({
 	message,
+	repliedMessage,
 	currentUserId,
+	showIdentity,
 	onReply,
 	onEdit,
 	onDelete,
+	onRetry,
 	onReport,
 }: MessageBubbleProps) {
 	const [menuOpen, setMenuOpen] = useState(false);
@@ -75,6 +133,7 @@ const MessageBubble = memo(function MessageBubble({
 	const isDeleted = message.visibility === "DELETED";
 	const isAnnouncement = message.type === "ANNOUNCEMENT";
 	const isOptimistic = message.id.startsWith("optimistic_");
+	const authorName = authorDisplayName(message);
 
 	// Close menu on outside click
 	const handleMouseLeave = useCallback(() => setMenuOpen(false), []);
@@ -83,11 +142,11 @@ const MessageBubble = memo(function MessageBubble({
 
 	if (isAnnouncement) {
 		return (
-			<div className="flex justify-center my-3">
-				<div className="bg-primary/10 border border-primary/20 rounded-2xl px-5 py-2.5 max-w-[85%] text-center">
-					<p className="text-[10px] text-primary font-bold uppercase tracking-widest mb-1">Announcement</p>
-					<p className="text-sm text-white leading-relaxed">{message.content}</p>
-					<p className="text-[10px] text-muted-foreground mt-1">{formatTime(message.createdAt)}</p>
+			<div className="my-4 flex justify-center">
+				<div className="max-w-[85%] rounded-2xl border border-primary/30 bg-primary/10 px-5 py-3 text-center shadow-lg shadow-black/20">
+					<p className="mb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-primary">Announcement</p>
+					<p className="text-sm leading-relaxed text-white">{message.content}</p>
+					<p className="mt-1 text-[10px] text-white/50">{formatTime(message.createdAt)}</p>
 				</div>
 			</div>
 		);
@@ -105,75 +164,130 @@ const MessageBubble = memo(function MessageBubble({
 
 	return (
 		<div
-			className={`group flex items-end gap-2.5 my-1.5 animate-slide-up-fade ${isOwn ? "flex-row-reverse" : "flex-row"}`}
+			className={`group flex items-end gap-3 ${showIdentity ? "mt-5" : "mt-1"} ${isOwn ? "flex-row-reverse" : "flex-row"}`}
 			onMouseLeave={handleMouseLeave}
 		>
-			{/* Avatar — only for others */}
+			{/* Room messages retain a stable identity without a remote image lookup. */}
 			{!isOwn && (
-				<div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary/60 to-accent/60 flex items-center justify-center text-white text-xs font-bold shrink-0 mb-0.5 select-none">
-					{message.authorUid.charAt(0).toUpperCase()}
+				<div className="w-10 shrink-0 self-end">
+					{showIdentity && (
+						<div
+							className={`flex size-10 select-none items-center justify-center rounded-full bg-gradient-to-br ${avatarColor(message.authorUid)} text-xs font-bold text-white ring-2 ring-[#09070b] shadow-lg shadow-black/30`}
+							role="img"
+							aria-label={`${authorName}'s avatar`}
+						>
+							{authorInitials(authorName)}
+						</div>
+					)}
 				</div>
 			)}
 
-			<div className={`relative flex flex-col max-w-[72%] ${isOwn ? "items-end" : "items-start"}`}>
-				{message.replyToMessageId && (
-					<p
-						className={`text-[11px] text-muted-foreground mb-0.5 pl-2 border-l-2 border-white/20 ${isOwn ? "text-right" : ""}`}
-					>
-						↩ Reply
-					</p>
+			<div className={`relative flex max-w-[86%] flex-col sm:max-w-[74%] ${isOwn ? "items-end" : "items-start"}`}>
+				{!isOwn && showIdentity && (
+					<p className="mb-1.5 px-1 text-sm font-semibold tracking-tight text-sky-400">{authorName}</p>
 				)}
 
 				<div
-					className={`relative px-4 py-2 rounded-[20px] text-[16px] font-normal leading-relaxed break-words select-text shadow-sm transition-all min-w-[100px] ${
+					className={`relative flow-root min-w-[80px] rounded-2xl border px-2 py-1 text-[15px] font-normal leading-relaxed break-words select-text shadow-[0_8px_20px_rgba(0,0,0,0.16)] transition-[border-color,background-color,box-shadow] ${
 						isOwn
-							? `bg-primary text-white rounded-br-[4px] ${isOptimistic ? "opacity-70" : "hover:shadow-md hover:shadow-primary/20"}`
-							: "bg-[#161b1c] text-foreground border border-white/5 rounded-bl-[4px] hover:border-white/10"
+							? `rounded-br-md border-primary/50 bg-primary text-white ${isOptimistic ? "opacity-80" : "hover:border-primary/70 hover:shadow-primary/20"}`
+							: "rounded-bl-md border-white/10 bg-[#202020]/95 text-foreground hover:border-white/20"
 					}`}
 				>
-					<span className="whitespace-pre-wrap">{message.content}</span>
-					<span className="inline-block w-[78px]" />
-					<div className={`absolute bottom-2 right-3 flex items-center gap-1 ${isOwn ? "text-white/80" : "text-muted-foreground/70"}`}>
+					{message.replyToMessageId && (
+						<div
+							className={`relative mb-1.5 mt-0.5 flex flex-col overflow-hidden rounded-[4px] border-l-[3px] pl-2 pr-2 py-0.5 text-[13px] leading-tight cursor-pointer ${
+								isOwn ? "border-l-white/40 bg-black/10" : "border-l-sky-500 bg-white/5"
+							}`}
+						>
+							<span className={`font-semibold ${isOwn ? "text-white" : "text-sky-400"}`}>
+								{repliedMessage
+									? repliedMessage.authorUid === currentUserId
+										? "You"
+										: authorDisplayName(repliedMessage)
+									: "Replied message"}
+							</span>
+							<span className={`truncate text-[12px] ${isOwn ? "text-white/80" : "text-white/60"}`}>
+								{repliedMessage ? repliedMessage.content : "Message content not loaded"}
+							</span>
+						</div>
+					)}
+					<span className="whitespace-pre-wrap">
+						{message.content.split(/(https?:\/\/[^\s]+)/g).map((part, i) =>
+							part.match(/^https?:\/\//) ? (
+								<a
+									key={i}
+									href={part}
+									target="_blank"
+									className={`underline transition-colors ${
+										isOwn ? "text-white" : "text-sky-400 hover:text-sky-300"
+									}`}
+								>
+									{part}
+								</a>
+							) : (
+								part
+							)
+						)}
+					</span>
+					<span
+						className={`float-right ml-4 mt-2 flex items-center justify-end gap-1 ${isOwn ? "text-white/80" : "text-white/45"}`}
+					>
 						{message.editedAt && <span className="text-[10px] opacity-70">edited</span>}
-						{isOptimistic ? (
+						{message.failed ? (
 							<>
-								<span className="text-[11px] font-medium">
+								<span className="text-[10px] font-medium text-red-300">
+									Failed to send
+								</span>
+								<button
+									onClick={() => onRetry(message.idempotencyKey || message.id)}
+									className="ml-1 flex items-center gap-1 text-[10px] font-semibold text-red-400 hover:text-red-300 transition-colors"
+								>
+									<AlertCircle className="size-3" />
+									Retry
+								</button>
+							</>
+						) : isOptimistic ? (
+							<>
+								<span className="text-[10px] font-medium tabular-nums">
 									{formatTime(message.createdAt)}
 								</span>
-								{isOwn && <Clock className="w-[12px] h-[12px] opacity-70" />}
+								{isOwn && <Clock className="size-[11px] opacity-70" aria-label="Sending" />}
 							</>
 						) : (
 							<>
-								<span className="text-[11px] font-medium">
+								<span className="text-[10px] font-medium tabular-nums">
 									{formatTime(message.createdAt)}
 								</span>
-								{isOwn && <Check className="w-[14px] h-[14px]" strokeWidth={3} />}
+								{isOwn && <Check className="size-3" strokeWidth={3} aria-label="Sent" />}
 							</>
 						)}
-					</div>
+					</span>
 				</div>
 
 				{/* Hover actions — don't show on optimistic messages */}
 				{!isOptimistic && (
 					<div
-						className={`absolute top-0 ${
+						className={`absolute bottom-0 ${
 							isOwn ? "left-0 -translate-x-full pr-1.5" : "right-0 translate-x-full pl-1.5"
-						} opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center gap-1`}
+						} flex items-center gap-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100`}
 					>
 						<button
 							onClick={() => onReply(message)}
-							className="p-1.5 rounded-full text-muted-foreground bg-[#1a1f20] border border-white/5 hover:text-white hover:bg-white/10 hover:border-white/10 transition-all shadow-sm hover:scale-105 active:scale-95"
+							className="flex size-9 items-center justify-center rounded-full border border-white/10 bg-[#1a1f20] text-muted-foreground shadow-sm transition-all hover:border-white/20 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
 							title="Reply"
+							aria-label="Reply to message"
 						>
-							<Reply className="w-3.5 h-3.5" />
+							<Reply className="size-4" />
 						</button>
 						<div ref={menuRef} className="relative">
 							<button
 								onClick={toggleMenu}
-								className="p-1.5 rounded-full text-muted-foreground bg-[#1a1f20] border border-white/5 hover:text-white hover:bg-white/10 hover:border-white/10 transition-all shadow-sm hover:scale-105 active:scale-95"
+								className="flex size-9 items-center justify-center rounded-full border border-white/10 bg-[#1a1f20] text-muted-foreground shadow-sm transition-all hover:border-white/20 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
 								title="More"
+								aria-label="More message actions"
 							>
-								<MoreHorizontal className="w-3.5 h-3.5" />
+								<MoreHorizontal className="size-4" />
 							</button>
 							{menuOpen && (
 								<div
