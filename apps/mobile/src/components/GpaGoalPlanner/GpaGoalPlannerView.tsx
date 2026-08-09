@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useMemo, useState, useRef } from "react";
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { Target, BarChart3, RotateCw, Settings2, Plus, Minus } from "lucide-react-native";
@@ -12,32 +12,22 @@ export default function GpaGoalPlannerView() {
 	const [completedSemesters, setCompletedSemesters] = useState("");
 	const [totalSemesters, setTotalSemesters] = useState<"4" | "6" | "8">("8");
 	const [targetCgpa, setTargetCgpa] = useState("8.50");
-	const [result, setResult] = useState<{ required: number; possible: boolean; remaining: number } | null>(null);
 
 	const completedRef = useRef<TextInput>(null);
 	const targetRef = useRef<TextInput>(null);
 
-	const calculateGoal = useCallback(() => {
+	const result = useMemo<{ required: number; possible: boolean; remaining: number } | null>(() => {
 		const current = parseFloat(currentCgpa);
 		const completed = parseInt(completedSemesters);
 		const total = parseInt(totalSemesters);
 		const target = parseFloat(targetCgpa);
 		if (isNaN(current) || isNaN(completed) || isNaN(total) || isNaN(target) || completed >= total) {
-			setResult(null);
-			return;
+			return null;
 		}
 		const remaining = total - completed;
 		const requiredSgpa = (target * total - current * completed) / remaining;
-		setResult({ required: requiredSgpa, possible: requiredSgpa <= 10 && requiredSgpa >= 0, remaining });
+		return { required: requiredSgpa, possible: requiredSgpa <= 10 && requiredSgpa >= 0, remaining };
 	}, [currentCgpa, completedSemesters, totalSemesters, targetCgpa]);
-
-	useEffect(() => {
-		if (currentCgpa && completedSemesters) {
-			calculateGoal();
-		} else {
-			setResult(null);
-		}
-	}, [currentCgpa, completedSemesters, totalSemesters, targetCgpa, calculateGoal]);
 
 	const adjustTarget = (delta: number) => {
 		setTargetCgpa((prev) => {
@@ -51,7 +41,6 @@ export default function GpaGoalPlannerView() {
 		setCurrentCgpa("");
 		setCompletedSemesters("");
 		setTargetCgpa("8.50");
-		setResult(null);
 	};
 
 	const targetNum = parseFloat(targetCgpa) || 0;

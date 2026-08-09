@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo } from "react";
 import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
-import { AttendanceDataProvider, useAttendanceData } from "@/contexts/AttendanceDataContext";
+import { useAttendanceData } from "@/contexts/AttendanceDataContext";
 import AttendanceSummaryCard from "@/components/AttendanceCalculator/AttendanceSummaryCard";
 import AttendanceSubjectForm, { type AttendanceFormState } from "@/components/AttendanceCalculator/AttendanceSubjectForm";
 import AttendanceSubjectList from "@/components/AttendanceCalculator/AttendanceSubjectList";
@@ -171,11 +171,7 @@ function AttendanceScreenContent() {
 }
 
 export default function AttendanceScreen() {
-	return (
-		<AttendanceDataProvider>
-			<AttendanceScreenContent />
-		</AttendanceDataProvider>
-	);
+	return <AttendanceScreenContent />;
 }
 
 const local = StyleSheet.create({

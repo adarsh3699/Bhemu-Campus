@@ -1,6 +1,6 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
-import type { TimetableEntry, UMSLocalData, UMSSeatingPlan } from "@bhemu/shared";
+import { type TimetableEntry, type UMSLocalData, type UMSSeatingPlan, parseTimeMinutes, formatTimeToAmPm } from "@bhemu/shared";
 import type { NotificationSettings } from "./notificationSettings";
 
 const CHANNEL_ID = "academic-reminders";
@@ -54,23 +54,29 @@ export function configureNotifications(): void {
 	});
 }
 
-export function parseTimeToMinutes(value: string): number | null {
-	const match = value.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
-	if (!match) return null;
+type ReminderTime = { weekday: number; hour: number; minute: number };
 
-	let hours = Number(match[1]);
-	const minutes = Number(match[2]);
-	const meridiem = match[3]?.toUpperCase();
-	if (minutes > 59) return null;
+export function getReminderTime(entry: TimetableEntry, minutesBefore: number): ReminderTime | null {
+	if (!entry.dayOfWeek || !entry.startTime) return null;
+	const weekday = DAY_TO_WEEKDAY[entry.dayOfWeek.trim()];
+	if (!weekday) return null;
 
-	if (meridiem) {
-		if (hours < 1 || hours > 12) return null;
-		hours = hours % 12 + (meridiem === "PM" ? 12 : 0);
-	} else if (hours > 23) {
-		return null;
+	const entryMinutes = parseTimeMinutes(entry.startTime);
+	if (entryMinutes === null) return null;
+
+	let triggerMinutes = entryMinutes - minutesBefore;
+	let adjustedWeekday = weekday;
+
+	if (triggerMinutes < 0) {
+		triggerMinutes += 24 * 60;
+		adjustedWeekday = weekday === 1 ? 7 : weekday - 1;
 	}
 
-	return hours * 60 + minutes;
+	return {
+		weekday: adjustedWeekday,
+		hour: Math.floor(triggerMinutes / 60),
+		minute: triggerMinutes % 60,
+	};
 }
 
 function parseExamDate(value: string): { year: number; month: number; day: number } | null {
@@ -112,22 +118,7 @@ function parseMonth(value: string): number {
 	return MONTHS[value.slice(0, 3).toLowerCase()] ?? 0;
 }
 
-function getReminderTime(
-	entry: TimetableEntry,
-	minutesBefore: number
-): { weekday: number; hour: number; minute: number } | null {
-	const startMinutes = parseTimeToMinutes(entry.startTime);
-	const weekday = DAY_TO_WEEKDAY[entry.dayOfWeek.trim()];
-	if (startMinutes === null || !weekday) return null;
 
-	const reminderMinutes = startMinutes - minutesBefore;
-	const adjustedMinutes = reminderMinutes >= 0 ? reminderMinutes : reminderMinutes + 24 * 60;
-	return {
-		weekday: reminderMinutes >= 0 ? weekday : weekday === 1 ? 7 : weekday - 1,
-		hour: Math.floor(adjustedMinutes / 60),
-		minute: adjustedMinutes % 60,
-	};
-}
 
 function buildTimetableEntries(timetable: TimetableEntry[]): Array<{ entry: TimetableEntry; reminderIndex: number }> {
 	const byDay = new Map<string, TimetableEntry[]>();
@@ -138,9 +129,9 @@ function buildTimetableEntries(timetable: TimetableEntry[]): Array<{ entry: Time
 	}
 
 	return [...byDay.values()].flatMap((entries) => {
-		entries.sort((a, b) => (parseTimeToMinutes(a.startTime) ?? Number.MAX_SAFE_INTEGER) - (parseTimeToMinutes(b.startTime) ?? Number.MAX_SAFE_INTEGER));
+		entries.sort((a, b) => (parseTimeMinutes(a.startTime) ?? Number.MAX_SAFE_INTEGER) - (parseTimeMinutes(b.startTime) ?? Number.MAX_SAFE_INTEGER));
 		return entries
-			.filter((entry) => parseTimeToMinutes(entry.startTime) !== null)
+			.filter((entry) => parseTimeMinutes(entry.startTime) !== null)
 			.map((entry, index) => ({ entry, reminderIndex: index }));
 	});
 }
@@ -243,7 +234,7 @@ async function scheduleTimetableNotifications(
 				content: {
 					subtitle: profileName,
 					title: `Class in ${minutesBefore} minutes`,
-					body: `${entry.courseCode} starts at ${entry.startTime}${entry.room ? ` • Room ${entry.room}` : ""}`,
+					body: `${entry.courseCode} starts at ${formatTimeToAmPm(entry.startTime)}${entry.room ? ` • Room ${entry.room}` : ""}`,
 					data: {
 						source: MANAGED_SOURCE,
 						type: "timetable",

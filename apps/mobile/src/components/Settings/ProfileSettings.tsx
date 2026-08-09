@@ -14,19 +14,20 @@ import type { ShareItem } from "@bhemu/shared";
 
 export default function ProfileSettings() {
 	const { currentUser } = useAuth();
-	const { currentProfile, renameProfile, shareProfileWithUser, mySharedProfiles } =
-		useGpaProfiles();
+	const { currentProfile, renameProfile, shareProfileWithUser, mySharedProfiles } = useGpaProfiles();
 	const { showMessage } = useMessage();
 
 	const [showRename, setShowRename] = useState(false);
 	const [showShare, setShowShare] = useState(false);
 
 	const [optOut, setOptOut] = useState(false);
-	const [leaderboardLoaded, setLeaderboardLoaded] = useState(false);
+	const [loadedLeaderboardKey, setLoadedLeaderboardKey] = useState<string | null>(null);
 	const [saving, setSaving] = useState(false);
 
 	const isOwnProfile = !currentProfile?.isShared;
 	const isEligible = !!currentProfile?.umsVerified && isOwnProfile;
+	const leaderboardKey = currentUser && currentProfile ? `${currentUser.uid}:${String(currentProfile.id)}` : null;
+	const leaderboardLoaded = leaderboardKey !== null && loadedLeaderboardKey === leaderboardKey;
 
 	const currentShares = (mySharedProfiles as (ShareItem & { profileId: string | number })[]).filter(
 		(s) => s.profileId === currentProfile?.id && s.isActive
@@ -44,13 +45,13 @@ export default function ProfileSettings() {
 	useEffect(() => {
 		if (!currentUser || !currentProfile || !isEligible) return;
 		let cancelled = false;
-		setLeaderboardLoaded(false);
+		const requestKey = `${currentUser.uid}:${String(currentProfile.id)}`;
 		LeaderboardService.getUserEntry(db, currentUser.uid, String(currentProfile.id))
 			.then((entry) => {
 				if (!cancelled) setOptOut(!!entry?.optOut);
 			})
 			.finally(() => {
-				if (!cancelled) setLeaderboardLoaded(true);
+				if (!cancelled) setLoadedLeaderboardKey(requestKey);
 			});
 		return () => {
 			cancelled = true;
@@ -76,7 +77,6 @@ export default function ProfileSettings() {
 			const next = !optOut;
 			await LeaderboardService.setOptOut(db, currentUser.uid, String(currentProfile.id), next);
 			setOptOut(next);
-			showMessage(next ? "Hidden from leaderboard" : "Visible on leaderboard", "success");
 		} catch {
 			showMessage("Failed to update leaderboard visibility", "error");
 		} finally {
@@ -117,7 +117,7 @@ export default function ProfileSettings() {
 								<View style={local.rowContent}>
 									<Text style={local.rowTitle}>
 										Profile Name
-										{isEligible && <Text style={local.rowTitleNote}> · Leaderboard name</Text>}
+										{isEligible && <Text style={local.rowTitleNote}> · Leaderboard</Text>}
 									</Text>
 									<Text style={local.rowSub} numberOfLines={1}>
 										{currentProfile.name}
@@ -190,7 +190,11 @@ export default function ProfileSettings() {
 									) : (
 										<Pressable
 											onPress={handleLeaderboardToggle}
-											style={({ pressed }) => [local.toggle, !optOut && local.toggleOn, pressed && local.pressed]}
+											style={({ pressed }) => [
+												local.toggle,
+												!optOut && local.toggleOn,
+												pressed && local.pressed,
+											]}
 											disabled={saving}
 											accessibilityRole="switch"
 											accessibilityLabel="Leaderboard visibility"
@@ -231,7 +235,6 @@ export default function ProfileSettings() {
 				profileName={currentProfile.name}
 				currentShares={currentShares}
 			/>
-
 		</>
 	);
 }

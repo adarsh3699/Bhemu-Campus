@@ -1,7 +1,7 @@
 {
 	"name": "bcampus-ums-sync",
 	"displayName": "bCampus - UMS Sync",
-	"version": "1.2.3",
+	"version": "1.2.4",
 	"description": "Sync your LPU UMS grades, marks, and attendance to bCampus with one click.",
 	"private": true,
 	"scripts": {
@@ -16,24 +16,24 @@
 		"@bhemu/firebase": "workspace:*",
 		"@bhemu/shared": "workspace:*",
 		"@plasmohq/storage": "^1.15.0",
-		"firebase": "^12.13.0",
-		"linkedom": "^0.18.12",
+		"firebase": "^12.17.1",
+		"linkedom": "^0.18.13",
 		"plasmo": "^0.90.5",
-		"react": "19.2.7",
-		"react-dom": "19.2.7"
+		"react": "19.2.8",
+		"react-dom": "19.2.8"
 	},
 	"devDependencies": {
-		"@eslint/js": "^9.28.0",
-		"@types/chrome": "^0.0.287",
-		"@types/node": "^26.0.0",
-		"@types/react": "^19",
-		"@types/react-dom": "^19",
-		"eslint": "^9.28.0",
+		"@eslint/js": "^9.39.1",
+		"@types/chrome": "^0.2.5",
+		"@types/node": "^26.1.2",
+		"@types/react": "^19.2.18",
+		"@types/react-dom": "^19.2.4",
+		"eslint": "^9.39.1",
 		"eslint-plugin-react": "^7.37.5",
-		"eslint-plugin-react-hooks": "^5.2.0",
-		"globals": "^16.2.0",
-		"typescript": "^5.7.0",
-		"typescript-eslint": "^8.34.0"
+		"eslint-plugin-react-hooks": "^7.1.1",
+		"globals": "^17.9.0",
+		"typescript": "^6.0.3",
+		"typescript-eslint": "^8.66.0"
 	},
 	"manifest": {
 		"permissions": [

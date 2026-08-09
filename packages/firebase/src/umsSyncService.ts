@@ -122,13 +122,18 @@ export async function syncGradesAndMarks(
 		{ merge: true }
 	);
 
-	// 1b. Write leaderboard entry
+	// 1b. Write leaderboard entry + groupKey back to profile
 	const si = data.studentInfo;
 	const siBatchYear = deriveBatchYear(si?.vid, si?.batchYear);
 	if (si?.cgpa && si?.program && siBatchYear) {
 		const parsed = parseProgram(si.program);
 		if (parsed) {
 			const groupKey = buildGroupKey(siBatchYear, parsed.programCode);
+
+			// Write groupKey to profile so chat layer can read it without
+			// going through leaderboard — profile is the chat identity source
+			batch.set(profileRef, { groupKey }, { merge: true });
+
 			const leaderboardRef = doc(db, "leaderboard", `${uid}_${profileId}`);
 			const existing = await getDoc(leaderboardRef);
 			const entry: Record<string, unknown> = {

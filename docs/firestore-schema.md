@@ -7,18 +7,54 @@ Last updated: 2026-07-22 (leaderboard: switched `name` to profile display name, 
 
 ## `users/{userId}`
 
-| Field             | Type           | Notes                         |
-| ----------------- | -------------- | ----------------------------- |
-| email             | string         |                               |
-| displayName       | string         |                               |
-| photoURL          | string \| null |                               |
-| createdAt         | Timestamp      | written once at signup — never overwritten |
-| lastLoginAt       | Timestamp      | updated on every app open / login |
-| updatedAt         | Timestamp      | updated when profile fields change (displayName, password) |
-| hasPassword       | boolean        | true if email/password linked |
-| passwordUpdatedAt | Timestamp?     | set when password changed     |
+| Field             | Type                                  | Notes                                                                        |
+| ----------------- | ------------------------------------- | ---------------------------------------------------------------------------- |
+| email             | string                                | User email address                                                           |
+| displayName       | string                                | User's display name used throughout the app                                  |
+| username          | string                                | Unique public username. Always lowercase. Used in chat (e.g. `@adarsh3699`). |
+| photoURL          | string \| null                        | Profile photo                                                                |
+| role              | `"student" \| "moderator" \| "admin"` | Global application role                                                      |
+| moderation        | Moderation                            | Current moderation state                                                     |
+| createdAt         | Timestamp                             | Written once at signup — never overwritten                                   |
+| lastLoginAt       | Timestamp                             | Updated on every app open / login                                            |
+| updatedAt         | Timestamp                             | Updated whenever profile fields change                                       |
+| hasPassword       | boolean                               | `true` if email/password is linked                                           |
+| passwordUpdatedAt | Timestamp?                            | Set when password changes                                                    |
 
----
+### `Moderation`
+
+```ts
+{
+  status: "active" | "flagged" | "suspended" | "banned",
+
+  reason: string | null,
+
+  expiresAt: Timestamp | null,
+
+  reviewedBy: string | null,
+
+  reviewedAt: Timestamp | null
+}
+```
+
+### Moderation Status
+
+| Status      | Description                                                                                  |
+| ----------- | -------------------------------------------------------------------------------------------- |
+| `active`    | User can use all communication features normally.                                            |
+| `flagged`   | User has reached the automatic report threshold and is waiting for moderator review.         |
+| `suspended` | User is temporarily blocked from using communication features until `expiresAt`.             |
+| `banned`    | User is permanently blocked from using communication features. `expiresAt` is always `null`. |
+
+### Moderation Fields
+
+| Field        | Description                                                                                            |
+| ------------ | ------------------------------------------------------------------------------------------------------ |
+| `status`     | Current moderation state.                                                                              |
+| `reason`     | Reason for the current moderation state (e.g. Spam, Harassment, Abuse, Manual Review).                 |
+| `expiresAt`  | Expiry time for temporary moderation actions. `null` for `active`, `flagged`, and permanent bans.      |
+| `reviewedBy` | Firebase UID of the moderator/admin who performed the latest moderation action. `null` until reviewed. |
+| `reviewedAt` | Timestamp of the latest moderation decision. `null` until reviewed.                                    |
 
 ## `users/{userId}/profiles/{profileId}`
 
@@ -27,6 +63,7 @@ Last updated: 2026-07-22 (leaderboard: switched `name` to profile display name, 
 | id          | string     | same as doc ID                                   |
 | name        | string     |                                                  |
 | isDefault   | boolean    |                                                  |
+| groupKey    | string?    | `"{batchYear}_{programCode}"` e.g. `"2024_P132"`. Written by UMS sync. Used by chat to resolve the user's batchmate room. `null` until first UMS sync. |
 | createdAt   | Timestamp  |                                                  |
 | updatedAt   | Timestamp  |                                                  |
 | lastOpened  | Timestamp? | only written for own profiles — never for shared |
@@ -146,23 +183,24 @@ Denormalized top-level collection written by the UMS extension on every sync. Us
 
 Document ID: `{userId}_{profileId}` — deterministic, enables idempotent upserts.
 
-| Field | Type | Notes |
-|-------|------|-------|
-| userId | string | Firebase Auth UID of the profile owner |
-| profileId | string | Profile doc ID |
-| name | string | Profile display name (user-editable, synced from `profile.name` on rename) |
-| realName | string? | UMS-scraped legal name (from `studentInfo.name`). Preserved for internal reference; never displayed publicly. |
-| vid | string | Registration number (e.g. `"12401984"`) |
-| programCode | string | Parsed from program string (e.g. `"P132"`, `"P164-NN1"`) |
-| programName | string | e.g. `"B.Tech."`, `"MCA"` |
-| branch | string \| null | e.g. `"Computer Science and Engineering"`, `null` for no-branch programs |
-| batchYear | string | e.g. `"2024"` (derived from `vid` if `studentInfo.batchYear` is null) |
-| cgpa | number | Parsed float — used for ordering |
-| groupKey | string | `"{batchYear}_{programCode}"` — single field for query filtering + ordering |
-| optOut | boolean | `false` by default. `true` = excluded from all leaderboard queries. Written only on first sync; never overwritten by re-sync. Changed only via Settings toggle. |
-| updatedAt | Timestamp | `serverTimestamp()` on each sync |
+| Field       | Type           | Notes                                                                                                                                                           |
+| ----------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| userId      | string         | Firebase Auth UID of the profile owner                                                                                                                          |
+| profileId   | string         | Profile doc ID                                                                                                                                                  |
+| name        | string         | Profile display name (user-editable, synced from `profile.name` on rename)                                                                                      |
+| realName    | string?        | UMS-scraped legal name (from `studentInfo.name`). Preserved for internal reference; never displayed publicly.                                                   |
+| vid         | string         | Registration number (e.g. `"12401984"`)                                                                                                                         |
+| programCode | string         | Parsed from program string (e.g. `"P132"`, `"P164-NN1"`)                                                                                                        |
+| programName | string         | e.g. `"B.Tech."`, `"MCA"`                                                                                                                                       |
+| branch      | string \| null | e.g. `"Computer Science and Engineering"`, `null` for no-branch programs                                                                                        |
+| batchYear   | string         | e.g. `"2024"` (derived from `vid` if `studentInfo.batchYear` is null)                                                                                           |
+| cgpa        | number         | Parsed float — used for ordering                                                                                                                                |
+| groupKey    | string         | `"{batchYear}_{programCode}"` — single field for query filtering + ordering                                                                                     |
+| optOut      | boolean        | `false` by default. `true` = excluded from all leaderboard queries. Written only on first sync; never overwritten by re-sync. Changed only via Settings toggle. |
+| updatedAt   | Timestamp      | `serverTimestamp()` on each sync                                                                                                                                |
 
 **Write rules:**
+
 - First sync: writes all fields including `optOut: false`; `name` is set from the profile's `name` field (not the UMS real name)
 - Re-sync: writes `realName` + academic fields (cgpa, programCode, etc.); omits `name` and `optOut` (preserves user's display name and opt-out choice)
 - Profile rename: writes `{ name, updatedAt }` via write-through in GpaDataContext
@@ -175,6 +213,7 @@ Document ID: `{userId}_{profileId}` — deterministic, enables idempotent upsert
 | `groupKey` ASC, `optOut` ASC, `cgpa` ASC | Collection | `getNearbyAbove` |
 
 **Security rules:**
+
 ```
 match /leaderboard/{docId} {
   allow read: if true;  // public — required for server-side OG image + rank page

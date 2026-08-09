@@ -20,6 +20,7 @@ import {
 	ClipboardList,
 	Puzzle,
 	Trophy,
+	MessageSquare,
 } from "lucide-react";
 
 const MAIN_NAV = [
@@ -29,6 +30,7 @@ const MAIN_NAV = [
 	{ name: "Reappear Calculator", path: "reappear-calculator", icon: GraduationCap },
 	{ name: "Goal Planner", path: "gpa-goal-planner", icon: TrendingUp },
 	{ name: "Leaderboard", path: "leaderboard", icon: Trophy },
+	{ name: "Chat (Beta)", path: "chat", icon: MessageSquare },
 ];
 
 const SYSTEM_NAV = [
@@ -195,7 +197,10 @@ export default function SideBar({ isOpen, onClose }: SideBarProps) {
 					})}
 
 					<button
-						onClick={() => { onClose(); setUmsModalOpen(true); }}
+						onClick={() => {
+							onClose();
+							setUmsModalOpen(true);
+						}}
 						className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group text-violet-400 hover:text-violet-300 hover:bg-violet-500/10 border-l-4 border-transparent rounded-l-none pl-2 w-full text-left"
 					>
 						<Puzzle className="w-4 h-4 shrink-0" />
@@ -217,7 +222,10 @@ export default function SideBar({ isOpen, onClose }: SideBarProps) {
 								<p className="text-muted-foreground text-[11px] truncate">{currentUser.email}</p>
 							</div>
 							<button
-								onClick={() => { onClose(); handleLogout(); }}
+								onClick={() => {
+									onClose();
+									handleLogout();
+								}}
 								title="Sign Out"
 								className="shrink-0 p-1.5 rounded-lg text-red-400 hover:bg-red-950/20 hover:text-red-300 transition-all duration-200"
 							>

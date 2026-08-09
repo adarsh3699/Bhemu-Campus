@@ -40,15 +40,10 @@ export default function TimetableScreen() {
 		return DAY_ORDER.filter((d) => map[d]).map((d) => ({ day: d, entries: map[d] }));
 	}, [data?.timetable]);
 
-	const [selectedDay, setSelectedDay] = useState("");
-
-	useEffect(() => {
-		if (grouped.length === 0 || selectedDay) return;
-		const day = grouped.find((g) => g.day === todayName)?.day ?? grouped[0].day;
-		setSelectedDay(day);
-	}, [grouped, selectedDay, todayName]);
-
-	const activeDay = grouped.find((g) => g.day === selectedDay)?.day ?? grouped[0]?.day ?? "";
+	const [selectedDay, setSelectedDay] = useState<string | null>(null);
+	const activeDay = selectedDay && grouped.some((g) => g.day === selectedDay)
+		? selectedDay
+		: grouped.find((g) => g.day === todayName)?.day ?? grouped[0]?.day ?? "";
 	const selectedEntries = grouped.find((g) => g.day === activeDay)?.entries ?? [];
 
 	// Auto-scroll tab strip so today's (or active) chip is visible

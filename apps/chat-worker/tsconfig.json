@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    // ---- Output target ----
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "Bundler",
+    // Includes Web API globals used by the Node-based test helpers (WebSocket,
+    // Crypto, and their event handler types).
+    "lib": ["ES2022", "DOM"],
+
+    // ---- Cloudflare Workers types ----
+    // v5 exposes the current runtime types at the package root.
+    "types": ["@cloudflare/workers-types"],
+
+    // ---- Strictness ----
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "exactOptionalPropertyTypes": false,
+
+    // ---- Module interop ----
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    // `noEmit` permits source imports that retain their `.ts` extension.
+    "allowImportingTsExtensions": true,
+
+    // ---- Paths ----
+    "paths": {
+      "@src/*": ["./src/*"]
+    }
+  },
+  "include": [
+    "src/**/*",
+    "test/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

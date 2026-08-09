@@ -4,3 +4,4 @@ export * from "./attendance";
 export * from "./leaderboard";
 export * from "./share";
 export * from "./ums";
+export * from "./chat";

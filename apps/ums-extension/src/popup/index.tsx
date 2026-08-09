@@ -10,10 +10,28 @@ import "./style.css";
 const storage = new Storage({ area: "local" });
 
 const LAST_PROFILE_KEY = "ums_last_profile_id";
+const SYNC_STATUS_VALUES = new Set<SyncStatus["status"]>([
+	"idle",
+	"syncing",
+	"success",
+	"error",
+	"needs_login",
+]);
 
 interface Profile {
 	id: string;
 	name: string;
+}
+
+function isSyncStatus(value: unknown): value is SyncStatus {
+	if (typeof value !== "object" || value === null) return false;
+	const candidate = value as Record<string, unknown>;
+	return (
+		(candidate.lastSyncedAt === null || typeof candidate.lastSyncedAt === "string") &&
+		typeof candidate.status === "string" &&
+		SYNC_STATUS_VALUES.has(candidate.status as SyncStatus["status"]) &&
+		(candidate.message === undefined || typeof candidate.message === "string")
+	);
 }
 
 function Popup() {
@@ -65,8 +83,8 @@ function Popup() {
 		});
 
 		// Live status updates from background
-		const onStatusChange = ({ newValue }: { newValue?: SyncStatus }) => {
-			if (newValue) setStatus(newValue);
+		const onStatusChange = ({ newValue }: chrome.storage.StorageChange) => {
+			if (isSyncStatus(newValue)) setStatus(newValue);
 		};
 		storage.watch({ syncStatus: onStatusChange });
 		return () => {

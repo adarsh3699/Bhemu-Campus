@@ -1,0 +1,46 @@
+{
+  // bCampus Chat Worker — Wrangler Configuration
+  "name": "chat-worker",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-06",
+  "account_id": "69cfb7d71c45902e12763298c6c0f3e3",
+
+  "observability": {
+    "enabled": true
+  },
+
+  // Non-secret environment variables
+  "vars": {
+    "FIREBASE_PROJECT_ID": "bhemu-calc"
+  },
+
+  // Cron triggers — runs all maintenance jobs every hour
+  "triggers": {
+    "crons": ["0 * * * *"]
+  },
+
+  // Durable Objects
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "CHAT_ROOM",
+        "class_name": "ChatRoomDO"
+      }
+    ]
+  },
+
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["ChatRoomDO"]
+    }
+  ]
+
+  // R2 — uncomment when bucket is provisioned
+  // "r2_buckets": [
+  //   {
+  //     "binding": "MEDIA_BUCKET",
+  //     "bucket_name": "bcampus-media"
+  //   }
+  // ]
+}

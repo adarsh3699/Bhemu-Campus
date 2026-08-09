@@ -1,6 +1,7 @@
 import { Redirect, Stack } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
 import { GpaDataProvider } from "@/contexts/GpaDataContext";
+import { AttendanceDataProvider } from "@/contexts/AttendanceDataContext";
 
 export default function AppLayout() {
 	const { currentUser, launchUser, authLoading } = useAuth();
@@ -14,7 +15,9 @@ export default function AppLayout() {
 
 	return (
 		<GpaDataProvider>
-			<Stack screenOptions={{ headerShown: false }} />
+			<AttendanceDataProvider>
+				<Stack screenOptions={{ headerShown: false }} />
+			</AttendanceDataProvider>
 		</GpaDataProvider>
 	);
 }

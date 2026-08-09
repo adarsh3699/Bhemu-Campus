@@ -55,10 +55,12 @@ function parseLaunchUser(raw: string | null): LaunchUser | null {
 }
 
 async function readStoredLaunchUser(): Promise<LaunchUser | null> {
-	const [[, rawLaunchUser], [, disabled]] = await AsyncStorage.multiGet([
+	const storedValues = await AsyncStorage.getMany([
 		STORAGE_KEYS.launchUser,
 		STORAGE_KEYS.launchUserDisabled,
 	]);
+	const rawLaunchUser = storedValues[STORAGE_KEYS.launchUser] ?? null;
+	const disabled = storedValues[STORAGE_KEYS.launchUserDisabled] ?? null;
 	if (disabled === "1") return null;
 	const stored = parseLaunchUser(rawLaunchUser);
 	if (stored) return stored;

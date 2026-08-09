@@ -98,6 +98,7 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 	const [sharedWithMeProfiles, setSharedWithMeProfiles] = useState<GPAProfile[]>([]);
 	const [mySharedProfiles, setMySharedProfiles] = useState<ShareData[]>([]);
 	const [sharedWithMeShareIds, setSharedWithMeShareIds] = useState<Record<string, string>>({});
+	const [initializedUserId, setInitializedUserId] = useState<string | null>(null);
 
 	const activeListeners = useRef<Record<string, () => void>>({});
 	const isInitializingRef = useRef(false);
@@ -110,6 +111,13 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 	const hasReceivedOutgoingSharesRef = useRef(false);
 	const hydratedCacheUserIdRef = useRef<string | null>(null);
 	const hasCachedDataRef = useRef(false);
+
+	// Refs remain appropriate for effect guards, but render-facing readiness is
+	// state so account transitions always produce a predictable render.
+	useEffect(() => {
+		const timer = setTimeout(() => setInitializedUserId(dataUserId), 0);
+		return () => clearTimeout(timer);
+	}, [dataUserId]);
 
 	const gpaService = useMemo(() => {
 		return currentUser ? createGPAService(currentUser.uid) : null;
@@ -346,7 +354,7 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 
 	// During account transitions, keep the previous account's state out of the
 	// render tree until the new provider instance has started hydration.
-	const stateReadyForCurrentUser = !!dataUserId && initializedUserIdRef.current === dataUserId;
+	const stateReadyForCurrentUser = !!dataUserId && initializedUserId === dataUserId;
 	const visibleProfiles = useMemo(() => stateReadyForCurrentUser ? profiles : EMPTY_PROFILES, [stateReadyForCurrentUser, profiles]);
 	const visibleActiveProfile = stateReadyForCurrentUser ? activeProfile : null;
 	const visibleSharedWithMeProfiles = useMemo(
@@ -550,15 +558,6 @@ export function GpaDataProvider({ children }: { children: React.ReactNode }) {
 	// Reset on logout
 	useEffect(() => {
 		if (!dataUserId) {
-			setProfiles([]);
-			setActiveProfile(null);
-			setLoading(true);
-			setIsHydrated(false);
-			setIsRefreshing(false);
-			setSaving(false);
-			setSharedWithMeProfiles([]);
-			setMySharedProfiles([]);
-			setSharedWithMeShareIds({});
 			semestersCacheRef.current = {};
 			hasReceivedRemoteProfilesRef.current = false;
 			hasReceivedOutgoingSharesRef.current = false;
