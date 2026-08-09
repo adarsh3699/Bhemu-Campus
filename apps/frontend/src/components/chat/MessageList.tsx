@@ -24,12 +24,14 @@ interface MessageListProps {
 	onEdit: (msg: ChatMessage) => void;
 	onDelete: (messageId: string) => void;
 	onRetry: (messageId: string) => void;
+	onReact: (messageId: string, emoji: string) => void;
+	onUnreact: (messageId: string) => void;
 	onReport: (messageId: string) => void;
 }
 
 const MessageList = memo(function MessageList({
 	messages, currentUserId, hasMore, loadingMessages,
-	onLoadOlder, onReply, onEdit, onDelete, onRetry, onReport,
+	onLoadOlder, onReply, onEdit, onDelete, onRetry, onReact, onUnreact, onReport,
 }: MessageListProps) {
 	const bottomRef = useRef<HTMLDivElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -183,6 +185,8 @@ const MessageList = memo(function MessageList({
 								onEdit={onEdit}
 								onDelete={onDelete}
 								onRetry={onRetry}
+								onReact={onReact}
+								onUnreact={onUnreact}
 								onReport={onReport}
 							/>
 						</div>

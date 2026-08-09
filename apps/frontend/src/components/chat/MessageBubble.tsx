@@ -1,7 +1,7 @@
 "use client";
 
-import React, { memo, useRef, useState, useCallback } from "react";
-import { Pencil, Trash2, Flag, Reply, MoreHorizontal, Check, Clock, AlertCircle } from "lucide-react";
+import React, { memo, useRef, useState, useCallback, useEffect } from "react";
+import { Pencil, Trash2, Flag, Reply, MoreHorizontal, Check, Clock, AlertCircle, SmilePlus } from "lucide-react";
 import type { ChatMessage } from "@bhemu/shared";
 
 interface MessageBubbleProps {
@@ -13,6 +13,8 @@ interface MessageBubbleProps {
 	onEdit: (msg: ChatMessage) => void;
 	onDelete: (messageId: string) => void;
 	onRetry: (messageId: string) => void;
+	onReact: (messageId: string, emoji: string) => void;
+	onUnreact: (messageId: string) => void;
 	onReport: (messageId: string) => void;
 }
 
@@ -124,10 +126,14 @@ const MessageBubble = memo(function MessageBubble({
 	onEdit,
 	onDelete,
 	onRetry,
+	onReact,
+	onUnreact,
 	onReport,
 }: MessageBubbleProps) {
 	const [menuOpen, setMenuOpen] = useState(false);
+	const [reactionTrayOpen, setReactionTrayOpen] = useState(false);
 	const menuRef = useRef<HTMLDivElement>(null);
+	const reactionRef = useRef<HTMLDivElement>(null);
 
 	const isOwn = currentUserId === message.authorUid;
 	const isDeleted = message.visibility === "DELETED";
@@ -135,10 +141,43 @@ const MessageBubble = memo(function MessageBubble({
 	const isOptimistic = message.id.startsWith("optimistic_");
 	const authorName = authorDisplayName(message);
 
+	const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
+
+	// Aggregate reactions
+	const reactionCounts = React.useMemo(() => {
+		if (!message.reactions || message.reactions.length === 0) return null;
+		const counts = new Map<string, { count: number; hasReacted: boolean }>();
+		for (const r of message.reactions) {
+			const existing = counts.get(r.emoji) || { count: 0, hasReacted: false };
+			existing.count += 1;
+			if (r.userUid === currentUserId) existing.hasReacted = true;
+			counts.set(r.emoji, existing);
+		}
+		// Sort by count descending so most popular is first
+		return Array.from(counts.entries()).sort((a, b) => b[1].count - a[1].count);
+	}, [message.reactions, currentUserId]);
+
 	// Close menu on outside click
-	const handleMouseLeave = useCallback(() => setMenuOpen(false), []);
-	const toggleMenu = useCallback(() => setMenuOpen((v) => !v), []);
-	const closeMenu = useCallback(() => setMenuOpen(false), []);
+	useEffect(() => {
+		if (!menuOpen && !reactionTrayOpen) return;
+		const handleOutsideClick = (e: MouseEvent) => {
+			if (menuRef.current && menuRef.current.contains(e.target as Node)) return;
+			if (reactionRef.current && reactionRef.current.contains(e.target as Node)) return;
+			setMenuOpen(false);
+			setReactionTrayOpen(false);
+		};
+		document.addEventListener("mousedown", handleOutsideClick);
+		return () => document.removeEventListener("mousedown", handleOutsideClick);
+	}, [menuOpen, reactionTrayOpen]);
+
+	const toggleMenu = useCallback(() => {
+		setMenuOpen((v) => !v);
+		setReactionTrayOpen(false);
+	}, []);
+	const closeMenu = useCallback(() => {
+		setMenuOpen(false);
+		setReactionTrayOpen(false);
+	}, []);
 
 	if (isAnnouncement) {
 		return (
@@ -165,7 +204,6 @@ const MessageBubble = memo(function MessageBubble({
 	return (
 		<div
 			className={`group flex items-end gap-3 ${showIdentity ? "mt-5" : "mt-1"} ${isOwn ? "flex-row-reverse" : "flex-row"}`}
-			onMouseLeave={handleMouseLeave}
 		>
 			{/* Room messages retain a stable identity without a remote image lookup. */}
 			{!isOwn && (
@@ -230,48 +268,151 @@ const MessageBubble = memo(function MessageBubble({
 							)
 						)}
 					</span>
-					<span
-						className={`float-right ml-4 mt-2 flex items-center justify-end gap-1 ${isOwn ? "text-white/80" : "text-white/45"}`}
-					>
-						{message.editedAt && <span className="text-[10px] opacity-70">edited</span>}
-						{message.failed ? (
-							<>
-								<span className="text-[10px] font-medium text-red-300">
-									Failed to send
-								</span>
-								<button
-									onClick={() => onRetry(message.idempotencyKey || message.id)}
-									className="ml-1 flex items-center gap-1 text-[10px] font-semibold text-red-400 hover:text-red-300 transition-colors"
-								>
-									<AlertCircle className="size-3" />
-									Retry
-								</button>
-							</>
-						) : isOptimistic ? (
-							<>
-								<span className="text-[10px] font-medium tabular-nums">
-									{formatTime(message.createdAt)}
-								</span>
-								{isOwn && <Clock className="size-[11px] opacity-70" aria-label="Sending" />}
-							</>
-						) : (
-							<>
-								<span className="text-[10px] font-medium tabular-nums">
-									{formatTime(message.createdAt)}
-								</span>
-								{isOwn && <Check className="size-3" strokeWidth={3} aria-label="Sent" />}
-							</>
-						)}
-					</span>
+
+					{reactionCounts && reactionCounts.length > 0 ? (
+						<div className="mt-2 flex flex-wrap items-end justify-between gap-3">
+							<div className="flex flex-wrap gap-1.5">
+								{reactionCounts.map(([emoji, { count, hasReacted }]) => (
+									<button
+										key={emoji}
+										onClick={() =>
+											hasReacted ? onUnreact(message.id) : onReact(message.id, emoji)
+										}
+										className={`flex items-center gap-1.5 rounded-full pl-1.5 pr-2.5 py-0.5 text-[12px] font-medium border transition-colors ${
+											hasReacted
+												? isOwn
+													? "bg-white/30 border-white/20 text-white"
+													: "bg-sky-500/20 border-sky-500/30 text-sky-400"
+												: isOwn
+													? "bg-black/20 border-black/10 text-white/90 hover:bg-black/30"
+													: "bg-white/10 border-white/5 text-white/80 hover:bg-white/20"
+										}`}
+										title={hasReacted ? "Remove reaction" : "React"}
+									>
+										<span className="text-[16px] leading-none">{emoji}</span>
+										<span className="pt-[1px]">{count}</span>
+									</button>
+								))}
+							</div>
+							<div
+								className={`flex shrink-0 items-center justify-end gap-1 mb-0.5 ${isOwn ? "text-white/80" : "text-white/45"}`}
+							>
+								{message.editedAt && <span className="text-[10px] opacity-70">edited</span>}
+								{message.failed ? (
+									<>
+										<span className="text-[10px] font-medium text-red-300">Failed to send</span>
+										<button
+											onClick={() => onRetry(message.idempotencyKey || message.id)}
+											className="ml-1 flex items-center gap-1 text-[10px] font-semibold text-red-400 hover:text-red-300 transition-colors"
+										>
+											<AlertCircle className="size-3" />
+											Retry
+										</button>
+									</>
+								) : isOptimistic ? (
+									<>
+										<span className="text-[10px] font-medium tabular-nums">
+											{formatTime(message.createdAt)}
+										</span>
+										{isOwn && <Clock className="size-[11px] opacity-70" aria-label="Sending" />}
+									</>
+								) : (
+									<>
+										<span className="text-[10px] font-medium tabular-nums">
+											{formatTime(message.createdAt)}
+										</span>
+										{isOwn && <Check className="size-3" strokeWidth={3} aria-label="Sent" />}
+									</>
+								)}
+							</div>
+						</div>
+					) : (
+						<span
+							className={`float-right ml-4 mt-2 flex items-center justify-end gap-1 ${isOwn ? "text-white/80" : "text-white/45"}`}
+						>
+							{message.editedAt && <span className="text-[10px] opacity-70">edited</span>}
+							{message.failed ? (
+								<>
+									<span className="text-[10px] font-medium text-red-300">Failed to send</span>
+									<button
+										onClick={() => onRetry(message.idempotencyKey || message.id)}
+										className="ml-1 flex items-center gap-1 text-[10px] font-semibold text-red-400 hover:text-red-300 transition-colors"
+									>
+										<AlertCircle className="size-3" />
+										Retry
+									</button>
+								</>
+							) : isOptimistic ? (
+								<>
+									<span className="text-[10px] font-medium tabular-nums">
+										{formatTime(message.createdAt)}
+									</span>
+									{isOwn && <Clock className="size-[11px] opacity-70" aria-label="Sending" />}
+								</>
+							) : (
+								<>
+									<span className="text-[10px] font-medium tabular-nums">
+										{formatTime(message.createdAt)}
+									</span>
+									{isOwn && <Check className="size-3" strokeWidth={3} aria-label="Sent" />}
+								</>
+							)}
+						</span>
+					)}
 				</div>
 
-				{/* Hover actions — don't show on optimistic messages */}
-				{!isOptimistic && (
+				{/* Hover actions — don't show on optimistic or failed messages */}
+				{!isOptimistic && !message.failed && (
 					<div
 						className={`absolute bottom-0 ${
 							isOwn ? "left-0 -translate-x-full pr-1.5" : "right-0 translate-x-full pl-1.5"
-						} flex items-center gap-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100`}
+						} flex items-center gap-1 transition-opacity duration-200 ${
+							menuOpen || reactionTrayOpen
+								? "opacity-100"
+								: "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+						}`}
 					>
+						<div ref={reactionRef} className="relative">
+							<button
+								onClick={() => {
+									setReactionTrayOpen((v) => !v);
+									setMenuOpen(false);
+								}}
+								className="flex size-9 items-center justify-center rounded-full border border-white/10 bg-[#1a1f20] text-muted-foreground shadow-sm transition-all hover:border-white/20 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+								title="React"
+								aria-label="React to message"
+							>
+								<SmilePlus className="size-4" />
+							</button>
+							{reactionTrayOpen && (
+								<div
+									className={`absolute bottom-full mb-2 z-50 flex items-center gap-1 rounded-full border border-white/10 bg-[#121212]/95 backdrop-blur-md shadow-xl shadow-black/50 px-2 py-1.5 animate-in fade-in zoom-in-95 duration-150 ${
+										isOwn ? "right-0" : "left-0"
+									}`}
+								>
+									{QUICK_EMOJIS.map((emoji) => (
+										<button
+											key={emoji}
+											onClick={() => {
+												setReactionTrayOpen(false);
+												const alreadyReactedWithThis = message.reactions?.some(
+													(r) => r.userUid === currentUserId && r.emoji === emoji
+												);
+												if (alreadyReactedWithThis) {
+													onUnreact(message.id);
+												} else {
+													onReact(message.id, emoji);
+												}
+											}}
+											className="flex size-8 items-center justify-center rounded-full text-[17px] hover:bg-white/15 transition-all hover:scale-110 active:scale-95"
+											title={emoji}
+										>
+											{emoji}
+										</button>
+									))}
+								</div>
+							)}
+						</div>
 						<button
 							onClick={() => onReply(message)}
 							className="flex size-9 items-center justify-center rounded-full border border-white/10 bg-[#1a1f20] text-muted-foreground shadow-sm transition-all hover:border-white/20 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"

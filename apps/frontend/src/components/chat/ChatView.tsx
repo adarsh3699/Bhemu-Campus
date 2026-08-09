@@ -24,6 +24,8 @@ export default function ChatView() {
 		editMsg,
 		deleteMsg,
 		retryMessage,
+		react,
+		unreact,
 		report,
 		onlineUsers,
 		error,
@@ -178,6 +180,8 @@ export default function ChatView() {
 						onEdit={setEditingMsg}
 						onDelete={deleteMsg}
 						onRetry={retryMessage}
+						onReact={react}
+						onUnreact={unreact}
 						onReport={setReportingId}
 					/>
 

@@ -613,6 +613,27 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 				));
 				break;
 			}
+			case WS_EVENTS.REACTION_UPDATED: {
+				const reaction = envelope.payload as { messageId: string; userUid: string; emoji: string | null; createdAt: string };
+				setMsgs(prev => prev.map(m => {
+					if (m.id !== reaction.messageId) return m;
+					const current = m.reactions ?? [];
+					if (reaction.emoji === null) {
+						// Remove reaction
+						return { ...m, reactions: current.filter(r => r.userUid !== reaction.userUid) };
+					}
+					// Upsert reaction
+					const existingIndex = current.findIndex(r => r.userUid === reaction.userUid);
+					const newReactions = [...current];
+					if (existingIndex !== -1) {
+						newReactions[existingIndex] = { ...newReactions[existingIndex], emoji: reaction.emoji, createdAt: reaction.createdAt };
+					} else {
+						newReactions.push({ messageId: reaction.messageId, userUid: reaction.userUid, emoji: reaction.emoji, createdAt: reaction.createdAt });
+					}
+					return { ...m, reactions: newReactions };
+				}));
+				break;
+			}
 			case WS_EVENTS.PRESENCE_JOINED: {
 				const p = envelope.payload as PresenceJoinedPayload;
 				setPresence(prev =>

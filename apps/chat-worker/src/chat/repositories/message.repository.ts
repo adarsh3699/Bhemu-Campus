@@ -11,12 +11,14 @@ import {
 	messageIdempotency,
 	roomEvents,
 	rooms,
+	messageReactions,
 } from "../../db/schema";
-import type { Message, MessageAttachment } from "../../db/schema";
+import type { Message, MessageAttachment, MessageReaction } from "../../db/schema";
 import { MESSAGE_PAGE_SIZE } from "../../constants";
 
-export interface MessageWithAttachments extends Message {
+export interface MessageWithRelations extends Message {
 	attachments: MessageAttachment[];
+	reactions: MessageReaction[];
 }
 
 export interface CreateMessageInput {
@@ -102,7 +104,7 @@ export class MessageRepository {
 		attachmentInputs: CreateAttachmentInput[],
 		eventInput?: CreateRoomEventInput,
 		idempotencyInput?: CreateMessageIdempotencyInput,
-	): Promise<MessageWithAttachments> {
+	): Promise<MessageWithRelations> {
 		const messageQuery = this.db
 			.insert(messages)
 			.values({
@@ -165,7 +167,7 @@ export class MessageRepository {
 			}
 			const msg = rows[0];
 			if (!msg) throw new Error("Message insert returned no row");
-			return { ...msg, attachments: [] };
+			return { ...msg, attachments: [], reactions: [] };
 		}
 
 		const attachmentQuery = this.db
@@ -209,7 +211,7 @@ export class MessageRepository {
 		}
 		const msg = rows[0];
 		if (!msg) throw new Error("Message insert returned no row");
-		return { ...msg, attachments: atts };
+		return { ...msg, attachments: atts, reactions: [] };
 	}
 
 	/** Finds the message committed for a retried command. */
@@ -217,7 +219,7 @@ export class MessageRepository {
 		roomId: string,
 		authorUid: string,
 		key: string,
-	): Promise<MessageWithAttachments | null> {
+	): Promise<MessageWithRelations | null> {
 		const rows = await this.db
 			.select({ messageId: messageIdempotency.messageId })
 			.from(messageIdempotency)
@@ -229,7 +231,7 @@ export class MessageRepository {
 				),
 			)
 			.limit(1);
-		return rows[0] ? this.findByIdWithAttachments(rows[0].messageId) : null;
+		return rows[0] ? this.findByIdWithRelations(rows[0].messageId) : null;
 	}
 
 	/** Returns the committed event high-water mark for sequence repair. */
@@ -254,22 +256,30 @@ export class MessageRepository {
 		return rows[0] ?? null;
 	}
 
-	async findByIdWithAttachments(id: string): Promise<MessageWithAttachments | null> {
+	async findByIdWithRelations(id: string): Promise<MessageWithRelations | null> {
 		const msg = await this.findById(id);
 		if (!msg) return null;
-		const attachments = await this.db
-			.select()
-			.from(messageAttachments)
-			.where(eq(messageAttachments.messageId, id))
-			.orderBy(messageAttachments.displayOrder);
-		return { ...msg, attachments };
+		
+		const [attachments, reactions] = await Promise.all([
+			this.db
+				.select()
+				.from(messageAttachments)
+				.where(eq(messageAttachments.messageId, id))
+				.orderBy(messageAttachments.displayOrder),
+			this.db
+				.select()
+				.from(messageReactions)
+				.where(eq(messageReactions.messageId, id))
+		]);
+		
+		return { ...msg, attachments, reactions };
 	}
 
 	async listByRoom(
 		roomId: string,
 		limit: number = MESSAGE_PAGE_SIZE,
 		cursor?: PaginationCursor,
-	): Promise<MessageWithAttachments[]> {
+	): Promise<MessageWithRelations[]> {
 		const fetchLimit = limit + 1; // one extra to detect hasMore
 
 		const rows = cursor
@@ -299,22 +309,39 @@ export class MessageRepository {
 
 		if (rows.length === 0) return [];
 
-		// Batch-load all attachments in one query — avoids N+1
-		const msgIds = rows.map((m) => m.id);
-		const allAttachments = await this.db
-			.select()
-			.from(messageAttachments)
-			.where(inArray(messageAttachments.messageId, msgIds))
-			.orderBy(messageAttachments.displayOrder);
+		const messageIds = rows.map((m) => m.id);
 
-		const attachMap = new Map<string, MessageAttachment[]>();
-		for (const att of allAttachments) {
-			const list = attachMap.get(att.messageId) ?? [];
+		const [attachments, reactions] = await Promise.all([
+			this.db
+				.select()
+				.from(messageAttachments)
+				.where(inArray(messageAttachments.messageId, messageIds))
+				.orderBy(messageAttachments.displayOrder),
+			this.db
+				.select()
+				.from(messageReactions)
+				.where(inArray(messageReactions.messageId, messageIds))
+		]);
+
+		const attMap = new Map<string, MessageAttachment[]>();
+		for (const att of attachments) {
+			const list = attMap.get(att.messageId) ?? [];
 			list.push(att);
-			attachMap.set(att.messageId, list);
+			attMap.set(att.messageId, list);
 		}
 
-		return rows.map((m) => ({ ...m, attachments: attachMap.get(m.id) ?? [] }));
+		const rxMap = new Map<string, MessageReaction[]>();
+		for (const rx of reactions) {
+			const list = rxMap.get(rx.messageId) ?? [];
+			list.push(rx);
+			rxMap.set(rx.messageId, list);
+		}
+
+		return rows.map((msg) => ({
+			...msg,
+			attachments: attMap.get(msg.id) ?? [],
+			reactions: rxMap.get(msg.id) ?? [],
+		}));
 	}
 
 	// ----------------------------------------------------------------

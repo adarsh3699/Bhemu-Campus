@@ -14,7 +14,7 @@
 
 import {
 	MessageRepository,
-	type MessageWithAttachments,
+	type MessageWithRelations,
 	type CreateRoomEventInput,
 	type CreateMessageIdempotencyInput,
 } from "../repositories/message.repository";
@@ -62,7 +62,7 @@ export interface VerifiedPublicRoom {
 }
 
 export interface CreateMessageResult {
-	message: MessageWithAttachments;
+	message: MessageWithRelations;
 	/** False when the DB idempotency record already existed. */
 	created: boolean;
 }
@@ -128,7 +128,7 @@ export class MessageService {
 		userUid: string,
 		limitRaw: number = MESSAGE_PAGE_SIZE,
 		cursorStr?: string,
-	): Promise<PaginatedResult<MessageWithAttachments>> {
+	): Promise<PaginatedResult<MessageWithRelations>> {
 		await this.roomService.requireMembership(roomId, userUid);
 		const limit = Math.min(limitRaw, 100);
 		const cursor = cursorStr ? decodeCursor(cursorStr) : undefined;
@@ -244,7 +244,7 @@ export class MessageService {
 				messageId: id,
 			}
 			: undefined;
-		let msg: MessageWithAttachments;
+		let msg: MessageWithRelations;
 		try {
 			msg = await this.msgRepo.createWithAttachmentsAndRoomCounter(
 				{
@@ -311,7 +311,7 @@ export class MessageService {
 		messageId: string,
 		newContent: string,
 		broadcast: BroadcastFn,
-	): Promise<MessageWithAttachments> {
+	): Promise<MessageWithRelations> {
 		assertCanWrite(user);
 
 		const msg = await this.msgRepo.findById(messageId);
@@ -327,7 +327,7 @@ export class MessageService {
 		if (trimmed.length > MAX_MESSAGE_LENGTH) throw Errors.messageTooLong(MAX_MESSAGE_LENGTH);
 
 		await this.msgRepo.updateContent(messageId, trimmed);
-		const result = await this.msgRepo.findByIdWithAttachments(messageId);
+		const result = await this.msgRepo.findByIdWithRelations(messageId);
 		if (!result) throw Errors.messageNotFound();
 
 		await broadcast(msg.roomId, { event: "message.updated", data: result });

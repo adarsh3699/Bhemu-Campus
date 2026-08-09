@@ -73,7 +73,7 @@ export interface WsEnvelope<T = unknown> {
 // ---- Payload shapes per event ----
 
 export interface MessageCreatedPayload {
-	message: unknown; // MessageWithAttachments — typed via shared package
+	message: unknown; // MessageWithRelations — typed via shared package
 }
 
 export interface MessageDeletedPayload {
