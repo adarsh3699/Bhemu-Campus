@@ -12,9 +12,13 @@ export function parseProgram(program: string | null | undefined): ParsedProgram 
 
 	if (parenGroups.length === 0) return null;
 
-	const programCode = parenGroups[parenGroups.length - 1];
+	let programCode = parenGroups[parenGroups.length - 1];
 	const programName = program.split("(")[0].trim();
 	const branch = parenGroups.length >= 2 ? parenGroups[parenGroups.length - 2] : null;
+
+	if (programCode && programCode.includes("-")) {
+		programCode = programCode.split("-")[0];
+	}
 
 	if (!programName || !programCode) return null;
 
