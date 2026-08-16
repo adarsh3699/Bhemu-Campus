@@ -7,6 +7,7 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { MessageProvider } from "@/contexts/MessageContext";
 import { markStartup } from "@/features/startup/performance";
+import AppUpdateGate from "@/features/app-updates/AppUpdateGate";
 
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 markStartup("native_launch");
@@ -45,7 +46,12 @@ function RootContent() {
 		return () => task.cancel();
 	}, []);
 
-	return <Stack screenOptions={{ headerShown: false }} />;
+	return (
+		<>
+			<Stack screenOptions={{ headerShown: false }} />
+			<AppUpdateGate />
+		</>
+	);
 }
 
 export default function RootLayout() {

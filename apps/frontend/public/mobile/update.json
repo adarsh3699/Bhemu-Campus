@@ -1,0 +1,10 @@
+{
+  "version": "1.1.0",
+  "apkUrl": "https://github.com/adarsh3699/Bhemu-Campus/releases/download/mobile-v1.1.0/bcampus-mobile-v1.1.0.apk",
+  "releaseNotes": [
+    "Added production OTA update support.",
+    "Added in-app APK updates with download progress.",
+    "Improved release and update handling."
+  ],
+  "mandatory": false
+}

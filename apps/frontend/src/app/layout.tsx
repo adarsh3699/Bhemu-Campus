@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
 import { AuthProvider } from "@/firebase/AuthContext";
@@ -11,9 +11,13 @@ import AppShell from "@/components/layout/AppShell";
 import GlobalHandlers from "@/components/layout/GlobalHandlers";
 import { generatePageMetadata, generateWebsiteJsonLd, generateWebAppJsonLd } from "@/lib/seo";
 
-const inter = Inter({
+const inter = localFont({
+	src: [
+		{ path: "../../public/Inter-Regular.ttf", weight: "400", style: "normal" },
+		{ path: "../../public/Inter-Bold.ttf", weight: "700", style: "normal" },
+	],
 	variable: "--font-inter",
-	subsets: ["latin"],
+	display: "swap",
 });
 
 // ── Root metadata (individual pages override specific fields) ────────────────
@@ -39,9 +43,10 @@ export default function RootLayout({
 	const jsonLd = [generateWebsiteJsonLd(), generateWebAppJsonLd()];
 
 	return (
-		<html lang="en" className={`${inter.variable} h-full antialiased dark`}>
-			<head>
-				<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<html lang="en" className={`${inter.variable} h-full antialiased dark`} data-scroll-behavior="smooth">
+		<head>
+			<meta name="viewport" content="width=device-width, initial-scale=1" />
+			<meta name="theme-color" content="#080d0f" />
 				{/* DNS prefetch for Firebase */}
 				<link rel="dns-prefetch" href="https://firestore.googleapis.com" />
 				<link rel="preconnect" href="https://firestore.googleapis.com" crossOrigin="anonymous" />
