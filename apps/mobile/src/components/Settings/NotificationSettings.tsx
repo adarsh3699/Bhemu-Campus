@@ -87,6 +87,7 @@ export default function NotificationSettings() {
 
 	const handleMasterToggle = (enabled: boolean) => {
 		if (enabled && notificationsBlocked) {
+			void updateSettings({ enabled: true });
 			openNotificationSettings();
 			return;
 		}

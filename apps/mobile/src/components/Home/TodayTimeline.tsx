@@ -138,6 +138,7 @@ const TimelineCard = memo(function TimelineCardView({ item, position, isCurrent,
 
 export default memo(function TodayTimeline({ timetable, seatingPlan, hasTimetableData }: Props) {
 	const router = useRouter();
+	const openTimetable = () => router.push("/timetable" as never);
 	const now = new Date();
 	const currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
 
@@ -208,9 +209,14 @@ export default memo(function TodayTimeline({ timetable, seatingPlan, hasTimetabl
 	if (!hasTimetableData) {
 		return (
 			<View style={local.emptyContainer}>
-				<View style={local.sectionHeader}>
+				<Pressable
+					style={local.sectionHeader}
+					onPress={openTimetable}
+					accessibilityRole="button"
+					accessibilityLabel="Open timetable"
+				>
 					<Text style={local.sectionTitle}>Today&apos;s Classes</Text>
-				</View>
+				</Pressable>
 				<View style={local.emptyCard}>
 					<CalendarX2 size={28} color={Colors.textSubtle} />
 					<Text style={local.emptyText}>Sync to see today&apos;s schedule</Text>
@@ -222,12 +228,15 @@ export default memo(function TodayTimeline({ timetable, seatingPlan, hasTimetabl
 	if (displayItems.length === 0) {
 		return (
 			<View style={local.emptyContainer}>
-				<View style={local.sectionHeader}>
+				<Pressable
+					style={local.sectionHeader}
+					onPress={openTimetable}
+					accessibilityRole="button"
+					accessibilityLabel="Open timetable"
+				>
 					<Text style={local.sectionTitle}>Today&apos;s Classes</Text>
-					<Pressable onPress={() => router.push("/timetable" as never)} hitSlop={8}>
-						<ArrowRight size={18} color={Colors.primary} />
-					</Pressable>
-				</View>
+					<ArrowRight size={18} color={Colors.primary} />
+				</Pressable>
 				<View style={local.emptyCard}>
 					<Text style={local.emptyEmoji}>🎉</Text>
 					<Text style={local.emptyText}>No classes today</Text>
@@ -239,12 +248,15 @@ export default memo(function TodayTimeline({ timetable, seatingPlan, hasTimetabl
 	return (
 		<View>
 			{/* Section header */}
-			<View style={local.sectionHeader}>
+			<Pressable
+				style={local.sectionHeader}
+				onPress={openTimetable}
+				accessibilityRole="button"
+				accessibilityLabel="Open timetable"
+			>
 				<Text style={local.sectionTitle}>Today&apos;s Classes</Text>
-				<Pressable onPress={() => router.push("/timetable" as never)} hitSlop={8}>
-					<ArrowRight size={18} color={Colors.primary} />
-				</Pressable>
-			</View>
+				<ArrowRight size={18} color={Colors.primary} />
+			</Pressable>
 
 			{/* Flex row of cards */}
 			<View style={local.cardRow}>

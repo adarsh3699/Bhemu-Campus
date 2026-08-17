@@ -54,6 +54,58 @@ export function configureNotifications(): void {
 	});
 }
 
+export type NotificationDestination = "/timetable" | "/seating-plan";
+
+function getNotificationDestination(response: Notifications.NotificationResponse): NotificationDestination | null {
+	if (response.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) return null;
+
+	const content = response.notification.request.content;
+	if (content.data?.source !== MANAGED_SOURCE) return null;
+
+	if (content.data.type === "timetable") return "/timetable";
+	if (content.data.type === "exam") return "/seating-plan";
+	return null;
+}
+
+/** Subscribe to navigation requests from managed academic reminders. */
+export function subscribeToNotificationNavigation(onNavigate: (destination: NotificationDestination) => void): () => void {
+	if (Platform.OS === "web") return () => {};
+
+	try {
+		const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+			const destination = getNotificationDestination(response);
+			if (!destination) return;
+
+			try {
+				Notifications.clearLastNotificationResponse();
+			} catch {
+				// Clearing is best-effort; navigation can still proceed.
+			}
+			onNavigate(destination);
+		});
+
+		return () => subscription.remove();
+	} catch {
+		return () => {};
+	}
+}
+
+/** Consume a cold-start notification tap exactly once. */
+export function consumeLastNotificationNavigation(): NotificationDestination | null {
+	if (Platform.OS === "web") return null;
+
+	try {
+		const response = Notifications.getLastNotificationResponse();
+		if (!response) return null;
+		const destination = getNotificationDestination(response);
+		if (!destination) return null;
+		Notifications.clearLastNotificationResponse();
+		return destination;
+	} catch {
+		return null;
+	}
+}
+
 type ReminderTime = { weekday: number; hour: number; minute: number };
 
 export function getReminderTime(entry: TimetableEntry, minutesBefore: number): ReminderTime | null {
@@ -208,6 +260,36 @@ async function cancelManagedNotifications(): Promise<void> {
 	}
 }
 
+const IOS_PENDING_NOTIFICATION_LIMIT = 64;
+
+type ScheduleBudget = {
+	remaining: number;
+	failed: number;
+	skipped: number;
+	scheduled: number;
+};
+
+function createScheduleBudget(remaining: number): ScheduleBudget {
+	return { remaining, failed: 0, skipped: 0, scheduled: 0 };
+}
+
+async function getScheduleBudget(): Promise<ScheduleBudget> {
+	if (Platform.OS !== "ios") return createScheduleBudget(Number.POSITIVE_INFINITY);
+
+	const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+	const unmanagedCount = scheduled.filter((request) => !isManagedRequest(request)).length;
+	return createScheduleBudget(Math.max(0, IOS_PENDING_NOTIFICATION_LIMIT - unmanagedCount));
+}
+
+function reserveScheduleSlot(budget: ScheduleBudget): boolean {
+	if (budget.remaining <= 0) {
+		budget.skipped += 1;
+		return false;
+	}
+	if (Number.isFinite(budget.remaining)) budget.remaining -= 1;
+	return true;
+}
+
 /** Cancel reminders that belong to this app when the local session ends. */
 export function clearManagedNotifications(): Promise<void> {
 	scheduleQueue = scheduleQueue
@@ -222,12 +304,14 @@ async function scheduleTimetableNotifications(
 	timetable: TimetableEntry[],
 	settings: NotificationSettings,
 	profileName: string,
-	profileId: string | number
+	profileId: string | number,
+	budget: ScheduleBudget
 ): Promise<void> {
 	const schedules = buildTimetableEntries(timetable).map(async ({ entry, reminderIndex }) => {
 		const minutesBefore = reminderIndex === 0 ? settings.firstClassMinutes : settings.otherClassMinutes;
 		const reminderTime = getReminderTime(entry, minutesBefore);
 		if (!reminderTime) return;
+		if (!reserveScheduleSlot(budget)) return;
 
 		try {
 			await Notifications.scheduleNotificationAsync({
@@ -260,7 +344,9 @@ async function scheduleTimetableNotifications(
 								repeats: true,
 							},
 			});
+			budget.scheduled += 1;
 		} catch (error) {
+			budget.failed += 1;
 			console.warn(`Unable to schedule reminder for ${entry.courseCode}`, error);
 		}
 	});
@@ -271,35 +357,42 @@ async function scheduleExamNotifications(
 	seatingPlan: UMSSeatingPlan[],
 	settings: NotificationSettings,
 	profileName: string,
-	profileId: string | number
+	profileId: string | number,
+	budget: ScheduleBudget
 ): Promise<void> {
 	const scheduledExams = new Set<string>();
-	const schedules = seatingPlan.map(async (exam) => {
-		const reminderDate = getExamReminderDate(exam.ExamDate, settings.examDaysBefore, settings.examReminderHour);
-		const examKey = `${exam.CourseCode}-${exam.ExamDate}-${exam.ExamType}`;
-		if (!reminderDate || scheduledExams.has(examKey)) return;
-		scheduledExams.add(examKey);
+	const schedules = seatingPlan
+		.map((exam) => ({ exam, reminderDate: getExamReminderDate(exam.ExamDate, settings.examDaysBefore, settings.examReminderHour) }))
+		.filter((item): item is { exam: UMSSeatingPlan; reminderDate: Date } => item.reminderDate !== null)
+		.sort((a, b) => a.reminderDate.getTime() - b.reminderDate.getTime())
+		.map(async ({ exam, reminderDate }) => {
+			const examKey = `${exam.CourseCode}-${exam.ExamDate}-${exam.ExamType}`;
+			if (scheduledExams.has(examKey)) return;
+			scheduledExams.add(examKey);
+			if (!reserveScheduleSlot(budget)) return;
 
-		try {
-			await Notifications.scheduleNotificationAsync({
-				content: {
-					subtitle: profileName,
-					title: `Exam in ${settings.examDaysBefore} day${settings.examDaysBefore === 1 ? "" : "s"}`,
-					body: `${exam.CourseCode}${exam.CourseName ? ` — ${exam.CourseName}` : ""}${exam.Room ? ` • Room ${exam.Room}` : ""}`,
-					data: {
-						source: MANAGED_SOURCE,
-						type: "exam",
-						profileId: String(profileId),
-						profileName,
-						courseCode: exam.CourseCode,
+			try {
+				await Notifications.scheduleNotificationAsync({
+					content: {
+						subtitle: profileName,
+						title: `Exam in ${settings.examDaysBefore} day${settings.examDaysBefore === 1 ? "" : "s"}`,
+						body: `${exam.CourseCode}${exam.CourseName ? ` — ${exam.CourseName}` : ""}${exam.Room ? ` • Room ${exam.Room}` : ""}`,
+						data: {
+							source: MANAGED_SOURCE,
+							type: "exam",
+							profileId: String(profileId),
+							profileName,
+							courseCode: exam.CourseCode,
+						},
 					},
-				},
-				trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: reminderDate, channelId: CHANNEL_ID },
-			});
-		} catch (error) {
-			console.warn(`Unable to schedule exam reminder for ${exam.CourseCode}`, error);
-		}
-	});
+					trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: reminderDate, channelId: CHANNEL_ID },
+				});
+				budget.scheduled += 1;
+			} catch (error) {
+				budget.failed += 1;
+				console.warn(`Unable to schedule exam reminder for ${exam.CourseCode}`, error);
+			}
+		});
 	await Promise.all(schedules);
 }
 
@@ -314,6 +407,7 @@ async function scheduleLatestNotifications(
 	if (!settings.enabled) return;
 	if (!settings.timetableEnabled && !settings.examEnabled) return;
 	if (!(await ensureNotificationPermission(allowPermissionPrompt))) return;
+	const budget = await getScheduleBudget();
 
 	// Timetable reminders intentionally follow only the currently selected
 	// profile. Exam reminders are scheduled for every available profile below.
@@ -322,7 +416,8 @@ async function scheduleLatestNotifications(
 			activeProfile.data.timetable,
 			settings,
 			activeProfile.profileName,
-			activeProfile.profileId
+			activeProfile.profileId,
+			budget
 		);
 	}
 
@@ -331,8 +426,14 @@ async function scheduleLatestNotifications(
 			allProfiles
 				.filter((profile): profile is NotificationProfileData & { data: UMSLocalData } => profile.data !== null)
 				.map((profile) =>
-					scheduleExamNotifications(profile.data.seatingPlan, settings, profile.profileName, profile.profileId)
+					scheduleExamNotifications(profile.data.seatingPlan, settings, profile.profileName, profile.profileId, budget)
 				)
+		);
+	}
+
+	if (budget.failed > 0 || budget.skipped > 0) {
+		console.warn(
+			`Academic notification scheduling completed with ${budget.scheduled} scheduled, ${budget.failed} failed, and ${budget.skipped} skipped reminders.`
 		);
 	}
 }

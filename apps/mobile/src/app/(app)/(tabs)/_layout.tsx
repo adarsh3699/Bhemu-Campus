@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, View, Text } from "react-native";
+import { ActivityIndicator, AppState, Pressable, StyleSheet, View, Text } from "react-native";
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from "react-native-reanimated";
 import { Tabs } from "expo-router";
 import { Home, Calculator, RefreshCw, CalendarCheck, Settings } from "lucide-react-native";
@@ -129,6 +129,7 @@ export default function TabsLayout() {
 	const [loginVisible, setLoginVisible] = useState(false);
 	const previousNotificationScopeRef = useRef<string | null>(null);
 	const notificationRequestRef = useRef(0);
+	const notificationAppStateRef = useRef(AppState.currentState);
 	const queueNotificationRefresh = useCallback(
 		(
 			profileId: string | number | null,
@@ -172,6 +173,29 @@ export default function TabsLayout() {
 			unsubscribeSettings?.();
 		};
 	}, [activeProfile, allProfiles, currentUser, queueNotificationRefresh]);
+
+	useEffect(() => {
+		const subscription = AppState.addEventListener("change", (nextState) => {
+			const wasInactive = notificationAppStateRef.current !== "active";
+			notificationAppStateRef.current = nextState;
+
+			if (!wasInactive || nextState !== "active" || !currentUser) return;
+			if (activeProfile == null && allProfiles.length === 0) return;
+			// Recheck permission after returning from phone settings without showing
+			// a permission prompt merely because the app became active.
+			queueNotificationRefresh(activeProfile, allProfiles, false);
+		});
+
+		return () => subscription.remove();
+	}, [activeProfile, allProfiles, currentUser, queueNotificationRefresh]);
+
+	useEffect(() => {
+		if (currentUser) return;
+		// Logout removes all managed reminders. Reset the scope guard so the same
+		// account gets a fresh scheduling pass when it logs in again.
+		previousNotificationScopeRef.current = null;
+		notificationRequestRef.current += 1;
+	}, [currentUser]);
 
 	// Do not request notification permission during startup. A profile switch is
 	// an explicit user interaction, so it is a safe point to refresh reminders.

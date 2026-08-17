@@ -1,20 +1,33 @@
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { Target, BarChart3, RotateCw, Settings2, Plus, Minus } from "lucide-react-native";
 import { Colors, Spacing, Radius, FontSize, FontWeight } from "@/constants/Theme";
 import AppInput from "@/components/ui/AppInput";
+import { useGpaSemesters } from "@/contexts/GpaDataContext";
+import { calculateCGPA } from "@bhemu/shared";
 
 const TOTAL_OPTIONS = ["4", "6", "8"] as const;
 
 export default function GpaGoalPlannerView() {
-	const [currentCgpa, setCurrentCgpa] = useState("");
-	const [completedSemesters, setCompletedSemesters] = useState("");
+	const { semesters } = useGpaSemesters();
+	const [currentCgpaOverride, setCurrentCgpaOverride] = useState<string | null>(null);
+	const [completedSemestersOverride, setCompletedSemestersOverride] = useState<string | null>(null);
 	const [totalSemesters, setTotalSemesters] = useState<"4" | "6" | "8">("8");
 	const [targetCgpa, setTargetCgpa] = useState("8.50");
 
 	const completedRef = useRef<TextInput>(null);
 	const targetRef = useRef<TextInput>(null);
+
+	const plannerDefaults = useMemo(() => {
+		const completed = semesters.filter((semester) => semester.subjects.length > 0).length;
+		return {
+			currentCgpa: completed > 0 ? calculateCGPA(semesters) : "",
+			completedSemesters: completed > 0 ? String(completed) : "",
+		};
+	}, [semesters]);
+	const currentCgpa = currentCgpaOverride ?? plannerDefaults.currentCgpa;
+	const completedSemesters = completedSemestersOverride ?? plannerDefaults.completedSemesters;
 
 	const result = useMemo<{ required: number; possible: boolean; remaining: number } | null>(() => {
 		const current = parseFloat(currentCgpa);
@@ -38,8 +51,8 @@ export default function GpaGoalPlannerView() {
 	};
 
 	const handleReset = () => {
-		setCurrentCgpa("");
-		setCompletedSemesters("");
+		setCurrentCgpaOverride("");
+		setCompletedSemestersOverride("");
 		setTargetCgpa("8.50");
 	};
 
@@ -92,7 +105,7 @@ export default function GpaGoalPlannerView() {
 						size="md"
 						containerStyle={local.fieldGroup}
 						value={currentCgpa}
-						onChangeText={setCurrentCgpa}
+						onChangeText={setCurrentCgpaOverride}
 						placeholder="e.g. 7.54"
 						keyboardType="decimal-pad"
 						returnKeyType="next"
@@ -105,7 +118,7 @@ export default function GpaGoalPlannerView() {
 						size="md"
 						containerStyle={local.fieldGroup}
 						value={completedSemesters}
-						onChangeText={setCompletedSemesters}
+						onChangeText={setCompletedSemestersOverride}
 						placeholder="e.g. 3"
 						keyboardType="number-pad"
 						returnKeyType="next"
