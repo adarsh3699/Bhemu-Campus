@@ -1,4 +1,4 @@
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { Colors, FontSize, FontWeight, Radius, Shadow, Spacing } from "@/constants/Theme";
 import type { AppUpdateManifest, DownloadProgress } from "./types";
 
@@ -29,7 +29,7 @@ export default function AppUpdateDialog({
 
 	const isDownloading = status === "downloading";
 	const isError = status === "error";
-	const percent = progress?.progress == null ? null : Math.round(progress.progress * 100);
+	const percent = progress?.progress == null ? null : Math.min(100, Math.max(0, Math.round(progress.progress * 100)));
 
 	return (
 		<Modal visible={visible} transparent animationType="fade" onRequestClose={manifest.mandatory ? undefined : onLater}>
@@ -49,9 +49,18 @@ export default function AppUpdateDialog({
 
 					{isDownloading ? (
 						<View style={local.progressSection} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: percent ?? undefined }}>
-							<View style={local.progressHeader}><Text style={local.progressLabel}>Downloading update…</Text><Text style={local.progressPercent}>{percent == null ? "" : `${percent}%`}</Text></View>
-							<View style={local.progressTrack}><View style={[local.progressFill, percent == null ? local.progressIndeterminate : { width: `${percent}%` }]} /></View>
-							<Text style={local.helper}>Keep bCampus open while the APK downloads.</Text>
+							<View style={local.progressHeader}>
+								<Text style={local.progressLabel}>{percent == null ? "Preparing download…" : "Downloading update…"}</Text>
+								{percent == null ? <ActivityIndicator size="small" color={Colors.secondary} /> : <Text style={local.progressPercent}>{`${percent}%`}</Text>}
+							</View>
+							{percent == null ? (
+								<Text style={local.helper}>Connecting to the release server…</Text>
+							) : (
+								<>
+									<View style={local.progressTrack}><View style={[local.progressFill, { width: `${percent}%` }]} /></View>
+									<Text style={local.helper}>Keep bCampus open while the APK downloads.</Text>
+								</>
+							)}
 						</View>
 					) : null}
 
@@ -89,7 +98,6 @@ const local = StyleSheet.create({
 	progressPercent: { color: Colors.secondary, fontSize: FontSize.sm, fontWeight: FontWeight.bold },
 	progressTrack: { height: 8, overflow: "hidden", borderRadius: Radius.full, backgroundColor: Colors.border },
 	progressFill: { height: "100%", borderRadius: Radius.full, backgroundColor: Colors.primary },
-	progressIndeterminate: { width: "38%", opacity: 0.75 },
 	helper: { color: Colors.textSubtle, fontSize: FontSize.xs },
 	error: { color: Colors.destructive, fontSize: FontSize.sm, lineHeight: 20 },
 	buttons: { flexDirection: "row", gap: Spacing.sm, paddingTop: Spacing.sm },
@@ -100,4 +108,3 @@ const local = StyleSheet.create({
 	disabled: { opacity: 0.5 },
 	pressed: { opacity: 0.78 },
 });
-

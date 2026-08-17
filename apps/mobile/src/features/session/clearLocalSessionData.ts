@@ -45,6 +45,9 @@ export async function clearLocalSessionData(): Promise<void> {
 		// The known keys below are still removed if enumerating storage fails.
 	}
 
-	await AsyncStorage.removeMany([...keysToRemove]).catch(() => {});
+	// `removeItem` is the stable API across all supported AsyncStorage
+	// implementations. Removing in parallel also keeps logout fast without
+	// depending on the optional `multiRemove` type surface.
+	await Promise.all([...keysToRemove].map((key) => AsyncStorage.removeItem(key))).catch(() => {});
 	await Promise.all([...cacheUids].map((uid) => clearGpaCache(uid)));
 }

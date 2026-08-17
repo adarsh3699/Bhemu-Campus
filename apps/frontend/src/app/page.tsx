@@ -17,10 +17,10 @@ import {
 } from "lucide-react";
 import { generatePageMetadata } from "@/lib/seo";
 
-const MOBILE_APP_VERSION = "1.1.0";
+const MOBILE_APP_VERSION = "1.1.1";
 const MOBILE_APP_URL =
 	process.env.NEXT_PUBLIC_MOBILE_APP_URL ??
-	"https://github.com/adarsh3699/Bhemu-Campus/releases/download/mobile-v1.1.0/bcampus-mobile-v1.1.0.apk";
+	"https://github.com/adarsh3699/Bhemu-Campus/releases/download/mobile-v1.1.1/bcampus-mobile-v1.1.1.apk";
 
 export const metadata = generatePageMetadata({
 	title: "Your Academic Progress, In One Place",

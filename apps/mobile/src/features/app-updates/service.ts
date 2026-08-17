@@ -12,6 +12,10 @@ import {
 import { isNewerVersion, parseAppUpdateManifest } from "./version";
 import type { AppUpdateManifest, AvailableAppUpdate, DownloadProgress } from "./types";
 
+const APK_MIME_TYPE = "application/vnd.android.package-archive";
+const FLAG_GRANT_READ_URI_PERMISSION = 1;
+const INSTALL_PACKAGE_ACTION = "android.intent.action.INSTALL_PACKAGE";
+
 interface DeferredUpdate {
 	version: string;
 	deferredAt: number;
@@ -101,11 +105,17 @@ export async function downloadAndLaunchApk(
 	}
 
 	const contentUri = await FileSystem.getContentUriAsync(result.uri);
-	await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
+	const installerResult = await IntentLauncher.startActivityAsync(INSTALL_PACKAGE_ACTION, {
 		data: contentUri,
-		type: "application/vnd.android.package-archive",
-		flags: 1,
+		type: APK_MIME_TYPE,
+		flags: FLAG_GRANT_READ_URI_PERMISSION,
 	});
+
+	if (installerResult.resultCode === IntentLauncher.ResultCode.Canceled) {
+		throw new Error(
+			"Android cancelled the installer. Allow bCampus to install unknown apps, then try again. A local Gradle APK cannot be upgraded with an EAS APK signed by a different key."
+		);
+	}
 }
 
 export async function openInstallPermissionSettings(): Promise<void> {

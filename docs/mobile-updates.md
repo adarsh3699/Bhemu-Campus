@@ -159,7 +159,7 @@ Change this field for a new APK release:
 // apps/mobile/app.json
 {
   "expo": {
-    "version": "1.1.0"
+    "version": "1.1.1"
   }
 }
 ```
@@ -170,6 +170,7 @@ Do not use `apps/mobile/package.json` as the installed app version. It is the wo
 
 ```bash
 cd apps/mobile
+npx expo-doctor
 pnpm typecheck
 pnpm lint
 eas build --profile public --platform android
@@ -177,21 +178,23 @@ eas build --profile public --platform android
 
 Download the `.apk` artifact. Test it on a real Android device before publishing it.
 
+Do not use `./gradlew assembleRelease` as the public release artifact unless the release signing key is explicitly configured. In this project, an unconfigured local Gradle release uses the Android debug certificate and cannot upgrade an EAS-signed installation. The in-app installer permission is native, so changes to it also require a new EAS APK.
+
 ### 3. Upload the APK
 
 Create a **mobile-only** GitHub Release with this naming convention:
 
-- Tag: `mobile-v1.1.0`
-- Title: `[Mobile] bCampus v1.1.0`
-- Asset: `bcampus-mobile-v1.1.0.apk`
+- Tag: `mobile-v1.1.1`
+- Title: `[Mobile] bCampus v1.1.1`
+- Asset: `bcampus-mobile-v1.1.1.apk`
 
 You can publish it from the terminal after downloading the EAS artifact:
 
 ```bash
-gh release create mobile-v1.1.0 /path/to/bcampus-mobile-v1.1.0.apk \
+gh release create mobile-v1.1.1 /path/to/bcampus-mobile-v1.1.1.apk \
   --repo adarsh3699/Bhemu-Campus \
-  --title "[Mobile] bCampus v1.1.0" \
-  --notes "Mobile APK release for bCampus v1.1.0" \
+  --title "[Mobile] bCampus v1.1.1" \
+  --notes "Mobile APK release for bCampus v1.1.1" \
   --latest=false
 ```
 
@@ -211,8 +214,8 @@ Example for a normal optional update:
 
 ```json
 {
-  "version": "1.1.0",
-  "apkUrl": "https://github.com/adarsh3699/Bhemu-Campus/releases/download/mobile-v1.1.0/bcampus-mobile-v1.1.0.apk",
+  "version": "1.1.1",
+  "apkUrl": "https://github.com/adarsh3699/Bhemu-Campus/releases/download/mobile-v1.1.1/bcampus-mobile-v1.1.1.apk",
   "releaseNotes": [
     "Faster GPA calculations",
     "Improved attendance sync"
@@ -228,10 +231,10 @@ The `version` must be higher than the installed app version and must exactly mat
 The landing page has three mobile download CTAs. After every APK release, update the versioned fallback in `apps/frontend/src/app/page.tsx` so new visitors get the same tested asset:
 
 ```ts
-const MOBILE_APP_VERSION = "1.1.0";
+const MOBILE_APP_VERSION = "1.1.1";
 const MOBILE_APP_URL =
   process.env.NEXT_PUBLIC_MOBILE_APP_URL ??
-  "https://github.com/adarsh3699/Bhemu-Campus/releases/download/mobile-v1.1.0/bcampus-mobile-v1.1.0.apk";
+  "https://github.com/adarsh3699/Bhemu-Campus/releases/download/mobile-v1.1.1/bcampus-mobile-v1.1.1.apk";
 ```
 
 If `NEXT_PUBLIC_MOBILE_APP_URL` is configured in the hosting environment, update it to the same URL or remove it so it does not override the versioned fallback. Deploy the frontend after updating both the manifest and landing page.
