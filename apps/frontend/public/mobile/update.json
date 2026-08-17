@@ -1,10 +1,10 @@
 {
-  "version": "1.1.1",
-  "apkUrl": "https://github.com/adarsh3699/Bhemu-Campus/releases/download/mobile-v1.1.1/bcampus-mobile-v1.1.1.apk",
+  "version": "1.1.2",
+  "apkUrl": "https://github.com/adarsh3699/Bhemu-Campus/releases/download/mobile-v1.1.2/bcampus-mobile-v1.1.2.apk",
   "releaseNotes": [
-    "Fixed Android APK installer launch and cancellation handling.",
-    "Added permission for in-app APK installation.",
-    "Improved download progress while preparing the APK."
+    "Updated WebView to the Expo SDK 57 recommended version.",
+    "Retained the UMS integration patch for reliable campus sync.",
+    "Includes the improved in-app APK installer and download progress."
   ],
   "mandatory": false
 }

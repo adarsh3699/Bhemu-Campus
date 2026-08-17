@@ -159,7 +159,7 @@ Change this field for a new APK release:
 // apps/mobile/app.json
 {
   "expo": {
-    "version": "1.1.1"
+    "version": "1.1.2"
   }
 }
 ```
@@ -184,17 +184,17 @@ Do not use `./gradlew assembleRelease` as the public release artifact unless the
 
 Create a **mobile-only** GitHub Release with this naming convention:
 
-- Tag: `mobile-v1.1.1`
-- Title: `[Mobile] bCampus v1.1.1`
-- Asset: `bcampus-mobile-v1.1.1.apk`
+- Tag: `mobile-v1.1.2`
+- Title: `[Mobile] bCampus v1.1.2`
+- Asset: `bcampus-mobile-v1.1.2.apk`
 
 You can publish it from the terminal after downloading the EAS artifact:
 
 ```bash
-gh release create mobile-v1.1.1 /path/to/bcampus-mobile-v1.1.1.apk \
+gh release create mobile-v1.1.2 /path/to/bcampus-mobile-v1.1.2.apk \
   --repo adarsh3699/Bhemu-Campus \
-  --title "[Mobile] bCampus v1.1.1" \
-  --notes "Mobile APK release for bCampus v1.1.1" \
+  --title "[Mobile] bCampus v1.1.2" \
+  --notes "Mobile APK release for bCampus v1.1.2" \
   --latest=false
 ```
 
@@ -214,8 +214,8 @@ Example for a normal optional update:
 
 ```json
 {
-  "version": "1.1.1",
-  "apkUrl": "https://github.com/adarsh3699/Bhemu-Campus/releases/download/mobile-v1.1.1/bcampus-mobile-v1.1.1.apk",
+  "version": "1.1.2",
+  "apkUrl": "https://github.com/adarsh3699/Bhemu-Campus/releases/download/mobile-v1.1.2/bcampus-mobile-v1.1.2.apk",
   "releaseNotes": [
     "Faster GPA calculations",
     "Improved attendance sync"
@@ -231,10 +231,10 @@ The `version` must be higher than the installed app version and must exactly mat
 The landing page has three mobile download CTAs. After every APK release, update the versioned fallback in `apps/frontend/src/app/page.tsx` so new visitors get the same tested asset:
 
 ```ts
-const MOBILE_APP_VERSION = "1.1.1";
+const MOBILE_APP_VERSION = "1.1.2";
 const MOBILE_APP_URL =
   process.env.NEXT_PUBLIC_MOBILE_APP_URL ??
-  "https://github.com/adarsh3699/Bhemu-Campus/releases/download/mobile-v1.1.1/bcampus-mobile-v1.1.1.apk";
+  "https://github.com/adarsh3699/Bhemu-Campus/releases/download/mobile-v1.1.2/bcampus-mobile-v1.1.2.apk";
 ```
 
 If `NEXT_PUBLIC_MOBILE_APP_URL` is configured in the hosting environment, update it to the same URL or remove it so it does not override the versioned fallback. Deploy the frontend after updating both the manifest and landing page.
