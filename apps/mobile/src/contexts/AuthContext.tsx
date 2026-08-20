@@ -25,6 +25,7 @@ import { STORAGE_KEYS } from "@bhemu/shared";
 import { authStateAfterRestore } from "@/features/startup/authReadiness";
 import { clearLocalSessionData } from "@/features/session/clearLocalSessionData";
 import { enableGpaCacheWrites } from "@/features/gpa-data/cache";
+import { enableChatCacheWrites } from "@/features/chat/cache";
 import { provisionNewUserProfile } from "@bhemu/firebase";
 
 const ACCOUNT_DELETING_KEY = STORAGE_KEYS.accountDeleting;
@@ -169,6 +170,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		} catch (error) {
 			// Keep the current session usable if Firebase rejects the sign-out.
 			enableGpaCacheWrites();
+			enableChatCacheWrites();
 			throw error;
 		}
 	}
@@ -384,6 +386,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			setLaunchReady(true);
 			if (user) {
 				enableGpaCacheWrites();
+				enableChatCacheWrites();
 				const nextLaunchUser = toLaunchUser(user);
 				setLaunchUser(nextLaunchUser);
 				void AsyncStorage.removeItem(STORAGE_KEYS.launchUserDisabled);

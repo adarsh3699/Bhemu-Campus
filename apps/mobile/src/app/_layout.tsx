@@ -2,7 +2,8 @@ import { useEffect } from "react";
 import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { InteractionManager } from "react-native";
+import { InteractionManager, StyleSheet } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { MessageProvider } from "@/contexts/MessageContext";
@@ -74,13 +75,17 @@ function RootContent() {
 
 export default function RootLayout() {
 	return (
-		<KeyboardProvider>
-			<MessageProvider>
-				<AuthProvider>
-					<StatusBar style="light" />
-					<RootContent />
-				</AuthProvider>
-			</MessageProvider>
-		</KeyboardProvider>
+		<GestureHandlerRootView style={local.root}>
+			<KeyboardProvider>
+				<MessageProvider>
+					<AuthProvider>
+						<StatusBar style="light" />
+						<RootContent />
+					</AuthProvider>
+				</MessageProvider>
+			</KeyboardProvider>
+		</GestureHandlerRootView>
 	);
 }
+
+const local = StyleSheet.create({ root: { flex: 1 } });

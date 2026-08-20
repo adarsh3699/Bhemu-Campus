@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 import { ActivityIndicator, AppState, Pressable, StyleSheet, View, Text } from "react-native";
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from "react-native-reanimated";
 import { Tabs } from "expo-router";
-import { Home, Calculator, RefreshCw, CalendarCheck, Settings } from "lucide-react-native";
+import { Home, Calculator, RefreshCw, MessageCircle, Settings } from "lucide-react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Colors, Radius, FontSize, FontWeight } from "@/constants/Theme";
 import { useAuth } from "@/contexts/AuthContext";
@@ -342,10 +342,10 @@ export default function TabsLayout() {
 						}}
 					/>
 					<Tabs.Screen
-						name="attendance"
+						name="chat"
 						options={{
-							title: "Attendance",
-							tabBarIcon: ({ color, size }) => <CalendarCheck size={size} color={color} />,
+							title: "Chat",
+							tabBarIcon: ({ color, size }) => <MessageCircle size={size} color={color} />,
 						}}
 					/>
 					<Tabs.Screen

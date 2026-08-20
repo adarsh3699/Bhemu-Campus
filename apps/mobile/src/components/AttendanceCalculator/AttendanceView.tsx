@@ -1,19 +1,18 @@
 import { useState, useCallback, useMemo } from "react";
 import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useAttendanceData } from "@/contexts/AttendanceDataContext";
 import AttendanceSummaryCard from "@/components/AttendanceCalculator/AttendanceSummaryCard";
 import AttendanceSubjectForm, { type AttendanceFormState } from "@/components/AttendanceCalculator/AttendanceSubjectForm";
 import AttendanceSubjectList from "@/components/AttendanceCalculator/AttendanceSubjectList";
 import ConfirmModal from "@/components/ui/ConfirmModal";
-import { Colors, Spacing, FontSize, FontWeight } from "@/constants/Theme";
+import { Colors, Spacing, FontSize } from "@/constants/Theme";
 import { Layout } from "@/styles";
 import type { AttendanceSubject } from "@bhemu/shared";
 
 const EMPTY_FORM: AttendanceFormState = { id: "", name: "", totalClasses: "", attended: "", threshold: "" };
 
-function AttendanceScreenContent() {
+export default function AttendanceView() {
 	const { attendanceData, loading, saving, addOrUpdateSubject, deleteSubject, updateDefaultThreshold } =
 		useAttendanceData();
 
@@ -36,30 +35,29 @@ function AttendanceScreenContent() {
 
 	const overallAttendance = useMemo(() => {
 		if (!subjects.length) return null;
-		const totalClasses = subjects.reduce((acc, s) => acc + s.totalClasses, 0);
-		const totalAttended = subjects.reduce((acc, s) => acc + s.attended, 0);
+		const totalClasses = subjects.reduce((acc, subject) => acc + subject.totalClasses, 0);
+		const totalAttended = subjects.reduce((acc, subject) => acc + subject.attended, 0);
 		return totalClasses > 0 ? Math.ceil((totalAttended / totalClasses) * 100) : null;
 	}, [subjects]);
 
 	const belowThresholdCount = useMemo(
 		() =>
-			subjects.filter((s) => {
-				const pct = s.totalClasses > 0 ? Math.ceil((s.attended / s.totalClasses) * 100) : 0;
-				return pct < (s.threshold ?? defaultThreshold);
+			subjects.filter((subject) => {
+				const percentage = subject.totalClasses > 0 ? Math.ceil((subject.attended / subject.totalClasses) * 100) : 0;
+				return percentage < (subject.threshold ?? defaultThreshold);
 			}).length,
 		[subjects, defaultThreshold]
 	);
 
 	const handleChange = useCallback((name: string, value: string) => {
-		setForm((prev) => ({ ...prev, [name]: value }));
+		setForm((previous) => ({ ...previous, [name]: value }));
 	}, []);
 
 	const handleSubmit = useCallback(async () => {
 		const totalClasses = Number(form.totalClasses);
 		const attended = Number(form.attended);
 		const parsedThreshold = Number(form.threshold);
-		const thresholdVal =
-			!isNaN(parsedThreshold) && form.threshold.trim() !== "" ? parsedThreshold : defaultThreshold;
+		const threshold = !isNaN(parsedThreshold) && form.threshold.trim() !== "" ? parsedThreshold : defaultThreshold;
 		if (!form.name.trim() || isNaN(totalClasses) || isNaN(attended) || attended > totalClasses) return;
 
 		const subject: AttendanceSubject = {
@@ -67,13 +65,13 @@ function AttendanceScreenContent() {
 			name: form.name.trim(),
 			totalClasses,
 			attended,
-			threshold: thresholdVal,
+			threshold,
 			createdAt: Date.now(),
 		};
 		await addOrUpdateSubject(subject);
 		setForm(EMPTY_FORM);
 		setEditingId(null);
-	}, [form, editingId, defaultThreshold, addOrUpdateSubject]);
+	}, [addOrUpdateSubject, defaultThreshold, editingId, form]);
 
 	const startEdit = useCallback((subject: AttendanceSubject) => {
 		setForm({
@@ -81,10 +79,7 @@ function AttendanceScreenContent() {
 			name: subject.name,
 			totalClasses: String(subject.totalClasses),
 			attended: String(subject.attended),
-			threshold:
-				subject.threshold !== undefined && !isNaN(subject.threshold)
-					? String(subject.threshold)
-					: "",
+			threshold: subject.threshold !== undefined && !isNaN(subject.threshold) ? String(subject.threshold) : "",
 		});
 		setEditingId(subject.id);
 		setFocusField("total");
@@ -116,17 +111,14 @@ function AttendanceScreenContent() {
 	}
 
 	return (
-		<SafeAreaView style={Layout.flex} edges={["top"]}>
+		<>
 			<KeyboardAwareScrollView
+				style={Layout.flex}
 				bottomOffset={20}
 				contentContainerStyle={local.scroll}
 				keyboardShouldPersistTaps="handled"
 				showsVerticalScrollIndicator={false}
 			>
-				<View style={local.toolbar}>
-					<Text style={local.toolbarTitle}>Attendance</Text>
-				</View>
-
 				<AttendanceSummaryCard
 					overallAttendance={overallAttendance}
 					subjectCount={subjects.length}
@@ -166,26 +158,12 @@ function AttendanceScreenContent() {
 				confirmText="Delete"
 				type="danger"
 			/>
-		</SafeAreaView>
+		</>
 	);
-}
-
-export default function AttendanceScreen() {
-	return <AttendanceScreenContent />;
 }
 
 const local = StyleSheet.create({
 	scroll: { padding: Spacing.lg, paddingTop: Spacing.md, paddingBottom: 80, gap: Spacing.xl },
 	loadingCenter: { alignItems: "center", justifyContent: "center", gap: Spacing.md },
 	loadingText: { fontSize: FontSize.base, color: Colors.textMuted },
-	toolbar: {
-		flexDirection: "row",
-		alignItems: "center",
-		justifyContent: "space-between",
-	},
-	toolbarTitle: {
-		fontSize: FontSize.xl,
-		fontWeight: FontWeight.bold,
-		color: Colors.textPrimary,
-	},
 });

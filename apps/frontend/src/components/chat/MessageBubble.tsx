@@ -2,11 +2,23 @@
 
 import React, { memo, useRef, useState, useCallback, useEffect } from "react";
 import { Pencil, Trash2, Flag, Reply, MoreHorizontal, Check, Clock, AlertCircle, SmilePlus } from "lucide-react";
-import type { ChatMessage } from "@bhemu/shared";
+import {
+	CHAT_OPTIMISTIC_PREFIX,
+	formatChatDate,
+	formatChatTime,
+	getChatAuthorInitials,
+	getChatAvatarIndex,
+	messageTimestamp,
+	normalizeChatDisplayName,
+	QUICK_CHAT_REACTIONS,
+	summarizeChatReactions,
+	type ChatDisplayMessage,
+	type ChatMessage,
+} from "@bhemu/shared";
 
 interface MessageBubbleProps {
-	message: ChatMessage & { failed?: boolean; idempotencyKey?: string | null };
-	repliedMessage?: ChatMessage;
+	message: ChatDisplayMessage;
+	repliedMessage?: ChatDisplayMessage;
 	currentUserId: string | null; // passed from MessageList — avoids useAuth() per bubble
 	showIdentity: boolean;
 	onReply: (msg: ChatMessage) => void;
@@ -18,70 +30,11 @@ interface MessageBubbleProps {
 	onReport: (messageId: string) => void;
 }
 
-// Memoized formatters — only compute on first call per unique iso string
-const timeCache = new Map<string, string>();
-function formatTime(iso: string): string {
-	let cached = timeCache.get(iso);
-	if (!cached) {
-		cached = new Date(iso).toLocaleTimeString("en-IN", {
-			hour: "2-digit",
-			minute: "2-digit",
-			hour12: true,
-		});
-		timeCache.set(iso, cached);
-		// Keep cache bounded
-		if (timeCache.size > 500) timeCache.clear();
-	}
-	return cached;
-}
-
-const dateCache = new Map<string, string>();
-function formatDate(iso: string): string {
-	const key = new Date(iso).toDateString();
-	let cached = dateCache.get(key);
-	if (!cached) {
-		cached = new Date(iso).toLocaleDateString("en-IN", {
-			weekday: "long",
-			day: "numeric",
-			month: "long",
-		});
-		dateCache.set(key, cached);
-	}
-	return cached;
-}
-
-const toDateStringCache = new Map<string, string>();
-export function getToDateString(iso: string): string {
-	let cached = toDateStringCache.get(iso);
-	if (!cached) {
-		cached = new Date(iso).toDateString();
-		toDateStringCache.set(iso, cached);
-		if (toDateStringCache.size > 1000) toDateStringCache.clear();
-	}
-	return cached;
-}
-
-const getTimeCache = new Map<string, number>();
-export function getMessageTime(iso: string): number {
-	let cached = getTimeCache.get(iso);
-	if (!cached) {
-		cached = new Date(iso).getTime();
-		getTimeCache.set(iso, cached);
-		if (getTimeCache.size > 1000) getTimeCache.clear();
-	}
-	return cached;
-}
-
-export function shouldShowDateSeparator(curr: ChatMessage, prev?: ChatMessage): boolean {
-	if (!prev) return true;
-	return getToDateString(prev.createdAt) !== getToDateString(curr.createdAt);
-}
-
 export function DateSeparator({ iso }: { iso: string }) {
 	return (
 		<div className="my-6 flex justify-center">
 			<span className="rounded-full border border-white/10 bg-[#17151b]/90 px-3 py-1 text-[11px] font-semibold text-white/80 shadow-sm backdrop-blur-sm">
-				{formatDate(iso)}
+				{formatChatDate(iso)}
 			</span>
 		</div>
 	);
@@ -94,28 +47,6 @@ const AVATAR_COLORS = [
 	"from-emerald-500 to-teal-600",
 	"from-rose-500 to-pink-600",
 ] as const;
-
-function authorDisplayName(message: ChatMessage): string {
-	return message.authorName?.trim() || "Student";
-}
-
-function authorInitials(name: string): string {
-	const initials = name
-		.split(/\s+/)
-		.filter(Boolean)
-		.slice(0, 2)
-		.map((part) => part[0])
-		.join("");
-	return initials.toLocaleUpperCase() || "S";
-}
-
-function avatarColor(uid: string): (typeof AVATAR_COLORS)[number] {
-	let hash = 0;
-	for (let index = 0; index < uid.length; index += 1) {
-		hash = (hash * 31 + uid.charCodeAt(index)) | 0;
-	}
-	return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length] ?? AVATAR_COLORS[0];
-}
 
 const MessageBubble = memo(function MessageBubble({
 	message,
@@ -138,24 +69,11 @@ const MessageBubble = memo(function MessageBubble({
 	const isOwn = currentUserId === message.authorUid;
 	const isDeleted = message.visibility === "DELETED";
 	const isAnnouncement = message.type === "ANNOUNCEMENT";
-	const isOptimistic = message.id.startsWith("optimistic_");
-	const authorName = authorDisplayName(message);
-
-	const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
+	const isOptimistic = message.id.startsWith(CHAT_OPTIMISTIC_PREFIX);
+	const authorName = normalizeChatDisplayName(message.authorName);
 
 	// Aggregate reactions
-	const reactionCounts = React.useMemo(() => {
-		if (!message.reactions || message.reactions.length === 0) return null;
-		const counts = new Map<string, { count: number; hasReacted: boolean }>();
-		for (const r of message.reactions) {
-			const existing = counts.get(r.emoji) || { count: 0, hasReacted: false };
-			existing.count += 1;
-			if (r.userUid === currentUserId) existing.hasReacted = true;
-			counts.set(r.emoji, existing);
-		}
-		// Sort by count descending so most popular is first
-		return Array.from(counts.entries()).sort((a, b) => b[1].count - a[1].count);
-	}, [message.reactions, currentUserId]);
+	const reactionCounts = React.useMemo(() => summarizeChatReactions(message.reactions, currentUserId), [message.reactions, currentUserId]);
 
 	// Close menu on outside click
 	useEffect(() => {
@@ -185,7 +103,7 @@ const MessageBubble = memo(function MessageBubble({
 				<div className="max-w-[85%] rounded-2xl border border-primary/30 bg-primary/10 px-5 py-3 text-center shadow-lg shadow-black/20">
 					<p className="mb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-primary">Announcement</p>
 					<p className="text-sm leading-relaxed text-white">{message.content}</p>
-					<p className="mt-1 text-[10px] text-white/50">{formatTime(message.createdAt)}</p>
+					<p className="mt-1 text-[10px] text-white/50">{formatChatTime(messageTimestamp(message))}</p>
 				</div>
 			</div>
 		);
@@ -210,11 +128,11 @@ const MessageBubble = memo(function MessageBubble({
 				<div className="w-10 shrink-0 self-end">
 					{showIdentity && (
 						<div
-							className={`flex size-10 select-none items-center justify-center rounded-full bg-gradient-to-br ${avatarColor(message.authorUid)} text-xs font-bold text-white ring-2 ring-[#09070b] shadow-lg shadow-black/30`}
+							className={`flex size-10 select-none items-center justify-center rounded-full bg-gradient-to-br ${AVATAR_COLORS[getChatAvatarIndex(message.authorUid, AVATAR_COLORS.length)]} text-xs font-bold text-white ring-2 ring-[#09070b] shadow-lg shadow-black/30`}
 							role="img"
 							aria-label={`${authorName}'s avatar`}
 						>
-							{authorInitials(authorName)}
+							{getChatAuthorInitials(authorName)}
 						</div>
 					)}
 				</div>
@@ -242,7 +160,7 @@ const MessageBubble = memo(function MessageBubble({
 								{repliedMessage
 									? repliedMessage.authorUid === currentUserId
 										? "You"
-										: authorDisplayName(repliedMessage)
+										: normalizeChatDisplayName(repliedMessage.authorName)
 									: "Replied message"}
 							</span>
 							<span className={`truncate text-[12px] ${isOwn ? "text-white/80" : "text-white/60"}`}>
@@ -312,14 +230,14 @@ const MessageBubble = memo(function MessageBubble({
 								) : isOptimistic ? (
 									<>
 										<span className="text-[10px] font-medium tabular-nums">
-											{formatTime(message.createdAt)}
+											{formatChatTime(messageTimestamp(message))}
 										</span>
 										{isOwn && <Clock className="size-[11px] opacity-70" aria-label="Sending" />}
 									</>
 								) : (
 									<>
 										<span className="text-[10px] font-medium tabular-nums">
-											{formatTime(message.createdAt)}
+											{formatChatTime(messageTimestamp(message))}
 										</span>
 										{isOwn && <Check className="size-3" strokeWidth={3} aria-label="Sent" />}
 									</>
@@ -345,14 +263,14 @@ const MessageBubble = memo(function MessageBubble({
 							) : isOptimistic ? (
 								<>
 									<span className="text-[10px] font-medium tabular-nums">
-										{formatTime(message.createdAt)}
+										{formatChatTime(messageTimestamp(message))}
 									</span>
 									{isOwn && <Clock className="size-[11px] opacity-70" aria-label="Sending" />}
 								</>
 							) : (
 								<>
 									<span className="text-[10px] font-medium tabular-nums">
-										{formatTime(message.createdAt)}
+										{formatChatTime(messageTimestamp(message))}
 									</span>
 									{isOwn && <Check className="size-3" strokeWidth={3} aria-label="Sent" />}
 								</>
@@ -390,7 +308,7 @@ const MessageBubble = memo(function MessageBubble({
 										isOwn ? "right-0" : "left-0"
 									}`}
 								>
-									{QUICK_EMOJIS.map((emoji) => (
+									{QUICK_CHAT_REACTIONS.map((emoji) => (
 										<button
 											key={emoji}
 											onClick={() => {

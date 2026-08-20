@@ -9,4 +9,5 @@ export const STORAGE_KEYS = {
 	umsLastSync: "ums_last_sync",
 	notificationSettings: "notification_settings_v1",
 	gpaCache: "bhemu_gpa_cache_v1",
+	chatCache: "bhemu_chat_cache_v1",
 } as const;

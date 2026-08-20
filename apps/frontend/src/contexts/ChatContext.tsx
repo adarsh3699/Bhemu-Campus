@@ -31,23 +31,17 @@ import {
 	CHAT_API_BASE,
 } from "@bhemu/chat";
 import type {
+	ChatDisplayMessage,
 	ChatRoom,
 	ChatMessage,
 	WsEnvelope,
 	PresenceUser,
 	ReportReason,
 } from "@bhemu/shared";
-import { MAX_CHAT_MESSAGE_LENGTH } from "@bhemu/shared";
+import { CHAT_OPTIMISTIC_PREFIX, createChatClientMessageId, MAX_CHAT_CACHED_MESSAGES, MAX_CHAT_MESSAGE_LENGTH, mergeChatMessages, normalizeChatDisplayName } from "@bhemu/shared";
 import type { GPAProfile } from "@bhemu/shared";
 
 export type ActiveRoom = "university" | "batchmate";
-export type DisplayMessage = ChatMessage & {
-	idempotencyKey?: string;
-	eventId?: string;
-	roomSeq?: number;
-	failed?: boolean;
-};
-
 interface ChatContextValue {
 	universityRoom: ChatRoom | null;
 	batchmateRoom: ChatRoom | null;
@@ -55,7 +49,7 @@ interface ChatContextValue {
 	setActiveRoom: (r: ActiveRoom) => void;
 	currentRoom: ChatRoom | null;
 	currentUserId: string | null; // lifted so MessageBubble doesn't call useAuth()
-	messages: DisplayMessage[];
+	messages: ChatDisplayMessage[];
 	hasMore: boolean;
 	loadingMessages: boolean;
 	loadOlderMessages: () => Promise<void>;
@@ -98,7 +92,6 @@ const MESSAGE_SOCKET_READY_TIMEOUT_MS = 5_000;
 const TOKEN_REFRESH_SKEW_MS = 60_000;
 const SESSION_REFRESH_SKEW_MS = 60_000;
 const AUTH_RECOVERY_MESSAGE = "Your chat session has expired. Please sign in again.";
-const OPTIMISTIC_PREFIX = "optimistic_";
 const ROOM_SEQUENCE_STORAGE_PREFIX = "bhemu:chat:room-seq:";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -146,7 +139,7 @@ function writeCachedRoom(key: string, room: ChatRoom): void {
 	} catch {}
 }
 
-function readCachedMessages(roomId: string): DisplayMessage[] {
+function readCachedMessages(roomId: string): ChatDisplayMessage[] {
 	if (typeof window === "undefined") return [];
 	try {
 		const data = window.localStorage.getItem(`${MESSAGES_CACHE_PREFIX}${roomId}`);
@@ -156,10 +149,10 @@ function readCachedMessages(roomId: string): DisplayMessage[] {
 	}
 }
 
-function writeCachedMessages(roomId: string, messages: DisplayMessage[]): void {
+function writeCachedMessages(roomId: string, messages: ChatDisplayMessage[]): void {
 	if (typeof window === "undefined") return;
 	try {
-		const toCache = messages.slice(-50);
+		const toCache = messages.slice(-MAX_CHAT_CACHED_MESSAGES);
 		window.localStorage.setItem(`${MESSAGES_CACHE_PREFIX}${roomId}`, JSON.stringify(toCache));
 	} catch {}
 }
@@ -176,62 +169,6 @@ function isRecoverableChatAuthError(error: unknown): error is ChatApiError {
 		&& (error.code === "CHAT_SESSION_REQUIRED" || error.code === "INVALID_TOKEN");
 }
 
-function sortMessages(messages: DisplayMessage[]): DisplayMessage[] {
-	return messages.sort((a, b) => {
-		const aSequence = Number(a.roomSeq);
-		const bSequence = Number(b.roomSeq);
-		const aHasSequence = Number.isSafeInteger(aSequence) && aSequence > 0;
-		const bHasSequence = Number.isSafeInteger(bSequence) && bSequence > 0;
-		// Room DO sequence is the canonical total order for live/replayed events.
-		// Timestamps can be equal for concurrent sends and UUIDs are not ordered
-		// chronologically, so they are only a snapshot-order fallback.
-		if (aHasSequence && bHasSequence && aSequence !== bSequence) {
-			return aSequence - bSequence;
-		}
-		const byCreatedAt = a.createdAt.localeCompare(b.createdAt);
-		return byCreatedAt || a.id.localeCompare(b.id);
-	});
-}
-
-function currentProfileName(displayName: string | null | undefined): string {
-	const normalized = displayName?.replace(/\s+/g, " ").trim();
-	return normalized || "Student";
-}
-
-/**
- * Merges REST recovery data without losing optimistic messages or WebSocket
- * events that arrived while the request was in flight.
- */
-function mergeMessages(current: DisplayMessage[], incoming: DisplayMessage[]): DisplayMessage[] {
-	const remaining = new Map(incoming.map(message => [message.id, message]));
-	const byOptimisticId = new Map(
-		incoming
-			.filter(message => !!message.idempotencyKey)
-			.map(message => [message.idempotencyKey!, message]),
-	);
-	const merged: DisplayMessage[] = [];
-
-	for (const existing of current) {
-		const sameMessage = remaining.get(existing.id);
-		if (sameMessage) {
-			merged.push({ ...existing, ...sameMessage });
-			remaining.delete(sameMessage.id);
-			continue;
-		}
-
-		const confirmedOptimistic = byOptimisticId.get(existing.id);
-		if (confirmedOptimistic) {
-			merged.push({ ...existing, ...confirmedOptimistic, idempotencyKey: existing.id });
-			remaining.delete(confirmedOptimistic.id);
-			continue;
-		}
-
-		merged.push(existing);
-	}
-
-	return sortMessages([...merged, ...remaining.values()]);
-}
-
 export function ChatProvider({ children }: { children: React.ReactNode }) {
 	const { currentUser } = useAuth();
 	const { currentProfile } = useGpaData();
@@ -239,7 +176,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 	const [universityRoom, setUniversityRoom] = useState<ChatRoom | null>(null);
 	const [batchmateRoom, setBatchmateRoom] = useState<ChatRoom | null>(null);
 	const [activeRoom, setActiveRoom] = useState<ActiveRoom>("university");
-	const [messages, setMessages] = useState<DisplayMessage[]>([]);
+	const [messages, setMessages] = useState<ChatDisplayMessage[]>([]);
 	const [hasMore, setHasMore] = useState(false);
 	const [loadingMessages, setLoadingMessages] = useState(false);
 	const [connected, setConnected] = useState(false);
@@ -263,7 +200,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 	const tokenCacheRef = useRef<{ token: string; expiresAt: number } | null>(null);
 	const chatSessionCacheRef = useRef<{ token: string; expiresAt: number; uid: string } | null>(null);
 	const sessionBootstrapRef = useRef<Promise<string | null> | null>(null);
-	const messagesRef = useRef<DisplayMessage[]>([]);
+	const messagesRef = useRef<ChatDisplayMessage[]>([]);
 	const messageRequestRef = useRef(0);
 	const syncingRoomRef = useRef<string | null>(null);
 	const roomSequencesRef = useRef(new Map<string, number>());
@@ -409,46 +346,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 	}, [currentUser?.uid]);
 
 	// ---- Unified Message Upsert Store ----
-	const upsertMessage = useCallback((newMessage: DisplayMessage) => {
-		setMessages(prev => {
-			const next = [...prev];
-			let handled = false;
-
-			// 1. Check if the message ALREADY exists by Server ID
-			const serverIdIndex = next.findIndex(m => m.id === newMessage.id);
-			if (serverIdIndex !== -1) {
-				next[serverIdIndex] = { ...next[serverIdIndex], ...newMessage };
-				handled = true;
-			}
-
-			// 2. If not handled by Server ID, find it by Client ID (Optimistic ID)
-			if (!handled && newMessage.idempotencyKey) {
-				const clientIdIndex = next.findIndex(m => m.id === newMessage.idempotencyKey);
-				if (clientIdIndex !== -1) {
-					next[clientIdIndex] = { ...next[clientIdIndex], ...newMessage };
-					handled = true;
-				}
-			}
-
-			// If it did not match by server ID or idempotency key, it is a
-			// genuinely new message. Never guess by content/author: two identical
-			// messages are valid and must remain distinct.
-			if (!handled) {
-				next.push(newMessage);
-			}
-
-			// --- CLEANUP PHASE ---
-			// If we handled it via Server ID, the optimistic ghost might STILL be in the array!
-			// This happens if a network race condition temporarily caused an append.
-			if (newMessage.idempotencyKey && handled) {
-				const staleOptIndex = next.findIndex(m => m.id === newMessage.idempotencyKey && m.id !== newMessage.id);
-				if (staleOptIndex !== -1) {
-					next.splice(staleOptIndex, 1);
-				}
-			}
-
-			return sortMessages(next);
-		});
+	const upsertMessage = useCallback((newMessage: ChatDisplayMessage) => {
+		setMessages(prev => mergeChatMessages(prev, [newMessage]));
 	}, []);
 
 	const getRoomSequence = useCallback((roomId: string): number => {
@@ -522,7 +421,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 			case WS_EVENTS.MESSAGE_ACK: {
 				const ack = envelope.payload as {
 					clientMessageId?: string | null;
-					message?: DisplayMessage | null;
+					message?: ChatDisplayMessage | null;
 					roomSeq?: number;
 				};
 				if (ack.clientMessageId && ack.message) {
@@ -534,7 +433,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 					) {
 						setRoomSequence(ack.message.roomId, sequence);
 					}
-					const confirmedMessage: DisplayMessage = Number.isSafeInteger(sequence) && sequence > 0
+					const confirmedMessage: ChatDisplayMessage = Number.isSafeInteger(sequence) && sequence > 0
 						? { ...ack.message, roomSeq: sequence }
 						: ack.message;
 					const pending = pendingSocketSendsRef.current.get(ack.clientMessageId);
@@ -585,7 +484,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
 			case WS_EVENTS.MESSAGE_CREATED:
 			case WS_EVENTS.ANNOUNCEMENT_CREATED: {
-				const message = envelope.payload as DisplayMessage;
+				const message = envelope.payload as ChatDisplayMessage;
 				if (!message?.id || message.roomId !== currentRoomIdRef.current) break;
 				const sequence = Number(message.roomSeq);
 				if (Number.isSafeInteger(sequence) && sequence > 0) {
@@ -601,7 +500,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 				break;
 			}
 			case WS_EVENTS.MESSAGE_UPDATED: {
-				const message = envelope.payload as DisplayMessage;
+				const message = envelope.payload as ChatDisplayMessage;
 				if (!message?.id || message.roomId !== currentRoomIdRef.current) break;
 				upsertMessage(message);
 				break;
@@ -896,7 +795,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 			if (!result) return;
 			if (currentRoomIdRef.current !== roomId || requestId !== messageRequestRef.current) return;
 			const ordered = [...result.items].reverse();
-			setMessages(prev => mergeMessages(prev, ordered));
+			setMessages(prev => mergeChatMessages(prev, ordered));
 			setHasMore(result.hasMore);
 			cursorRef.current = result.nextCursor;
 		} catch (e) {
@@ -918,10 +817,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 		try {
 			const knownServerIds = new Set(
 				messagesRef.current
-					.filter(message => message.roomId === roomId && !message.id.startsWith(OPTIMISTIC_PREFIX))
+					.filter(message => message.roomId === roomId && !message.id.startsWith(CHAT_OPTIMISTIC_PREFIX))
 					.map(message => message.id),
 			);
-			const recovered: DisplayMessage[] = [];
+			const recovered: ChatDisplayMessage[] = [];
 			let cursor: string | undefined;
 
 			while (true) {
@@ -936,7 +835,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 			}
 
 			if (currentRoomIdRef.current === roomId && recovered.length > 0) {
-				setMessages(prev => mergeMessages(prev, recovered));
+				setMessages(prev => mergeChatMessages(prev, recovered));
 			}
 		} catch (e) {
 			if (currentRoomIdRef.current === roomId && e instanceof ChatApiError) setError(e.message);
@@ -1048,13 +947,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 			return;
 		}
 
-		const idempotencyKey = `${OPTIMISTIC_PREFIX}${crypto.randomUUID()}`;
-		const optimisticMsg: ChatMessage & { idempotencyKey?: string } = {
+		const idempotencyKey = createChatClientMessageId();
+		const optimisticMsg: ChatDisplayMessage = {
 			id: idempotencyKey,
 			idempotencyKey,
 			roomId,
 			authorUid: currentUser.uid,
-			authorName: currentProfileName(currentUser.displayName),
+			authorName: normalizeChatDisplayName(currentUser.displayName),
 			replyToMessageId: replyToId ?? null,
 			type: "TEXT",
 			visibility: "VISIBLE",

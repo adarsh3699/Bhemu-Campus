@@ -2,20 +2,11 @@
 
 import React, { memo, useCallback, useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
-import type { ChatMessage } from "@bhemu/shared";
-import MessageBubble, { DateSeparator, shouldShowDateSeparator, getMessageTime } from "./MessageBubble";
-
-type MessageListMessage = ChatMessage & { idempotencyKey?: string | null };
-
-const MESSAGE_GROUP_GAP_MS = 5 * 60 * 1_000;
-
-function startsAuthorGroup(message: MessageListMessage, previous?: MessageListMessage): boolean {
-	if (!previous || previous.authorUid !== message.authorUid) return true;
-	return getMessageTime(message.createdAt) - getMessageTime(previous.createdAt) > MESSAGE_GROUP_GAP_MS;
-}
+import { shouldShowChatDateSeparator, startsChatAuthorGroup, type ChatDisplayMessage, type ChatMessage } from "@bhemu/shared";
+import MessageBubble, { DateSeparator } from "./MessageBubble";
 
 interface MessageListProps {
-	messages: MessageListMessage[];
+	messages: ChatDisplayMessage[];
 	currentUserId: string | null;
 	hasMore: boolean;
 	loadingMessages: boolean;
@@ -175,12 +166,12 @@ const MessageList = memo(function MessageList({
 					const msgId = msg.idempotencyKey || msg.id;
 					return (
 						<div key={msgId} id={`msg-${msgId}`}>
-							{shouldShowDateSeparator(msg, messages[i - 1]) && <DateSeparator iso={msg.createdAt} />}
+							{shouldShowChatDateSeparator(msg, messages[i - 1]) && <DateSeparator iso={msg.createdAt} />}
 							<MessageBubble
 								message={msg}
 								repliedMessage={msg.replyToMessageId ? messageMap.get(msg.replyToMessageId) : undefined}
 								currentUserId={currentUserId}
-								showIdentity={startsAuthorGroup(msg, messages[i - 1])}
+								showIdentity={startsChatAuthorGroup(msg, messages[i - 1])}
 								onReply={onReply}
 								onEdit={onEdit}
 								onDelete={onDelete}

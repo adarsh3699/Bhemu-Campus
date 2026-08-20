@@ -11,6 +11,7 @@ import {
 	Megaphone,
 	ClipboardList,
 	CalendarClock,
+	CalendarCheck,
 } from "lucide-react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGpaProfiles } from "@/contexts/GpaDataContext";
@@ -72,7 +73,12 @@ const QuickActionCard = memo(function QuickActionCardView({
 	onPress: (action: QuickAction) => void;
 }) {
 	return (
-		<Pressable style={local.actionCard} onPress={() => onPress(action)}>
+		<Pressable
+			style={local.actionCard}
+			onPress={() => onPress(action)}
+			accessibilityRole="button"
+			accessibilityLabel={`${action.title}: ${action.subtitle}`}
+		>
 			<View style={local.actionIconWrap}>
 				<View style={[local.actionIcon, { borderColor: action.color + "40" }]}>{action.icon}</View>
 				{action.badge ? (
@@ -122,9 +128,8 @@ function HomeTabContent() {
 		};
 	}, [activeProfile, isSharedProfile]);
 
-	const unreadCount = !activeProfile || isSharedProfile
-		? 0
-		: Math.max(0, (umsData?.messages?.length ?? 0) - lastSeenCount);
+	const unreadCount =
+		!activeProfile || isSharedProfile ? 0 : Math.max(0, (umsData?.messages?.length ?? 0) - lastSeenCount);
 
 	const quickActions = useMemo<QuickAction[]>(() => {
 		const all: QuickAction[] = [
@@ -135,6 +140,13 @@ function HomeTabContent() {
 				route: "/timetable",
 				color: Colors.secondary,
 				badge: todayClassCount,
+			},
+			{
+				title: "Attendance",
+				subtitle: "Track classes",
+				icon: <CalendarCheck size={22} color={Colors.primary} />,
+				route: "/attendance",
+				color: Colors.primary,
 			},
 			{
 				title: "Leaderboard",

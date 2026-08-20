@@ -2,7 +2,7 @@
 
 import React, { useCallback, useState, useEffect } from "react";
 import { AlertCircle, X } from "lucide-react";
-import { useChat } from "@/contexts/ChatContext";
+import { type ActiveRoom, useChat } from "@/contexts/ChatContext";
 import MessageList from "./MessageList";
 import MessageInput from "./MessageInput";
 import EditMessageModal from "./EditMessageModal";
@@ -79,6 +79,10 @@ export default function ChatView() {
 	const handleCloseEdit = useCallback(() => setEditingMsg(null), []);
 	const handleCloseReport = useCallback(() => setReportingId(null), []);
 	const handleCancelReply = useCallback(() => setReplyTo(null), []);
+	const handleSelectRoom = useCallback((room: ActiveRoom) => {
+		setReplyTo(null);
+		setActiveRoom(room);
+	}, [setActiveRoom]);
 
 	useEffect(() => {
 		if (error) {
@@ -98,7 +102,7 @@ export default function ChatView() {
 					<div className="sticky top-0 z-20 flex shrink-0 items-end border-b border-white/5 bg-[#0a0f10] pt-0 px-2 gap-1 mt-2">
 						{/* University Tab */}
 						<button
-							onClick={() => setActiveRoom("university")}
+							onClick={() => handleSelectRoom("university")}
 							className={`relative flex items-center justify-start gap-1.5 rounded-t-xl px-4 h-[46px] min-w-[130px] transition-all -mb-[1px] border-b-[2px] ${
 								activeRoom === "university"
 									? "bg-[#1c2122] border-primary"
@@ -119,7 +123,7 @@ export default function ChatView() {
 						{/* Batchmate Tab */}
 						{batchmateRoom ? (
 							<button
-								onClick={() => setActiveRoom("batchmate")}
+								onClick={() => handleSelectRoom("batchmate")}
 								className={`relative flex flex-col items-start justify-center rounded-t-xl px-4 h-[46px] min-w-[130px] transition-all -mb-[1px] border-b-[2px] ${
 									activeRoom === "batchmate"
 										? "bg-[#1c2122] border-primary"

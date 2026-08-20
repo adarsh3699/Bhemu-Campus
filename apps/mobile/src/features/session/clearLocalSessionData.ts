@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { STORAGE_KEYS } from "@bhemu/shared";
 import { clearGpaCache, disableGpaCacheWrites } from "@/features/gpa-data/cache";
+import { disableChatCacheWrites, waitForChatCacheWrites } from "@/features/chat/cache";
 
 // Keep this list limited to bCampus-owned storage. Firebase Auth also uses
 // AsyncStorage, so clearing the entire store would make auth restoration
@@ -16,6 +17,7 @@ const GLOBAL_APP_KEYS = [
 
 const APP_KEY_PREFIXES = [
 	`${STORAGE_KEYS.gpaCache}:`,
+	`${STORAGE_KEYS.chatCache}:`,
 	`${STORAGE_KEYS.umsLocalData}_`,
 	`${STORAGE_KEYS.umsMessagesLastSeen}_`,
 ] as const;
@@ -29,6 +31,8 @@ export async function clearLocalSessionData(): Promise<void> {
 	// Set the guard first so an already-mounted provider cannot write a cache
 	// again while logout is removing account-scoped storage.
 	disableGpaCacheWrites();
+	disableChatCacheWrites();
+	await waitForChatCacheWrites();
 	await AsyncStorage.setItem(STORAGE_KEYS.launchUserDisabled, "1").catch(() => {});
 	const keysToRemove = new Set<string>(GLOBAL_APP_KEYS);
 	const cacheUids = new Set<string>();

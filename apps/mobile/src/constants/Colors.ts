@@ -13,6 +13,8 @@ export const Colors = {
 
 	// ── Backgrounds ────────────────────────────────────────────────────────
 	background:      "#0E0E0E",               // Main screen background
+	chatCanvas:      "#08070A",               // Chat conversation canvas
+	chatPattern:     "#752587",               // Chat canvas pattern strokes
 	surface:         "#121212",               // Cards, panels
 	surfaceElevated: "#1A1A1A",               // Inputs, modals, elevated cards
 	surfaceGlass:    "rgba(255,255,255,0.03)", // Glass-card overlay (auth screens)

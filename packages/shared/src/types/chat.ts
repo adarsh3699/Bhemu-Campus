@@ -119,6 +119,14 @@ export interface ChatMessage {
 	updatedAt: string;
 }
 
+/** Client-side message fields shared by the web and mobile chat stores. */
+export type ChatDisplayMessage = ChatMessage & {
+	failed?: boolean;
+	idempotencyKey?: string | null;
+	eventId?: string;
+	roomSeq?: number;
+};
+
 // ---- Reaction ----
 
 export interface ChatReaction {
