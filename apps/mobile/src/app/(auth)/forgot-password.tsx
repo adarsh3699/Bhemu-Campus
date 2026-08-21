@@ -55,9 +55,9 @@ export default function ForgotPassword() {
 				keyboardShouldPersistTaps="handled"
 				showsVerticalScrollIndicator={false}
 			>
-				<View style={AuthStyles.logoSection}>
-					<View style={AuthStyles.logoBox}>
-						<Image source={require("../../../assets/app_icon.png")} style={AuthStyles.logoImage} />
+				<View style={local.logoSection}>
+					<View style={local.logoBox}>
+						<Image source={require("../../../assets/logo_only.png")} style={local.logoImage} />
 					</View>
 					<Text style={AuthStyles.heading}>Reset password</Text>
 					<Text style={AuthStyles.subheading}>
@@ -108,6 +108,9 @@ export default function ForgotPassword() {
 
 const local = StyleSheet.create({
 	containerGap: { gap: Spacing.xl },
+	logoSection: { alignItems: "center", marginBottom: 36, gap: 14 },
+	logoBox: { width: 98, height: 98, borderRadius: Spacing.md, overflow: "hidden" },
+	logoImage: { width: 98, height: 98 },
 	successBox: {
 		backgroundColor: "rgba(16,185,129,0.08)",
 		borderWidth: 1,

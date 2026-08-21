@@ -73,9 +73,9 @@ export default function SignIn() {
 			>
 				<View style={AuthStyles.logoSection}>
 					<View style={AuthStyles.logoBox}>
-						<Image source={require("../../../assets/app_icon.png")} style={AuthStyles.logoImage} />
+						<Image source={require("../../../assets/text_only.png")} style={AuthStyles.logoImage} />
 					</View>
-					<Text style={local.appName}>bCampus</Text>
+					{/* <Text style={local.appName}>bCampus</Text> */}
 				</View>
 
 				<View style={AuthStyles.form}>

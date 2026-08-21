@@ -4,9 +4,9 @@ import { Colors, Spacing, FontSize, FontWeight } from "@/constants/Theme";
 export const AuthStyles = StyleSheet.create({
 	container: { flexGrow: 1, justifyContent: "center", padding: Spacing.xl },
 
-	logoSection: { alignItems: "center", marginBottom: 36, gap: 14 },
-	logoBox: { width: 96, height: 96, borderRadius: Spacing.xl, overflow: "hidden" },
-	logoImage: { width: 96, height: 96 },
+	logoSection: { alignItems: "center", marginVertical: 60, gap: 14 },
+	logoBox: { width: 180, height: 60, borderRadius: Spacing.md, overflow: "hidden" },
+	logoImage: { width: 180, height: 60 },
 
 	heading: { fontSize: FontSize.h1, fontWeight: FontWeight.bold, color: Colors.textPrimary, textAlign: "center" },
 	subheading: { fontSize: FontSize.md, color: Colors.textMuted, textAlign: "center" },

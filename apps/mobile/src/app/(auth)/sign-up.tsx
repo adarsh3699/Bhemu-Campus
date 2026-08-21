@@ -14,6 +14,7 @@ import { Link, router } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMessage } from "@/contexts/MessageContext";
 import { Colors } from "@/constants/Colors";
+import { Spacing } from "@/constants/Theme";
 import { Layout, Buttons, AuthStyles } from "@/styles";
 import AppInput from "@/components/ui/AppInput";
 
@@ -61,9 +62,9 @@ export default function SignUp() {
 				keyboardShouldPersistTaps="handled"
 				showsVerticalScrollIndicator={false}
 			>
-				<View style={AuthStyles.logoSection}>
-					<View style={AuthStyles.logoBox}>
-						<Image source={require("../../../assets/app_icon.png")} style={AuthStyles.logoImage} />
+				<View style={local.logoSection}>
+					<View style={local.logoBox}>
+						<Image source={require("../../../assets/logo_only.png")} style={local.logoImage} />
 					</View>
 					<Text style={AuthStyles.heading}>Create account</Text>
 					<Text style={AuthStyles.subheading}>Join thousands of LPU students.</Text>
@@ -126,4 +127,7 @@ export default function SignUp() {
 
 const local = StyleSheet.create({
 	buttonMargin: { marginTop: 4 },
+	logoSection: { alignItems: "center", marginBottom: 36, gap: 14 },
+	logoBox: { width: 98, height: 98, borderRadius: Spacing.md, overflow: "hidden" },
+	logoImage: { width: 98, height: 98 },
 });
