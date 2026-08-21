@@ -1,26 +1,10 @@
 diff --git a/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java b/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java
 --- a/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java
 +++ b/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java
-@@ -81,6 +81,136 @@ public class RNCWebViewClient extends WebViewClient {
+@@ -81,6 +81,104 @@ public class RNCWebViewClient extends WebViewClient {
            createWebViewEvent(webView, url)));
      }
  
-+    private static final String STEALTH_SCRIPT =
-+        "<script>(function(){" +
-+        "var b=window.ReactNativeWebView;if(b&&!window.__rnb){window.__rnb=b;}" +
-+        "try{Object.defineProperty(window,'ReactNativeWebView',{get:function(){return undefined;},configurable:true});}catch(e){}" +
-+        "try{delete window.Android;}catch(e){}" +
-+        "try{Object.defineProperty(Navigator.prototype,'webdriver',{get:function(){return undefined;},configurable:true});}catch(e){}" +
-+        "})();</script>";
-+
-+    private static byte[] readAllBytes(java.io.InputStream is) throws java.io.IOException {
-+        java.io.ByteArrayOutputStream buf = new java.io.ByteArrayOutputStream();
-+        byte[] chunk = new byte[8192];
-+        int n;
-+        while ((n = is.read(chunk)) != -1) buf.write(chunk, 0, n);
-+        return buf.toByteArray();
-+    }
-+
 +    private void syncCookies(String url, java.net.HttpURLConnection conn) {
 +        java.util.List<String> cookieHeaders = conn.getHeaderFields().get("Set-Cookie");
 +        if (cookieHeaders == null) cookieHeaders = conn.getHeaderFields().get("set-cookie");
@@ -37,7 +21,12 @@ diff --git a/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewCl
 +    @androidx.annotation.RequiresApi(21)
 +    public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
 +        String host = request.getUrl().getHost();
-+        if (host == null || !host.contains("ums.lpu.in")) {
++        if (host == null || !(host.equalsIgnoreCase("ums.lpu.in") || host.endsWith(".ums.lpu.in"))) {
++            return super.shouldInterceptRequest(view, request);
++        }
++        String requestUrl = request.getUrl().toString();
++        String path = request.getUrl().getPath();
++        if (path != null && path.startsWith("/cdn-cgi/")) {
 +            return super.shouldInterceptRequest(view, request);
 +        }
 +        String method = request.getMethod().toUpperCase();
@@ -53,7 +42,6 @@ diff --git a/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewCl
 +            return super.shouldInterceptRequest(view, request);
 +        }
 +        try {
-+            String requestUrl = request.getUrl().toString();
 +            java.net.URL url = new java.net.URL(requestUrl);
 +            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
 +            conn.setRequestMethod(method);
@@ -61,10 +49,12 @@ diff --git a/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewCl
 +            conn.setConnectTimeout(10000);
 +            conn.setReadTimeout(15000);
 +            for (java.util.Map.Entry<String, String> entry : request.getRequestHeaders().entrySet()) {
-+                if (!entry.getKey().equalsIgnoreCase("X-Requested-With")) {
++                if (!entry.getKey().equalsIgnoreCase("X-Requested-With")
++                    && !entry.getKey().equalsIgnoreCase("Accept-Encoding")) {
 +                    conn.setRequestProperty(entry.getKey(), entry.getValue());
 +                }
 +            }
++            conn.setRequestProperty("Accept-Encoding", "identity");
 +            String cookies = CookieManager.getInstance().getCookie(requestUrl);
 +            if (cookies != null) conn.setRequestProperty("Cookie", cookies);
 +            if ("POST".equals(method) && postBody != null) {
@@ -83,7 +73,7 @@ diff --git a/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewCl
 +                    if (!loc.startsWith("http")) {
 +                        loc = new java.net.URL(url, loc).toString();
 +                    }
-+                    String redir = "<html><head>" + STEALTH_SCRIPT +
++                    String redir = "<html><head>" +
 +                        "<script>window.location.replace('" + loc.replace("'", "\\'") + "');</script>" +
 +                        "</head><body></body></html>";
 +                    byte[] bytes = redir.getBytes("UTF-8");
@@ -94,31 +84,9 @@ diff --git a/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewCl
 +                }
 +            }
 +            String contentType = conn.getContentType();
-+            if (contentType != null && contentType.contains("text/html")) {
-+                java.io.InputStream is = code >= 400 ? conn.getErrorStream() : conn.getInputStream();
-+                String html = new String(readAllBytes(is), "UTF-8");
-+                is.close();
-+                int idx = html.indexOf("<head>");
-+                int insertAt = idx >= 0 ? idx + 6 : 0;
-+                html = html.substring(0, insertAt) + STEALTH_SCRIPT + html.substring(insertAt);
-+                byte[] bytes = html.getBytes("UTF-8");
-+                java.util.Map<String, String> headers = new java.util.HashMap<>();
-+                for (java.util.Map.Entry<String, java.util.List<String>> e : conn.getHeaderFields().entrySet()) {
-+                    if (e.getKey() != null && !e.getValue().isEmpty()
-+                        && !e.getKey().equalsIgnoreCase("Set-Cookie")) {
-+                        headers.put(e.getKey(), e.getValue().get(0));
-+                    }
-+                }
-+                headers.put("Content-Type", "text/html; charset=UTF-8");
-+                String reason = conn.getResponseMessage();
-+                return new WebResourceResponse("text/html", "UTF-8",
-+                    code >= 400 ? code : 200,
-+                    reason != null ? reason : "OK", headers,
-+                    new java.io.ByteArrayInputStream(bytes));
-+            }
 +            java.io.InputStream is = code >= 400 ? conn.getErrorStream() : conn.getInputStream();
 +            if (is == null) is = new java.io.ByteArrayInputStream(new byte[0]);
-+            String mime = contentType != null ? contentType.split(";")[0].trim() : "application/octet-stream";
++            String mime = contentType != null ? contentType.split(";", 2)[0].trim() : "application/octet-stream";
 +            String encoding = "UTF-8";
 +            java.util.Map<String, String> headers = new java.util.HashMap<>();
 +            for (java.util.Map.Entry<String, java.util.List<String>> e : conn.getHeaderFields().entrySet()) {

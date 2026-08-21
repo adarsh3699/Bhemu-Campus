@@ -23,8 +23,13 @@ export default function VerifyEmailPage() {
 				{/* Header */}
 				<header className="flex items-center justify-between px-6 py-8 md:px-20 max-w-7xl mx-auto w-full">
 					<div className="flex items-center gap-3">
-						<Image src="/myLogo.webp" alt="bCampus Logo" width={32} height={32} className="rounded-lg object-cover" />
-						<h2 className="text-xl font-bold tracking-tight text-white">bCampus</h2>
+						<Image
+							src="/text_only.png"
+							alt="bCampus Logo"
+							width={300}
+							height={100}
+							className="h-auto w-[118px]"
+						/>
 					</div>
 				</header>
 

@@ -54,16 +54,16 @@ export default function ForgotPasswordPage() {
 			<main className="flex-grow flex items-center justify-center p-4 relative z-10">
 				<div className="w-full max-w-[480px] flex flex-col">
 					{/* Logo Header */}
-					<div className="flex flex-col items-center justify-center mb-8">
-						<div
-							className="w-14 h-14 rounded-xl overflow-hidden flex items-center justify-center mb-4 ring-1 ring-white/20 bg-white/5"
-							style={{ boxShadow: "0 0 25px rgba(3,152,172,0.5)" }}
-						>
-							<Image src="/myLogo.webp" alt="bCampus Logo" width={56} height={56} className="object-cover" />
+					<div className="mb-8 flex flex-col items-center justify-center">
+						<div className="mb-4" style={{ filter: "drop-shadow(0 0 18px rgba(3,152,172,0.35))" }}>
+							<Image
+								src="/text_only.png"
+								alt="bCampus Logo"
+								width={300}
+								height={100}
+								className="h-auto w-[150px]"
+							/>
 						</div>
-						<h2 className="text-3xl font-bold tracking-tight text-center text-white drop-shadow-lg">
-							bCampus
-						</h2>
 						<p className="text-secondary/80 text-sm mt-1 font-medium tracking-widest uppercase">
 							Academic Workspace
 						</p>

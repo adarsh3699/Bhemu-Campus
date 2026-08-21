@@ -12,12 +12,10 @@ import { saveUmsData, getUmsData } from "@/features/ums-data/storage";
 import { useUmsData } from "@/features/ums-data/useUmsData";
 import type { NotificationProfileData } from "@/features/notifications/notificationService";
 import { STORAGE_KEYS, type UMSLocalData } from "@bhemu/shared";
-import type { UMSWebViewHandle } from "@/features/sync/UMSWebView";
 import type { UMSSyncResult } from "@bhemu/firebase";
 
 const LAST_SYNC_KEY = STORAGE_KEYS.umsLastSync;
 const LazyUMSWebView = lazy(() => import("@/features/sync/UMSWebView"));
-const noop = () => {};
 
 type SyncState = "idle" | "syncing" | "login_needed" | "success" | "error";
 
@@ -122,7 +120,7 @@ export default function TabsLayout() {
 	const isSharedProfile = !!currentProfile?.isShared;
 	const { data: umsData, loading: umsLoading } = useUmsData();
 	const hasSynced = !!umsData?.lastSyncedAt;
-	const webViewRef = useRef<UMSWebViewHandle>(null);
+	const pendingUmsDataRef = useRef<UMSLocalData | null>(null);
 
 	const [syncState, setSyncState] = useState<SyncState>("idle");
 	const [engineActive, setEngineActive] = useState(false);
@@ -207,6 +205,7 @@ export default function TabsLayout() {
 	}, [currentUser, activeProfile, allProfiles, notificationScope, queueNotificationRefresh]);
 
 	const startSync = useCallback(() => {
+		pendingUmsDataRef.current = null;
 		setSyncState("syncing");
 		setLoginVisible(false);
 		setEngineActive(true);
@@ -214,31 +213,46 @@ export default function TabsLayout() {
 
 	const handleSyncData = useCallback(
 		async (data: UMSSyncResult) => {
-			setEngineActive(false);
-			if (!currentUser || !activeProfile) {
+			if (!currentUser || activeProfile == null) {
+				pendingUmsDataRef.current = null;
+				setEngineActive(false);
+				setLoginVisible(false);
 				setSyncState("error");
-				setTimeout(() => setSyncState("idle"), 3000);
 				return;
 			}
 			try {
 				const { writeToFirestore } = await import("@/features/sync/syncCoordinator");
 				await writeToFirestore(data, activeProfile, db, currentUser.uid);
+				const pendingUmsData = pendingUmsDataRef.current;
+				if (pendingUmsData) {
+					await saveUmsData({ ...pendingUmsData, lastSyncedAt: new Date().toISOString() }, activeProfile);
+					queueNotificationRefresh(activeProfile, allProfiles, true);
+				}
+				pendingUmsDataRef.current = null;
 				await AsyncStorage.setItem(
 					LAST_SYNC_KEY,
 					new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
 				);
 				setSyncState("success");
+				setEngineActive(false);
+				setLoginVisible(false);
 				setTimeout(() => setSyncState("idle"), 3000);
 			} catch {
+				pendingUmsDataRef.current = null;
 				setSyncState("error");
-				setTimeout(() => setSyncState("idle"), 3000);
+				setEngineActive(false);
+				setLoginVisible(false);
 			}
 		},
-		[currentUser, activeProfile]
+		[activeProfile, allProfiles, currentUser, queueNotificationRefresh]
 	);
 
 	const handleNeedsLogin = useCallback(() => {
+		setLoginVisible(true);
 		setSyncState("login_needed");
+	}, []);
+
+	const handleChallengeDetected = useCallback(() => {
 		setLoginVisible(true);
 	}, []);
 
@@ -248,24 +262,21 @@ export default function TabsLayout() {
 	}, []);
 
 	const handleClose = useCallback(() => {
+		pendingUmsDataRef.current = null;
 		setLoginVisible(false);
 		setEngineActive(false);
 		setSyncState("idle");
 	}, []);
 
-	const handleUmsLocalData = useCallback(
-		async (data: UMSLocalData) => {
-			if (activeProfile == null) return;
-			await saveUmsData({ ...data, lastSyncedAt: new Date().toISOString() }, activeProfile);
-			queueNotificationRefresh(activeProfile, allProfiles, true);
-		},
-		[activeProfile, allProfiles, queueNotificationRefresh]
-	);
+	const handleUmsLocalData = useCallback((data: UMSLocalData) => {
+		pendingUmsDataRef.current = data;
+	}, []);
 
 	const handleError = useCallback(() => {
-		setEngineActive(false);
+		pendingUmsDataRef.current = null;
 		setSyncState("error");
-		setTimeout(() => setSyncState("idle"), 3000);
+		setLoginVisible(false);
+		setEngineActive(false);
 	}, []);
 
 	return (
@@ -280,12 +291,11 @@ export default function TabsLayout() {
 						}
 					>
 						<LazyUMSWebView
-							ref={webViewRef}
 							loginVisible={loginVisible}
 							onSyncData={handleSyncData}
 							onUmsLocalData={handleUmsLocalData}
-							onProgress={noop}
 							onNeedsLogin={handleNeedsLogin}
+							onChallengeDetected={handleChallengeDetected}
 							onLoginDone={handleLoginDone}
 							onError={handleError}
 							onClose={handleClose}
@@ -334,7 +344,11 @@ export default function TabsLayout() {
 										onPress={startSync}
 										syncState={syncState}
 										disabled={
-											isSharedProfile || authLoading || !currentUser || activeProfile == null
+											isSharedProfile ||
+											authLoading ||
+											!currentUser ||
+											activeProfile == null ||
+											engineActive
 										}
 									/>
 								</View>
