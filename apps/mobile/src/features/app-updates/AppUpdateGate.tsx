@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { InteractionManager, Platform } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import AppUpdateDialog from "./AppUpdateDialog";
-import { checkForAppUpdate, deferAppUpdate, downloadAndLaunchApk, openInstallPermissionSettings } from "./service";
+import { checkForAppUpdate, deferAppUpdate, downloadAndLaunchApk, openInstallPermissionSettings, openUpdateWebsite } from "./service";
 import type { AvailableAppUpdate, DownloadProgress } from "./types";
 
 type UpdateStatus = "available" | "downloading" | "error";
@@ -72,6 +72,12 @@ export default function AppUpdateGate() {
 		void handleUpdate();
 	}, [handleUpdate]);
 
+	const handleOpenWebsite = useCallback(() => {
+		const websiteUrl = availableUpdate?.manifest.websiteUrl;
+		if (!websiteUrl) return;
+		void openUpdateWebsite(websiteUrl).catch(() => {});
+	}, [availableUpdate]);
+
 	return (
 		<AppUpdateDialog
 			visible={availableUpdate !== null && status !== null}
@@ -83,6 +89,7 @@ export default function AppUpdateGate() {
 			onLater={() => void handleLater()}
 			onRetry={handleRetry}
 			onOpenSettings={() => void openInstallPermissionSettings().catch(() => {})}
+			onOpenWebsite={handleOpenWebsite}
 		/>
 	);
 }

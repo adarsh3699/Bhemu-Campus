@@ -10,6 +10,7 @@
 		"ios": "expo run:ios",
 		"build:android": "eas build --platform android",
 		"build:ios": "eas build --platform ios",
+		"postinstall": "cd ../.. && pnpm --filter @bhemu/shared build && pnpm --filter @bhemu/chat build && pnpm --filter @bhemu/firebase build",
 		"typecheck": "tsc --noEmit",
 		"lint": "eslint src",
 		"lint:fix": "eslint src --fix"

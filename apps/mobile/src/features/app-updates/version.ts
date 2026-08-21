@@ -31,6 +31,7 @@ export function parseAppUpdateManifest(value: unknown): AppUpdateManifest {
 	const candidate = value as Record<string, unknown>;
 	const version = typeof candidate.version === "string" ? candidate.version.trim() : "";
 	const apkUrl = typeof candidate.apkUrl === "string" ? candidate.apkUrl.trim() : "";
+	const websiteUrl = typeof candidate.websiteUrl === "string" ? candidate.websiteUrl.trim() : "";
 	const releaseNotes = Array.isArray(candidate.releaseNotes)
 		? candidate.releaseNotes.filter((note): note is string => typeof note === "string").slice(0, 8)
 		: [];
@@ -39,10 +40,14 @@ export function parseAppUpdateManifest(value: unknown): AppUpdateManifest {
 	if (apkUrl && !/^https:\/\//i.test(apkUrl)) {
 		throw new Error("Update manifest APK URL must use HTTPS.");
 	}
+	if (websiteUrl && !/^https:\/\//i.test(websiteUrl)) {
+		throw new Error("Update manifest website URL must use HTTPS.");
+	}
 
 	return {
 		version,
 		apkUrl,
+		websiteUrl,
 		releaseNotes,
 		mandatory: candidate.mandatory === true,
 	};

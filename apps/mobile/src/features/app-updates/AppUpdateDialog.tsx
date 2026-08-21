@@ -12,6 +12,7 @@ interface AppUpdateDialogProps {
 	onLater: () => void;
 	onRetry: () => void;
 	onOpenSettings: () => void;
+	onOpenWebsite: () => void;
 }
 
 export default function AppUpdateDialog({
@@ -24,6 +25,7 @@ export default function AppUpdateDialog({
 	onLater,
 	onRetry,
 	onOpenSettings,
+	onOpenWebsite,
 }: AppUpdateDialogProps) {
 	if (!manifest) return null;
 
@@ -77,6 +79,18 @@ export default function AppUpdateDialog({
 							<Pressable disabled={isDownloading} onPress={onUpdate} style={({ pressed }) => [local.primaryButton, isDownloading && local.disabled, pressed && !isDownloading && local.pressed]} accessibilityRole="button"><Text style={local.primaryText}>{isDownloading ? "Downloading…" : "Update now"}</Text></Pressable>
 						</View>
 					)}
+
+					{manifest.websiteUrl ? (
+						<Pressable
+							disabled={isDownloading}
+							onPress={onOpenWebsite}
+							style={({ pressed }) => [local.websiteButton, isDownloading && local.disabled, pressed && !isDownloading && local.pressed]}
+							accessibilityRole="link"
+							accessibilityHint="Opens the bCampus website where you can download the APK"
+						>
+							<Text style={local.websiteText}>Download from website</Text>
+						</Pressable>
+					) : null}
 				</View>
 			</View>
 		</Modal>
@@ -105,6 +119,8 @@ const local = StyleSheet.create({
 	secondaryButton: { flex: 1, minHeight: 48, alignItems: "center", justifyContent: "center", borderRadius: Radius.md, paddingHorizontal: Spacing.md, borderWidth: 1, borderColor: Colors.border },
 	primaryText: { color: Colors.textPrimary, fontSize: FontSize.base, fontWeight: FontWeight.bold },
 	secondaryText: { color: Colors.textMuted, fontSize: FontSize.base, fontWeight: FontWeight.semibold },
+	websiteButton: { minHeight: 44, alignItems: "center", justifyContent: "center", paddingHorizontal: Spacing.md },
+	websiteText: { color: Colors.secondary, fontSize: FontSize.sm, fontWeight: FontWeight.semibold },
 	disabled: { opacity: 0.5 },
 	pressed: { opacity: 0.78 },
 });

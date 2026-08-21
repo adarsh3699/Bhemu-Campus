@@ -1,6 +1,7 @@
 export interface AppUpdateManifest {
 	version: string;
 	apkUrl: string;
+	websiteUrl: string;
 	releaseNotes: string[];
 	mandatory: boolean;
 }
