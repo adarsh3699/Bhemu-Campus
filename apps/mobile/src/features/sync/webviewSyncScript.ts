@@ -177,7 +177,6 @@ export const WEBVIEW_SYNC_SCRIPT = `
 
   async function doSync() {
     try {
-      post('progress', 'Fetching grades from UMS...');
 
       var RESULTS_URL = 'https://ums.lpu.in/lpuums/frmStudentResult.aspx';
       var DASH = 'https://ums.lpu.in/lpuums/StudentDashboard.aspx';
@@ -201,7 +200,6 @@ export const WEBVIEW_SYNC_SCRIPT = `
       var allTermIds = parseAllTermIds(resDoc);
       var terms = parseTerms(resDoc);
 
-      post('progress', 'Fetching '+allTermIds.length+' semester(s)...');
 
       var allCourses = parseCourseGrades(resDoc);
       var allAssessments = parseCourseWiseMarks(resDoc, undefined);
@@ -238,7 +236,6 @@ export const WEBVIEW_SYNC_SCRIPT = `
       if(attRaw&&typeof attRaw.d==='string'&&attRaw.d.trim()) attendance=parseAttendance(attRaw.d);
 
       // ── Additional UMS data (local-only, not written to Firestore) ──────────
-      post('progress', 'Fetching messages & announcements...');
 
       var [msgsRaw, annRaw, seatRaw] = await Promise.all([
         fetch(DASH+'/ViewAllMessages',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json;charset=UTF-8','X-Requested-With':'XMLHttpRequest'},body:'{}'}).then(function(r){return r.json();}).catch(function(){return null;}),
@@ -289,7 +286,6 @@ export const WEBVIEW_SYNC_SCRIPT = `
       var seatingPlan = parseSeating(seatRaw && seatRaw.d ? seatRaw.d : '');
 
       // Timetable (separate page — needs TermId extraction)
-      post('progress', 'Fetching timetable...');
       var timetable = [];
       try {
         var TT_BASE = 'https://ums.lpu.in/lpuums/frmMyCurrentTimeTable.aspx';

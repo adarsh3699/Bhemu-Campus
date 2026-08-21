@@ -92,16 +92,13 @@ export default function LoginPage() {
 					>
 						<div className="mb-10 text-center">
 							<div className="lg:hidden mb-6 flex justify-center items-center gap-2">
-								<div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center bg-white/5">
-									<Image
-										src="/myLogo.webp"
-										alt="bCampus Logo"
-										width={32}
-										height={32}
-										className="rounded-lg object-cover"
-									/>
-								</div>
-								<span className="text-xl font-bold text-white">bCampus</span>
+								<Image
+									src="/text_only.png"
+									alt="bCampus Logo"
+									width={300}
+									height={100}
+									className="h-auto w-[118px]"
+								/>
 							</div>
 							<h2 className="text-3xl font-bold text-white mb-2">Welcome back</h2>
 							<p className="text-gray-400">Enter your credentials to access your workspace.</p>

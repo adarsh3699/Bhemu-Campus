@@ -28,10 +28,13 @@ export function AuthShowcase({ title, subtitle, testimonial = false }: AuthShowc
 
 			{/* Top Bar: Brand Logo */}
 			<div className="flex items-center gap-3 z-10">
-				<div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center shadow-lg shadow-primary/30 bg-white/5">
-				<Image src="/myLogo.webp" alt="bCampus Logo" width={40} height={40} className="object-cover" />
-				</div>
-				<span className="text-2xl font-bold tracking-tight text-white">bCampus</span>
+				<Image
+					src="/text_only.png"
+					alt="bCampus Logo"
+					width={300}
+					height={100}
+					className="h-auto w-[140px]"
+				/>
 			</div>
 
 			{/* Center Section: Premium visual & Title */}

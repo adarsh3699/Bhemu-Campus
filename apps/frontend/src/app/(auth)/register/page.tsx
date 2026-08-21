@@ -97,13 +97,12 @@ export default function RegisterPage() {
 				{/* Mobile Header Logo (Visible only on mobile) */}
 				<div className="lg:hidden absolute top-6 left-6 flex items-center gap-2">
 					<Image
-						src="/myLogo.webp"
+						src="/text_only.png"
 						alt="bCampus Logo"
-						width={32}
-						height={32}
-						className="rounded-lg object-cover"
+						width={300}
+						height={100}
+						className="h-auto w-[118px]"
 					/>
-					<span className="text-white text-xl font-bold">bCampus</span>
 				</div>
 
 				<div className="w-full max-w-md flex flex-col gap-6 mt-12 lg:mt-0">

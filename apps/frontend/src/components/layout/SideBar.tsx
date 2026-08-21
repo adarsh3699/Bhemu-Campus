@@ -117,20 +117,15 @@ export default function SideBar({ isOpen, onClose }: SideBarProps) {
 					${isOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
 			>
 				{/* Brand */}
-				<div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
+				<div className="flex items-center justify-between px-5 py-3 border-b border-white/5">
 					<div className="flex items-center gap-3">
-						<div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center shrink-0 bg-white/5">
-							<Image
-								src="/myLogo.webp"
-								alt="bCampus Logo"
-								width={32}
-								height={32}
-								className="object-cover"
-							/>
-						</div>
-						<div>
-							<h1 className="text-white font-bold text-sm leading-tight">bCampus</h1>
-						</div>
+						<Image
+							src="/text_only.png"
+							alt="bCampus Logo"
+							width={300}
+							height={100}
+							className="h-auto w-[118px]"
+						/>
 					</div>
 					{/* Mobile close button */}
 					<button

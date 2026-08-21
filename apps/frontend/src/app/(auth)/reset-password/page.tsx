@@ -248,8 +248,13 @@ export default function ResetPasswordPage() {
 			{/* Navbar */}
 			<header className="flex items-center justify-between border-b border-border px-6 md:px-10 py-4">
 				<div className="flex items-center gap-4">
-					<Image src="/myLogo.webp" alt="bCampus Logo" width={28} height={28} className="rounded-md object-cover" />
-					<h2 className="text-white text-xl font-bold tracking-tight">bCampus</h2>
+					<Image
+						src="/text_only.png"
+						alt="bCampus Logo"
+						width={300}
+						height={100}
+						className="h-auto w-[118px]"
+					/>
 				</div>
 				<div className="flex items-center gap-6">
 					<span className="text-muted-foreground text-sm hidden md:block">

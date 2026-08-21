@@ -1,4 +1,4 @@
-import { useRef, useState, forwardRef, useImperativeHandle } from "react";
+import { useRef, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import { WebView, type WebViewNavigation } from "react-native-webview";
 import { X, RefreshCw } from "lucide-react-native";
@@ -10,13 +10,7 @@ import { WEBVIEW_SYNC_SCRIPT } from "./webviewSyncScript";
 
 const DASHBOARD_URL = "https://ums.lpu.in/lpuums/StudentDashboard.aspx";
 
-const CHROME_ANDROID_UA =
-	"Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36";
-
-const STEALTH_JS = `(function(){
-  try{var b=window.ReactNativeWebView;if(b){window.__rnb=b;}Object.defineProperty(window,'ReactNativeWebView',{get:function(){return undefined;},configurable:true});}catch(e){}
-  try{delete window.Android;}catch(e){}
-  try{Object.defineProperty(Navigator.prototype,'webdriver',{get:function(){return undefined;},configurable:true});}catch(e){}
+const FORM_CAPTURE_JS = `(function(){
   function capture(form,submitter){
     try{
       if(window.__umsPostCapture&&typeof window.__umsPostCapture.captureBody==='function'){
@@ -27,6 +21,46 @@ const STEALTH_JS = `(function(){
       }
     }catch(e){}
   }
+  var lastPageState=null;
+  var readyCheckTimer=null;
+  function publishPageState(state){
+    if(state===lastPageState) return;
+    var bridge=window.ReactNativeWebView;
+    if(!bridge||typeof bridge.postMessage!=='function') return;
+    lastPageState=state;
+    bridge.postMessage(JSON.stringify({type:state}));
+  }
+  function isChallengePage(){
+    var text=((document.title||'')+' '+(document.body&&document.body.innerText||'')).toLowerCase();
+    return text.indexOf('performing security verification')!==-1
+      ||text.indexOf('just a moment')!==-1
+      ||(text.indexOf('cloudflare')!==-1&&text.indexOf('verifying')!==-1);
+  }
+  function detectPageState(){
+    try{
+      var bridge=window.ReactNativeWebView;
+      if(!bridge||typeof bridge.postMessage!=='function') return;
+      var challenge=isChallengePage();
+      if(challenge){
+        if(readyCheckTimer){clearTimeout(readyCheckTimer);readyCheckTimer=null;}
+        publishPageState('cloudflareChallenge');
+        return;
+      }
+      if(lastPageState==='umsPageReady'||readyCheckTimer) return;
+      readyCheckTimer=setTimeout(function(){
+        readyCheckTimer=null;
+        publishPageState(isChallengePage()?'cloudflareChallenge':'umsPageReady');
+      },1000);
+    }catch(e){}
+  }
+  function observePageState(){
+    if(!document.documentElement) return;
+    var observer=new MutationObserver(detectPageState);
+    observer.observe(document.documentElement,{subtree:true,childList:true,characterData:true});
+    setTimeout(detectPageState,1000);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',observePageState);
+  else observePageState();
   var origSubmit=HTMLFormElement.prototype.submit;
   var bypassing=false;
   HTMLFormElement.prototype.submit=function(){
@@ -55,128 +89,180 @@ const STEALTH_JS = `(function(){
   },true);
 })();true;`;
 
-export interface UMSWebViewHandle {
-	reload: () => void;
-}
-
 interface Props {
 	loginVisible: boolean;
 	onSyncData: (data: UMSSyncResult) => void;
 	onUmsLocalData: (data: UMSLocalData) => void;
-	onProgress: (msg: string) => void;
 	onNeedsLogin: () => void;
+	onChallengeDetected: () => void;
 	onLoginDone: () => void;
 	onError: (msg: string) => void;
 	onClose: () => void;
 }
 
-const UMSWebView = forwardRef<UMSWebViewHandle, Props>(
-	({ loginVisible, onSyncData, onUmsLocalData, onProgress, onNeedsLogin, onLoginDone, onError, onClose }, ref) => {
-		const webViewRef = useRef<WebView<object>>(null);
-		const syncStartedRef = useRef(false);
-		const loginShownRef = useRef(false);
-		const [loading, setLoading] = useState(true);
-		const [currentUrl, setCurrentUrl] = useState(DASHBOARD_URL);
+const UMSWebView = ({
+	loginVisible,
+	onSyncData,
+	onUmsLocalData,
+	onNeedsLogin,
+	onChallengeDetected,
+	onLoginDone,
+	onError,
+	onClose,
+}: Props) => {
+	const webViewRef = useRef<WebView<object>>(null);
+	const syncStartedRef = useRef(false);
+	const loginShownRef = useRef(false);
+	const currentUrlRef = useRef(DASHBOARD_URL);
+	const dashboardReadyRef = useRef(false);
+	const pageReadyRef = useRef(false);
+	const challengeActiveRef = useRef(false);
+	const [loading, setLoading] = useState(true);
+	const [currentUrl, setCurrentUrl] = useState(DASHBOARD_URL);
+	const [pageError, setPageError] = useState<string | null>(null);
 
-		useImperativeHandle(ref, () => ({
-			reload: () => {
-				syncStartedRef.current = false;
-				loginShownRef.current = false;
-				webViewRef.current?.reload();
-			},
-		}));
+	const startDashboardSync = () => {
+		if (!dashboardReadyRef.current || !pageReadyRef.current || challengeActiveRef.current || syncStartedRef.current) {
+			return;
+		}
+		syncStartedRef.current = true;
+		onLoginDone();
+		setTimeout(() => {
+			webViewRef.current?.injectJavaScript(WEBVIEW_SYNC_SCRIPT);
+		}, 800);
+	};
 
-		const handleNavigationChange = (nav: WebViewNavigation) => {
-			const url = nav.url.toLowerCase();
-			setCurrentUrl(nav.url);
+	const handleNavigationChange = (nav: WebViewNavigation) => {
+		const url = nav.url.toLowerCase();
+		currentUrlRef.current = nav.url;
+		setCurrentUrl(nav.url);
 
-			if (url.includes("login") && !loginShownRef.current) {
-				loginShownRef.current = true;
-				onNeedsLogin();
-			} else if (url.includes("studentdashboard") && !nav.loading && !syncStartedRef.current) {
-				syncStartedRef.current = true;
-				if (loginShownRef.current) {
-					// User just logged in — hide browser, sync silently
-					onLoginDone();
+		if (url.includes("login") && !loginShownRef.current) {
+			dashboardReadyRef.current = false;
+			loginShownRef.current = true;
+			onNeedsLogin();
+		} else if (url.includes("studentdashboard") && !nav.loading && !syncStartedRef.current) {
+			dashboardReadyRef.current = true;
+			startDashboardSync();
+		}
+	};
+
+	const handleMessage = (event: { nativeEvent: { data: string } }) => {
+		try {
+			const msg = JSON.parse(event.nativeEvent.data) as { type: string; payload: unknown };
+			if (msg.type === "cloudflareChallenge") {
+				challengeActiveRef.current = true;
+				pageReadyRef.current = false;
+				onChallengeDetected();
+			} else if (msg.type === "umsPageReady") {
+				challengeActiveRef.current = false;
+				pageReadyRef.current = true;
+				startDashboardSync();
+			} else if (msg.type === "syncData") {
+				onSyncData(msg.payload as UMSSyncResult);
+			} else if (msg.type === "umsLocalData") {
+				onUmsLocalData(msg.payload as UMSLocalData);
+			} else if (msg.type === "error") {
+				if (msg.payload === "SESSION_EXPIRED") {
+					syncStartedRef.current = false;
+					loginShownRef.current = false;
+					dashboardReadyRef.current = false;
+					pageReadyRef.current = false;
+					challengeActiveRef.current = false;
+					onNeedsLogin();
+				} else {
+					const message = typeof msg.payload === "string" ? msg.payload : "UMS sync failed.";
+					setPageError(message);
+					onError(message);
 				}
-				setTimeout(() => {
-					webViewRef.current?.injectJavaScript(WEBVIEW_SYNC_SCRIPT);
-				}, 800);
 			}
-		};
+		} catch {
+			// malformed WebView messages are silently ignored
+		}
+	};
 
-		const handleMessage = (event: { nativeEvent: { data: string } }) => {
-			try {
-				const msg = JSON.parse(event.nativeEvent.data) as { type: string; payload: unknown };
-				if (msg.type === "progress") {
-					onProgress(msg.payload as string);
-				} else if (msg.type === "syncData") {
-					onSyncData(msg.payload as UMSSyncResult);
-				} else if (msg.type === "umsLocalData") {
-					onUmsLocalData(msg.payload as UMSLocalData);
-				} else if (msg.type === "error") {
-					if (msg.payload === "SESSION_EXPIRED") {
-						onNeedsLogin();
-					} else {
-						onError(msg.payload as string);
-					}
-				}
-			} catch {
-				// malformed WebView messages are silently ignored
-			}
-		};
+	const displayUrl = currentUrl.replace(/^https?:\/\//, "").slice(0, 42);
+	const reportPageError = (message: string) => {
+		setPageError(message);
+		onError(message);
+	};
+	const retry = () => {
+		setPageError(null);
+		syncStartedRef.current = false;
+		loginShownRef.current = false;
+		dashboardReadyRef.current = false;
+		pageReadyRef.current = false;
+		challengeActiveRef.current = false;
+		webViewRef.current?.reload();
+	};
 
-		const displayUrl = currentUrl.replace(/^https?:\/\//, "").slice(0, 42);
-
-		return (
-			<>
-				{loginVisible && (
-					<SafeAreaView style={local.header} edges={["top"]}>
-						<View style={local.headerRow}>
-							<TouchableOpacity onPress={onClose} hitSlop={10} style={local.navBtn}>
-								<X size={20} color={Colors.textMuted} />
-							</TouchableOpacity>
-							<View style={local.urlBar}>
-								<Text style={local.urlText} numberOfLines={1}>
-									{displayUrl}
-								</Text>
-							</View>
-							<TouchableOpacity
-								onPress={() => webViewRef.current?.reload()}
-								hitSlop={10}
-								style={local.navBtn}
-							>
-								{loading ? (
-									<ActivityIndicator size="small" color={Colors.primary} />
-								) : (
-									<RefreshCw size={18} color={Colors.textMuted} />
-								)}
-							</TouchableOpacity>
+	return (
+		<>
+			{loginVisible && (
+				<SafeAreaView style={local.header} edges={["top"]}>
+					<View style={local.headerRow}>
+						<TouchableOpacity onPress={onClose} hitSlop={10} style={local.navBtn}>
+							<X size={20} color={Colors.textMuted} />
+						</TouchableOpacity>
+						<View style={local.urlBar}>
+							<Text style={local.urlText} numberOfLines={1}>
+								{displayUrl}
+							</Text>
 						</View>
-						{loading && <View style={local.progressBar} />}
-					</SafeAreaView>
-				)}
-				<WebView<object>
-					ref={webViewRef}
-					source={{ uri: DASHBOARD_URL }}
-					onNavigationStateChange={handleNavigationChange}
-					onMessage={handleMessage}
-					onLoadStart={() => setLoading(true)}
-					onLoadEnd={() => setLoading(false)}
-					style={local.webview}
-					javaScriptEnabled
-					domStorageEnabled
-					sharedCookiesEnabled
-					thirdPartyCookiesEnabled
-					userAgent={CHROME_ANDROID_UA}
-					mixedContentMode="always"
-					injectedJavaScriptBeforeContentLoaded={STEALTH_JS}
-					pullToRefreshEnabled={true}
-				/>
+						<TouchableOpacity onPress={retry} hitSlop={10} style={local.navBtn}>
+							{loading ? (
+								<ActivityIndicator size="small" color={Colors.primary} />
+							) : (
+								<RefreshCw size={18} color={Colors.textMuted} />
+							)}
+						</TouchableOpacity>
+					</View>
+					{loading && <View style={local.progressBar} />}
+				</SafeAreaView>
+			)}
+			<WebView<object>
+				ref={webViewRef}
+				source={{ uri: DASHBOARD_URL }}
+				onNavigationStateChange={handleNavigationChange}
+				onMessage={handleMessage}
+				onLoadStart={() => {
+					setLoading(true);
+					setPageError(null);
+					syncStartedRef.current = false;
+					loginShownRef.current = false;
+					dashboardReadyRef.current = false;
+					pageReadyRef.current = false;
+					challengeActiveRef.current = false;
+				}}
+				onLoadEnd={() => setLoading(false)}
+				onError={(event) => reportPageError(`UMS page could not load: ${event.nativeEvent.description}`)}
+				onHttpError={(event) => {
+					if (event.nativeEvent.url === currentUrlRef.current && event.nativeEvent.statusCode >= 400) {
+						reportPageError(
+							`UMS page returned HTTP ${event.nativeEvent.statusCode}: ${event.nativeEvent.description}`
+						);
+					}
+				}}
+				style={local.webview}
+				javaScriptEnabled
+				domStorageEnabled
+				sharedCookiesEnabled
+				thirdPartyCookiesEnabled
+				mixedContentMode="always"
+				injectedJavaScriptBeforeContentLoaded={FORM_CAPTURE_JS}
+				pullToRefreshEnabled={true}
+			/>
+			{pageError && (
+				<View style={local.errorBanner}>
+					<Text style={local.errorText}>{pageError}</Text>
+					<TouchableOpacity onPress={retry} style={local.retryButton}>
+						<Text style={local.retryText}>Retry</Text>
+					</TouchableOpacity>
+				</View>
+			)}
 			</>
 		);
-	}
-);
+};
 
 export default UMSWebView;
 
@@ -212,4 +298,17 @@ const local = StyleSheet.create({
 	urlText: { fontSize: FontSize.xs, color: Colors.textMuted, textAlign: "center" },
 	progressBar: { height: 2, backgroundColor: Colors.primary, opacity: 0.7 },
 	webview: { flex: 1 },
+	errorBanner: {
+		position: "absolute",
+		left: Spacing.md,
+		right: Spacing.md,
+		bottom: Spacing.md,
+		backgroundColor: Colors.destructive,
+		borderRadius: Radius.md,
+		padding: Spacing.md,
+		gap: Spacing.sm,
+	},
+	errorText: { color: Colors.textPrimary, fontSize: FontSize.sm },
+	retryButton: { alignSelf: "flex-end", paddingHorizontal: Spacing.sm, paddingVertical: 4 },
+	retryText: { color: Colors.textPrimary, fontSize: FontSize.sm, fontWeight: "700" },
 });

@@ -247,10 +247,13 @@ the native network layer. JS cannot strip it — only Java can.
 
 ### How the bypass works (`patches/react-native-webview@13.16.1.patch`)
 
-1. **Java `shouldInterceptRequest`** intercepts ALL requests to `ums.lpu.in`:
+1. **Java `shouldInterceptRequest`** proxies UMS requests to remove only the
+   WebView-only header that LPU rejects. Cloudflare challenge pages and normal
+   UMS HTML are returned untouched, while `/cdn-cgi/*` challenge resources use
+   native WebView networking:
     - Re-issues the request via `HttpURLConnection` without `X-Requested-With`.
-    - For HTML responses: injects a stealth `<script>` that hides `window.ReactNativeWebView`, `window.Android`, and `navigator.webdriver`.
-    - For non-HTML (CSS/JS/images): proxies the response as-is, just sans header.
+    - Does not rewrite HTML, hide browser APIs, or inject a fake browser identity.
+    - Proxies HTML and non-HTML responses as-is, just sans the rejected header.
     - Syncs `Set-Cookie` from each response back into `CookieManager`.
     - On 302 redirects: returns a small HTML page with `window.location.replace(url)` so the WebView navigates properly (updating `window.location` and re-firing `injectedJavaScriptBeforeContentLoaded`).
 
@@ -261,20 +264,21 @@ the native network layer. JS cannot strip it — only Java can.
     - A 120ms `setTimeout` ensures the body reaches Java before the real native submit fires.
     - Java spin-waits up to 250ms for `pendingUmsPostBody` to be set.
 
-3. **User-Agent** — set to Chrome Android (`Chrome/124.0.0.0 Mobile Safari/537.36`) without the `wv` marker so Cloudflare Turnstile's fingerprint check passes.
+3. **User-Agent** — the platform WebView User-Agent is left unchanged so the
+   browser identity stays consistent throughout the Cloudflare session.
 
 ### Key files
 
 | File                                                 | Role                                                                   |
 | ---------------------------------------------------- | ---------------------------------------------------------------------- |
 | `patches/react-native-webview@13.16.1.patch`         | Java: intercept requests, strip header, sync cookies, handle redirects |
-| `apps/mobile/src/features/sync/UMSLoginWebView.tsx`  | WebView + stealth JS (form body capture, hide markers)                 |
+| `apps/mobile/src/features/sync/UMSWebView.tsx`       | WebView + form body capture                                           |
 | `apps/mobile/src/features/sync/webviewSyncScript.ts` | Post-login scraping (same endpoints as extension)                      |
 | `apps/mobile/src/features/sync/syncCoordinator.ts`   | Writes scraped data to Firestore via `@bhemu/firebase`                 |
 
 ### Why each piece is necessary
 
-- **Java patch**: only way to strip `X-Requested-With` from native network layer.
+- **Java patch**: only way to strip `X-Requested-With` from the native network layer without changing UMS itself.
 - **POST body capture**: `WebResourceRequest` has no POST body API; must pass via JS→Java bridge.
 - **Submit button in FormData**: ASP.NET requires the clicked button's name/value to process the form. `new FormData()` alone omits it.
 - **Cookie sync**: Java's `HttpURLConnection` receives `Set-Cookie` but doesn't auto-share with WebView — must manually call `CookieManager.setCookie()`.
