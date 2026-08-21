@@ -10,15 +10,20 @@ This project has two update systems. Use this rule every time:
 
 OTA cannot add native code. If you are unsure, ship an APK.
 
-## You maintain one version
+## Keep release metadata in one frontend source
 
-For APK releases, update the same app version in two places: `apps/mobile/app.json` and `apps/frontend/public/mobile/update.json`.
+The native app version and the public release metadata serve different runtimes. Change `expo.version` in `apps/mobile/app.json` for the APK build, then maintain the public release metadata only in `apps/frontend/src/lib/mobileRelease.ts`.
+
+`mobileRelease.ts` is the single source for the frontend's:
+
+1. `/mobile/update.json` endpoint used by older APKs.
+2. Landing-page download links and displayed APK version.
 
 - **OTA release:** Keep the same app version. Publish the JavaScript update with an EAS channel and message.
-- **APK release:** Increase `expo.version`, build a new APK, and manually copy that version into the remote manifest.
+- **APK release:** Increase `expo.version`, build and test a new APK, upload it, then update `mobileRelease.ts` once.
 - **Android build number:** EAS manages this internal value automatically. It is not part of your release checklist or manifest.
 
-The OTA system compares the manifest's `version` with the installed app version. Therefore, every APK release must use a higher semantic version such as `1.0.1`, `1.1.0`, or `2.0.0`, and the two manually maintained values must match.
+The OTA system compares the manifest's `version` with the installed app version. Therefore, every APK release must use a higher semantic version such as `1.0.1`, `1.1.0`, or `2.0.0`, and `MOBILE_RELEASE.version` must match the APK's `expo.version`.
 
 ## Professional release policy
 
@@ -144,14 +149,9 @@ This project uses EAS remote versioning:
 "cli": { "appVersionSource": "remote" }
 ```
 
-The `public` profile auto-increments Android's internal build number on EAS. You change `expo.version` in `apps/mobile/app.json`, then copy the same value into `update.json` after the APK is ready.
+The `public` profile auto-increments Android's internal build number on EAS. You change `expo.version` in `apps/mobile/app.json`, then update `apps/frontend/src/lib/mobileRelease.ts` after the APK is ready.
 
-For an APK release, the version appears in two places for two different reasons:
-
-1. `apps/mobile/app.json` embeds the version inside the new APK.
-2. `apps/frontend/public/mobile/update.json` tells older APKs which version is available.
-
-Keep both values exactly the same. Update the manifest only after the new APK has been built, tested, and uploaded.
+The release source is consumed by both the update endpoint and the landing page, so the version and APK URL cannot drift between those surfaces. Update it only after the new APK has been built, tested, and uploaded.
 
 Change this field for a new APK release:
 
@@ -202,51 +202,49 @@ Copy the asset's public HTTPS download URL after upload. Do not use a private, e
 
 GitHub Releases are a free way to distribute APKs without a Play Store developer account. Users can download the APK from the release page, and the in-app updater can download the same public asset automatically.
 
-### 4. Publish the manifest
+### 4. Publish release metadata
 
-After the APK is uploaded and tested, edit `apps/frontend/public/mobile/update.json` with the same version, APK URL, notes, and mandatory setting. Deploy the frontend after saving it. The endpoint is:
+After the APK is uploaded and tested, edit `apps/frontend/src/lib/mobileRelease.ts` with the version, APK URL, notes, and mandatory setting. Deploy the frontend after saving it. The same source powers:
 
-```text
-https://campus.bhemu.in/mobile/update.json
-```
+- the update endpoint:
 
-Example for a normal optional update:
+  ```text
+  https://campus.bhemu.in/mobile/update.json
+  ```
 
-```json
-{
-  "version": "1.1.2",
-  "apkUrl": "https://github.com/adarsh3699/Bhemu-Campus/releases/download/mobile-v1.1.2/bcampus-mobile-v1.1.2.apk",
-  "releaseNotes": [
-    "Faster GPA calculations",
-    "Improved attendance sync"
-  ],
-  "mandatory": false
-}
-```
+- all mobile download CTAs on the landing page.
 
-The `version` must be higher than the installed app version and must exactly match the new APK's `expo.version`. The manifest is checked at app startup, so changing this file does not require another app build.
+Do not edit a generated/public JSON file or duplicate release constants in `page.tsx`.
 
-### 5. Update the landing page
-
-The landing page has three mobile download CTAs. After every APK release, update the versioned fallback in `apps/frontend/src/app/page.tsx` so new visitors get the same tested asset:
+Example source for a normal optional update:
 
 ```ts
-const MOBILE_APP_VERSION = "1.1.2";
-const MOBILE_APP_URL =
-  process.env.NEXT_PUBLIC_MOBILE_APP_URL ??
-  "https://github.com/adarsh3699/Bhemu-Campus/releases/download/mobile-v1.1.2/bcampus-mobile-v1.1.2.apk";
+// apps/frontend/src/lib/mobileRelease.ts
+export const MOBILE_RELEASE = {
+  version: "1.1.2",
+  apkUrl: "https://github.com/adarsh3699/Bhemu-Campus/releases/download/mobile-v1.1.2/bcampus-mobile-v1.1.2.apk",
+  websiteUrl: "https://campus.bhemu.in/",
+  releaseNotes: [
+    "Faster GPA calculations",
+    "Improved attendance sync",
+  ],
+  mandatory: false,
+} as const;
 ```
 
-If `NEXT_PUBLIC_MOBILE_APP_URL` is configured in the hosting environment, update it to the same URL or remove it so it does not override the versioned fallback. Deploy the frontend after updating both the manifest and landing page.
+The route at `apps/frontend/src/app/mobile/update.json/route.ts` exposes this object as the stable JSON endpoint.
+
+The `version` must be higher than the installed app version and must exactly match the new APK's `expo.version`. The endpoint is checked at app startup, so changing release metadata does not require another app build.
 
 ### Manifest fields in plain language
 
 - `version`: the new app version shown in the update dialog. It must be higher than the installed `expo.version`.
 - `apkUrl`: the complete public HTTPS download link to the APK produced by EAS. For a GitHub Release, copy the asset's **Download** link, for example `https://github.com/OWNER/REPO/releases/download/v1.1.0/bcampus-1.1.0.apk`. This is the file the app downloads when the user taps **Update now**. It is not the GitHub repository URL or the release web page URL.
+- `websiteUrl`: the HTTPS website URL shown as a backup option in the update dialog. Keep it on the bCampus website's APK download page.
 - `releaseNotes`: short text shown in the update dialog.
 - `mandatory`: controls whether the user may postpone the update. Use `false` for a normal optional update. Use `true` only for a security, compatibility, or critical fix; the dialog removes **Later** and asks the user to install. Android still requires the user to approve the package installer and unknown-source permission.
 
-The current file at `apps/frontend/public/mobile/update.json` advertises the latest published APK. Keep its URL and version aligned with the landing page and GitHub Release.
+The update endpoint and landing page always read the same `MOBILE_RELEASE` object, so no manual alignment is required between them.
 
 ## Mandatory updates
 
@@ -256,6 +254,7 @@ Set `mandatory` to `true` only when users must install the APK before continuing
 {
   "version": "2.0.0",
   "apkUrl": "https://example.com/bcampus-2.0.0.apk",
+  "websiteUrl": "https://campus.bhemu.in/",
   "releaseNotes": ["Required security update"],
   "mandatory": true
 }
@@ -282,15 +281,16 @@ For optional updates, users can choose **Later**. The app asks again after the d
 - APK: publish a new higher `expo.version`; EAS handles Android's internal build number.
 - Never point `apkUrl` at a local file, private GitHub asset, HTTP URL, or expiring URL.
 - Keep the manifest endpoint stable. If the host changes, keep the old URL working with a redirect or proxy.
-- Leave the manifest at its initial state when no APK release is available:
+- Leave `MOBILE_RELEASE.apkUrl` empty when no APK release is available:
 
-  ```json
-  {
-    "version": "1.0.0",
-    "apkUrl": "",
-    "releaseNotes": [],
-    "mandatory": false
-  }
+  ```ts
+  export const MOBILE_RELEASE = {
+    version: "1.0.0",
+    apkUrl: "",
+    websiteUrl: "https://campus.bhemu.in/",
+    releaseNotes: [],
+    mandatory: false,
+  } as const;
   ```
 
 ## Release checklist
@@ -309,8 +309,7 @@ For optional updates, users can choose **Later**. The app asks again after the d
 - [ ] Build with `eas build --profile public --platform android`.
 - [ ] Test the APK on Android.
 - [ ] Upload the APK to a public GitHub Release.
-- [ ] Update `apps/frontend/public/mobile/update.json` with the same version and APK URL.
-- [ ] Update the landing-page mobile URL and displayed APK version.
+- [ ] Update `apps/frontend/src/lib/mobileRelease.ts` with the tested version, APK URL, notes, and mandatory flag.
 - [ ] Deploy the frontend.
 - [ ] Test the update dialog, download progress, installer, **Later**, and retry.
 

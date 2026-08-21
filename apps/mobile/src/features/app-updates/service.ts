@@ -1,4 +1,4 @@
-import { Platform } from "react-native";
+import { Linking, Platform } from "react-native";
 import * as Application from "expo-application";
 import * as FileSystem from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
@@ -73,6 +73,11 @@ export async function deferAppUpdate(manifest: AppUpdateManifest): Promise<void>
 		APP_UPDATE_DEFERRED_KEY,
 		JSON.stringify({ version: manifest.version, deferredAt: Date.now() } satisfies DeferredUpdate)
 	);
+}
+
+export async function openUpdateWebsite(url: string): Promise<void> {
+	if (!/^https:\/\//i.test(url)) throw new Error("The update website URL must use HTTPS.");
+	await Linking.openURL(url);
 }
 
 export async function downloadAndLaunchApk(
