@@ -12,10 +12,14 @@ import {
   gradeToPoint,
   pointToGrade,
   parseProgram,
+  formatChatTime,
+  formatChatDate,
+  mergeChatMessages,
   GRADE_TABLE,
   GRADE_TO_POINT,
 } from "@bhemu/shared";
 import type { GPASubject, GPASemester, SubjectMarks } from "@bhemu/shared";
+import type { ChatMessage, ChatRoom } from "@bhemu/shared";
 ```
 
 Always import from `"@bhemu/shared"` — never from deep paths like `"@bhemu/shared/utils/gpa"`.
@@ -24,12 +28,16 @@ Always import from `"@bhemu/shared"` — never from deep paths like `"@bhemu/sha
 
 ```
 src/
-├── constants/   Raw data tables (GRADE_TABLE, GRADE_TO_POINT, etc.)
-├── types/       TypeScript interfaces only (GPASubject, SubjectMarks, etc.)
-├── utils/       Pure functions on typed data (calculateGPA, gradeToPoint, etc.)
+├── constants/   Grade, UMS, storage, and chat protocol limits
+├── types/       TypeScript interfaces for academic data, UMS, sharing, and chat
+├── utils/       Pure GPA, marks, time, ranking, and chat helpers
 ├── parsers/     Functions that parse raw strings → typed objects (parseProgram, etc.)
 └── index.ts     Master barrel export
 ```
+
+### Chat helpers
+
+The shared package keeps web and mobile chat behavior consistent. It provides chat types, timestamp parsing/formatting, date separators, author grouping, initials/avatar helpers, reaction summaries, deterministic message sorting, optimistic-message IDs, and server/cache message merging. The current mobile cache limit is exposed as `MAX_CHAT_CACHED_MESSAGES` and is set to 100.
 
 ## Commands
 

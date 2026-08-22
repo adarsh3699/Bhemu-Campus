@@ -1,15 +1,15 @@
 # 🎓 bCampus — Frontend
 
-> Next.js 16 web application for academic GPA tracking, marks analysis, and smart planning tools.
+> Next.js 16 web application for academic tools, real-time campus chat, profiles, and mobile release distribution.
 
 [![Next.js](https://img.shields.io/badge/Next.js-16-black)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19-blue)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6-blue)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-38bdf8)](https://tailwindcss.com/)
 
 ## 📋 Overview
 
-The frontend is a **pure client-side** Next.js application with no backend API. All data flows directly from the browser to Firebase Firestore, with real-time collaboration powered by Firebase `onSnapshot` listeners.
+The frontend is a Next.js application. Academic data flows directly from the browser to Firebase Firestore, while chat uses the shared `@bhemu/chat` client and the deployed Cloudflare Worker/WebSocket service. Firebase `onSnapshot` listeners power academic collaboration.
 
 🔗 **Live:** [campus.bhemu.in](https://campus.bhemu.in)
 
@@ -29,6 +29,12 @@ The frontend is a **pure client-side** Next.js application with no backend API. 
 - **Real-time Sync** — Live updates via Firebase listeners
 - **Multiple Workspaces** — Separate profiles for different contexts
 
+### 💬 Campus Chat (Beta)
+- **University and Batchmate rooms** with live online presence
+- **Real-time messages** over WebSockets with optimistic updates and reconnect handling
+- **Replies, reactions, editing, deletion, reporting, date separators, and message grouping**
+- Shared message types, timestamp formatting, and merge logic from `@bhemu/shared`
+
 ### 🏆 Leaderboard
 - **CGPA Rankings** — Program & batch-wise comparisons
 - **Shareable Rank Cards** — Beautiful OG images for social sharing
@@ -38,6 +44,11 @@ The frontend is a **pure client-side** Next.js application with no backend API. 
 - Password reset & email verification
 - Account deletion with full data cleanup
 
+### 📱 Mobile Release Support
+- Serves the mobile update manifest at `/mobile/update.json`
+- Keeps release metadata, notes, website URL, and backup APK URL in one source: `src/lib/mobileRelease.ts`
+- The mobile app uses this manifest for update checks and APK fallback downloads
+
 ---
 
 ## 🛠️ Tech Stack
@@ -45,7 +56,7 @@ The frontend is a **pure client-side** Next.js application with no backend API. 
 | Category | Technology |
 |----------|-----------|
 | **Framework** | Next.js 16 (App Router, Turbopack) |
-| **Language** | TypeScript 5.0 |
+| **Language** | TypeScript 6 |
 | **UI** | React 19, Tailwind CSS v4 |
 | **Icons** | Lucide React |
 | **Charts** | Recharts |
@@ -107,6 +118,7 @@ src/
 │   ├── gpa-goal-planner/
 │   ├── reappear-calculator/
 │   ├── leaderboard/
+│   ├── chat/
 │   ├── rank/[id]/              # Shareable rank cards
 │   ├── settings/
 │   ├── about/
@@ -146,9 +158,11 @@ src/
 │   │   ├── SideBar.tsx
 │   │   ├── TopBar.tsx
 │   │   └── GlobalHandlers.tsx
-│   └── modal/                  # Reusable modals
+│   ├── modal/                  # Reusable modals
+│   └── chat/                   # Chat rooms, messages, composer, edit/report UI
 │
 ├── contexts/                   # React Context providers
+│   ├── ChatContext.tsx         # Chat session, rooms, WebSocket, cache, actions
 │   ├── GpaDataContext.tsx      # Profiles, semesters, sharing
 │   ├── AttendanceDataContext.tsx
 │   ├── MarksDataContext.tsx
@@ -168,7 +182,8 @@ src/
 │   ├── programUtils.ts
 │   ├── seo.ts                  # Metadata & JSON-LD helpers
 │   ├── fetchLeaderboardEntry.ts
-│   └── drawLeaderboardCard.ts  # Canvas-based OG image generation
+│   ├── drawLeaderboardCard.ts  # Canvas-based OG image generation
+│   └── mobileRelease.ts        # Single source for mobile update metadata
 │
 └── types/
     ├── index.ts                # Barrel export
@@ -178,6 +193,9 @@ src/
     ├── auth.ts
     ├── share.ts
     └── leaderboard.ts
+
+# Also exposed by the App Router:
+# src/app/mobile/update.json/route.ts — static mobile update manifest route
 ```
 
 ---
@@ -201,10 +219,11 @@ AuthContext → MessageContext → GpaDataContext → AttendanceDataContext → 
 | `MarksDataContext` | Derived marks view over semesters |
 
 ### Data Flow
-1. **No backend API** — all reads/writes go directly from browser to Firestore
-2. **Real-time sync** — `onSnapshot` listeners in Context providers
-3. **Optimistic updates** — Local state updated immediately before Firestore write
-4. **Collaborative editing** — Shared profiles with `permission="edit"` write to owner's Firestore
+1. **Academic data** — Reads/writes go directly from the browser to Firestore
+2. **Chat data** — Chat sessions use Firebase authentication, then REST/WebSocket calls to the chat Worker
+3. **Real-time sync** — Firestore `onSnapshot` listeners and chat WebSocket events update active views
+4. **Optimistic updates** — Local state updates immediately before remote confirmation
+5. **Collaborative editing** — Shared profiles with `permission="edit"` write to the owner's Firestore data
 
 ### Firebase Schema
 See [../docs/firestore-schema.md](../docs/firestore-schema.md) for full Firestore structure.
@@ -249,6 +268,9 @@ NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
 NEXT_PUBLIC_FIREBASE_APP_ID=
 NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=
 
+# Optional local chat Worker override
+NEXT_PUBLIC_CHAT_API_BASE=
+
 # Optional
 NEXT_PUBLIC_GA_MEASUREMENT_ID=
 ```
@@ -276,6 +298,18 @@ Pure functions in `src/lib/gpaUtils.ts`:
 - `shareProfileWithUser(profileId, email, permission)` — Share via email
 - `copySharedProfile(sharedProfileId)` — Clone to own workspace
 - Permissions: `"read"` (view-only) or `"edit"` (collaborative)
+
+### Chat
+
+- `src/contexts/ChatContext.tsx` owns chat authentication, room loading, message pagination, WebSocket reconnects, optimistic messages, and message actions.
+- The production chat endpoint defaults to `https://bcampus-chat.bhemu.in`; set `NEXT_PUBLIC_CHAT_API_BASE` for local Worker development.
+- Web chat supports University and Batchmate rooms, replies, reactions, editing, deletion, reporting, presence, and reconnect-safe updates.
+
+### Mobile Release Manifest
+
+- Edit `src/lib/mobileRelease.ts` for a release.
+- `src/app/mobile/update.json/route.ts` exposes the same object as a cacheable JSON endpoint.
+- Keep the APK URL HTTPS and update release notes with every published mobile build.
 
 ---
 

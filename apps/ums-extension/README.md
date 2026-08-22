@@ -1,16 +1,16 @@
 # 🔄 UMS Data Sync — Chrome Extension
 
-> One-click sync of LPU UMS grades, marks, and attendance to bCampus
+> One-click sync of LPU UMS academic data to bCampus
 
 [![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-blue)](https://chromewebstore.google.com/detail/bfmmcngnpcmnopnjacnebpnfcohhigkp)
 [![Plasmo](https://img.shields.io/badge/Plasmo-0.90.5-blue)](https://www.plasmo.com/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6-blue)](https://www.typescriptlang.org/)
 
 ---
 
 ## 📋 Overview
 
-Chrome MV3 extension that auto-imports your academic data from LPU UMS portal directly into bCampus. No manual data entry needed — just click "Sync Everything" and you're done.
+Chrome MV3 extension that imports academic data from the LPU UMS portal directly into bCampus. No manual data entry is needed — choose a profile, click a sync action, and the extension writes the result to that profile.
 
 🔗 **Install:** [Chrome Web Store](https://chromewebstore.google.com/detail/bfmmcngnpcmnopnjacnebpnfcohhigkp)
 
@@ -18,11 +18,12 @@ Chrome MV3 extension that auto-imports your academic data from LPU UMS portal di
 
 ## ✨ Features
 
-- ⚡ **One-Click Sync** — Fetches all semester grades, marks & attendance from UMS
+- ⚡ **Sync Everything** — Fetches all semester grades, course-wise marks, attendance, student information, and term data from UMS
+- 🎯 **Attendance Only** — Run a lightweight attendance-only sync when grades and marks do not need updating
 - 🔄 **Always Fresh** — Re-sync anytime to get latest results
 - 🔒 **Secure** — Data saved directly to your Firebase account (same as web app)
-- 🎯 **Lightweight** — Minimal permissions, runs only when you click
-- 🚀 **Fast** — Parallel processing of all semesters
+- 🧭 **Profile Aware** — Select the bCampus profile that should receive the sync
+- 🚀 **Fast** — Fetches independent UMS data in parallel and processes terms concurrently
 
 ---
 
@@ -71,6 +72,8 @@ Chrome MV3 extension that auto-imports your academic data from LPU UMS portal di
 - ✅ Subject-wise marks (CA, MTE, ETE)
 - ✅ Attendance percentages per subject
 - ✅ Program info (branch, batch, roll number)
+- ✅ Term metadata, SGPA values, and course assessments
+- ✅ UMS announcements, messages, seating plans, and timetable data when the corresponding viewer mode is enabled
 
 ---
 
@@ -81,7 +84,7 @@ Chrome MV3 extension that auto-imports your academic data from LPU UMS portal di
 | **Framework** | Plasmo 0.90.5 (Chrome MV3) |
 | **Language** | TypeScript |
 | **UI** | React |
-| **Backend** | Firebase 10 (Firestore, Auth) |
+| **Backend** | Firebase 12 (Firestore, Auth) |
 | **Parser** | linkedom (DOM manipulation) |
 | **Package Manager** | pnpm |
 
@@ -94,29 +97,31 @@ Chrome MV3 extension that auto-imports your academic data from LPU UMS portal di
 ```
 src/
 ├── background/
-│   └── index.ts              # Service worker (orchestrates sync)
+│   ├── index.ts              # Service worker and message handlers
+│   └── fetcher.ts            # Parallel UMS page/API fetching
 ├── contents/
 │   └── authBridge.ts         # Content script (bridges auth token)
 ├── popup/
 │   └── index.tsx             # Extension popup UI
-├── components/
-│   ├── PopupView.tsx         # Main popup view
-│   └── SyncStatus.tsx        # Sync progress indicator
+├── components/               # Popup UI components
 ├── firebase/
 │   └── config.ts             # Firebase initialization
-└── utils/
-    ├── umsParser.ts          # Parses UMS HTML
-    └── firestoreSync.ts      # Writes to Firestore
+├── lib/
+│   ├── ums-api.ts            # UMS JSON/HTML API fetchers and parsers
+│   ├── firebaseSync.ts       # Profile loading and Firestore writes
+│   └── types.ts              # Extension sync contracts
+├── parsers/                  # Results and course-mark parsers
+└── utils/                    # UMS URLs and shared extension helpers
 ```
 
 ### Flow
 
-1. **User clicks "Sync"** → Popup sends message to background script
-2. **Background script** fetches UMS pages (grades, marks, attendance)
-3. **Parser** extracts data from HTML using linkedom
-4. **Auth bridge** retrieves Firebase token from web app's `localStorage`
-5. **Firestore sync** writes parsed data to user's Firestore collection
-6. **Web app** receives real-time updates via `onSnapshot` listeners
+1. **User clicks "Sync"** → Popup sends a sync message to the background script
+2. **Background script** fetches UMS result pages and JSON/HTML APIs
+3. **Parsers** extract term, grade, marks, attendance, and optional UMS data using linkedom
+4. **Auth bridge** retrieves the Firebase session from the signed-in bCampus tab
+5. **Firestore sync** writes the selected data to the selected profile
+6. **Web app/mobile app** receive updated academic data through their normal Firestore reads/listeners
 
 ---
 
@@ -184,7 +189,6 @@ The extension requests these permissions:
 |-----------|-----------|
 | `storage` | Store auth token locally |
 | `tabs` | Detect UMS pages |
-| `scripting` | Inject auth bridge script |
 | `host_permissions` | Access UMS pages and Firebase |
 
 **Privacy:** We don't collect, store, or share any personal data. All synced data goes directly to your own Firebase account.
@@ -248,10 +252,11 @@ Private and proprietary. All rights reserved.
 
 ## 📝 Changelog
 
-### v1.1.0 (Latest)
-- Added attendance sync
-- Improved error handling
-- UI polish
+### v1.2.5 (Latest)
+- Added attendance-only sync
+- Added profile selection and last-sync status handling
+- Added UMS JSON/API data parsing alongside result-page parsing
+- Improved term fetching and sync error handling
 
 ### v1.0.0
 - Initial release

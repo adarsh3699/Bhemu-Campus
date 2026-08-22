@@ -1,6 +1,6 @@
 # bCampus — Mobile App
 
-React Native app built with Expo SDK 57, mirroring the web app's features.
+React Native app built with Expo SDK 57 for Android and iOS. It provides the core academic tools plus native UMS sync, campus chat, notifications, cached startup data, and mobile update delivery.
 
 ## Tech Stack
 
@@ -11,7 +11,10 @@ React Native app built with Expo SDK 57, mirroring the web app's features.
 | Language | TypeScript |
 | Auth | Firebase JS SDK v12 |
 | State | React Context + hooks |
-| Shared logic | `@bhemu/shared`, `@bhemu/firebase` |
+| Shared logic | `@bhemu/shared`, `@bhemu/chat`, `@bhemu/firebase` |
+| UMS sync | `react-native-webview` with native cookie/session support |
+| Notifications | Expo Notifications |
+| Updates | Expo Updates + HTTPS APK fallback on Android |
 
 ## Commands
 
@@ -23,6 +26,10 @@ pnpm dev:mobile          # Start Metro bundler
 npx expo run:android     # Build + install dev APK on connected Android
 npx expo run:ios         # Build + install dev app on iOS Simulator
 eas build --platform android  # Cloud build via EAS
+eas build --platform ios      # Cloud iOS build via EAS
+
+pnpm typecheck                # Type-check the mobile app
+pnpm lint                     # Lint mobile source
 ```
 
 ## Folder Structure
@@ -33,11 +40,22 @@ src/
 │   ├── (auth)/           ← Unauthenticated screens (sign-in, sign-up, etc.)
 │   └── (app)/(tabs)/     ← Authenticated tab screens
 ├── components/           ← UI components
+│   ├── Chat/              ← Rooms, messages, composer, replies, reactions, moderation UI
+│   ├── AttendanceCalculator/
+│   ├── GpaCalculator/
+│   ├── Home/
+│   ├── Settings/
 │   └── ui/               ← Atomic primitives (no domain logic)
 ├── constants/
 │   ├── Colors.ts         ← All color tokens ← START HERE for design
 │   └── Theme.ts          ← Spacing, radius, typography, shadows
 ├── contexts/             ← React Context providers
+├── features/             ← Feature services and cache boundaries
+│   ├── app-updates/      ← Manifest checks, APK download/install fallback
+│   ├── chat/             ← Account-scoped AsyncStorage message cache
+│   ├── notifications/    ← Timetable/exam reminders and settings
+│   ├── sync/             ← UMS WebView and Firestore sync coordinator
+│   └── ums-data/         ← UMS local data parsing/storage
 ├── firebase/             ← Firebase config + factory wrappers
 ├── hooks/
 │   └── useTheme.ts       ← Access full design system in components
@@ -47,6 +65,16 @@ src/
 │   └── auth.styles.ts    ← Auth feature group shared styles
 └── types/                ← TypeScript types (re-exports from @bhemu/shared)
 ```
+
+## Features
+
+- **Academic tools** — GPA/CGPA, marks analysis, attendance calculator, goal planner, and reappear calculator.
+- **UMS data** — Home dashboard, announcements, messages, timetable, and seating-plan screens consume synced UMS data.
+- **Native UMS sync** — The WebView syncs authenticated UMS data in the background. If UMS shows a Cloudflare challenge, the WebView becomes visible so the user can complete verification; after verification or login, sync resumes automatically. If the user is already logged in, the WebView closes and sync continues in the background.
+- **Campus Chat (Beta)** — University and Batchmate rooms with live messaging, presence, replies, reactions, edit/delete/report actions, WebSocket reconnects, and optimistic updates.
+- **Fast startup** — GPA data and the latest 100 chat messages per room are cached locally and merged with fresh server data.
+- **Notifications** — Optional timetable and exam reminders with settings and a test notification action.
+- **Mobile updates** — The app checks `https://campus.bhemu.in/mobile/update.json`; Android can download the published APK from the update dialog as a backup path.
 
 ---
 
