@@ -59,11 +59,15 @@ export default function SemesterBarChart({ semesters }: SemesterBarChartProps) {
 
 	return (
 		<div className="w-full" style={{ outline: "none" }}>
-			<style dangerouslySetInnerHTML={{ __html: `
+			<style
+				dangerouslySetInnerHTML={{
+					__html: `
 				.recharts-wrapper, .recharts-surface, .recharts-wrapper * {
 					outline: none !important;
 				}
-			`}} />
+			`,
+				}}
+			/>
 			<ResponsiveContainer width="100%" height={200}>
 				<BarChart data={data} margin={{ top: 12, right: 8, left: -20, bottom: 0 }} barCategoryGap="30%">
 					<CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
@@ -87,9 +91,11 @@ export default function SemesterBarChart({ semesters }: SemesterBarChartProps) {
 						{data.map((entry, index) => (
 							<Cell
 								key={`cell-${index}`}
-								fill={entry.isActive ? COLOR_ACTIVE : "rgba(117,209,255,0.18)"}
+								fill={entry.isActive ? COLOR_ACTIVE : "rgba(117,209,255,0.3)"}
 								style={
-									entry.isActive ? { filter: "drop-shadow(0 0 8px rgba(117,209,255,0.35))" } : undefined
+									entry.isActive
+										? { filter: "drop-shadow(0 0 8px rgba(117,209,255,0.35))" }
+										: undefined
 								}
 							/>
 						))}

@@ -21,7 +21,10 @@ import {
 	Puzzle,
 	Trophy,
 	MessageSquare,
+	Smartphone,
+	Download,
 } from "lucide-react";
+import { MOBILE_RELEASE } from "@/lib/mobileRelease";
 
 const MAIN_NAV = [
 	{ name: "Dashboard", path: "dashboard", icon: LayoutDashboard },
@@ -201,6 +204,24 @@ export default function SideBar({ isOpen, onClose }: SideBarProps) {
 						<Puzzle className="w-4 h-4 shrink-0" />
 						UMS Extension
 					</button>
+
+					<a
+						href={MOBILE_RELEASE.apkUrl}
+						target="_blank"
+						rel="noreferrer"
+						onClick={handleNavClick}
+						className="mt-4 flex items-center gap-3 rounded-xl border border-primary/20 bg-gradient-to-r from-primary/[0.12] to-accent/[0.08] px-3 py-3 transition-colors hover:border-primary/40 hover:bg-primary/[0.16] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+						aria-label={`Download bCampus Android app version ${MOBILE_RELEASE.version}`}
+					>
+						<span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-secondary">
+							<Smartphone className="h-4 w-4" aria-hidden="true" />
+						</span>
+						<span className="min-w-0 flex-1">
+							<span className="block text-xs font-semibold text-white">Get the bCampus app</span>
+							<span className="mt-0.5 block text-[10px] text-white/50">Android · v{MOBILE_RELEASE.version}</span>
+						</span>
+						<Download className="h-4 w-4 shrink-0 text-white/50" aria-hidden="true" />
+					</a>
 				</nav>
 
 				{/* User profile section */}

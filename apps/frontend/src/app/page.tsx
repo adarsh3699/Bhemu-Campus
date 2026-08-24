@@ -116,12 +116,6 @@ export default function RootPage() {
 					{/* Actions */}
 					<div className="flex items-center gap-2 sm:gap-2.5">
 						<Link
-							href="/login"
-							className="hidden min-h-10 items-center rounded-lg px-4 text-sm font-semibold text-white/60 transition-all duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:flex"
-						>
-							Sign in
-						</Link>
-						<Link
 							href="/dashboard"
 							className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-[#0277ff] px-4 text-sm font-bold text-white transition-all duration-200 hover:-translate-y-px hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[#080d0f]"
 							style={{
@@ -170,10 +164,10 @@ export default function RootPage() {
 
 							<div className="mt-9 flex flex-col gap-3 sm:flex-row">
 								<Link
-									href="/register"
+									href="/login"
 									className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-bold text-white shadow-[0_12px_32px_rgba(3,152,172,0.22)] transition-[background-color,transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:bg-primary-dark hover:shadow-[0_16px_38px_rgba(3,152,172,0.32)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[#080d0f]"
 								>
-									Start for free <ArrowRight aria-hidden="true" className="h-4 w-4" />
+									Continue in Web <ArrowRight aria-hidden="true" className="h-4 w-4" />
 								</Link>
 								<a
 									href={MOBILE_RELEASE.apkUrl}
