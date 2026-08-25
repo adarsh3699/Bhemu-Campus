@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Send, X } from "lucide-react-native";
 import type { ChatMessage } from "@bhemu/shared";
 import { MAX_CHAT_MESSAGE_LENGTH } from "@bhemu/shared";
@@ -14,8 +14,6 @@ interface Props {
 
 export default function ChatComposer({ disabled, replyTo, onCancelReply, onSend }: Props) {
 	const [value, setValue] = useState("");
-	const [sending, setSending] = useState(false);
-	const sendingRef = useRef(false);
 	const inputRef = useRef<TextInput | null>(null);
 	const selectedReplyId = replyTo?.id;
 
@@ -25,21 +23,16 @@ export default function ChatComposer({ disabled, replyTo, onCancelReply, onSend 
 		return () => cancelAnimationFrame(frame);
 	}, [selectedReplyId]);
 
-	const send = useCallback(async () => {
+	const send = useCallback(() => {
 		const content = value.trim();
-		if (!content || disabled || sendingRef.current) return;
+		if (!content || disabled) return;
 
 		const replyToId = replyTo?.id;
-		sendingRef.current = true;
-		setSending(true);
 		setValue("");
 		onCancelReply();
-		try {
-			await onSend(content, replyToId);
-		} finally {
-			sendingRef.current = false;
-			setSending(false);
-		}
+		// Keep the composer available while this message is being acknowledged.
+		// Each send gets its own optimistic message and delivery state below.
+		void onSend(content, replyToId).catch(() => undefined);
 	}, [disabled, onCancelReply, onSend, replyTo, value]);
 
 	return (
@@ -74,7 +67,7 @@ export default function ChatComposer({ disabled, replyTo, onCancelReply, onSend 
 						accessibilityLabel="Message"
 						multiline
 						maxLength={MAX_CHAT_MESSAGE_LENGTH}
-						editable={!disabled && !sending}
+						editable={!disabled}
 						returnKeyType="send"
 						onSubmitEditing={() => void send()}
 						blurOnSubmit={false}
@@ -84,20 +77,16 @@ export default function ChatComposer({ disabled, replyTo, onCancelReply, onSend 
 				<Pressable
 					accessibilityRole="button"
 					accessibilityLabel="Send message"
-					accessibilityState={{ disabled: disabled || !value.trim() || sending }}
-					disabled={disabled || !value.trim() || sending}
+					accessibilityState={{ disabled: disabled || !value.trim() }}
+					disabled={disabled || !value.trim()}
 					onPress={() => void send()}
 					style={({ pressed }) => [
 						local.send,
 						pressed && local.pressed,
-						(disabled || !value.trim() || sending) && local.sendDisabled,
+						(disabled || !value.trim()) && local.sendDisabled,
 					]}
 				>
-					{sending ? (
-						<ActivityIndicator size="small" color={Colors.textPrimary} />
-					) : (
-						<Send size={18} color={disabled || !value.trim() ? Colors.textSubtle : Colors.textPrimary} />
-					)}
+					<Send size={18} color={disabled || !value.trim() ? Colors.textSubtle : Colors.textPrimary} />
 				</Pressable>
 			</View>
 		</View>

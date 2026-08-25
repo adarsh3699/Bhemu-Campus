@@ -18,8 +18,6 @@ const MessageInput = memo(function MessageInput({
 }: MessageInputProps) {
 	const [value, setValue] = useState("");
 	const taRef = useRef<HTMLTextAreaElement>(null);
-	// Track in-flight sends to prevent double-submit but allow instant clear
-	const sendingRef = useRef(false);
 
 	const autoResize = useCallback(() => {
 		const ta = taRef.current;
@@ -28,21 +26,17 @@ const MessageInput = memo(function MessageInput({
 		ta.style.height = Math.min(ta.scrollHeight, 120) + "px";
 	}, []);
 
-	const submit = useCallback(async () => {
+	const submit = useCallback(() => {
 		const trimmed = value.trim();
-		if (!trimmed || sendingRef.current || disabled) return;
-		sendingRef.current = true;
+		if (!trimmed || disabled) return;
 
 		// Clear input immediately — don't wait for server
 		setValue("");
 		onCancelReply();
 		if (taRef.current) taRef.current.style.height = "auto";
-
-		try {
-			await onSend(trimmed, replyTo?.id);
-		} finally {
-			sendingRef.current = false;
-		}
+		// Keep the composer available while this message is being acknowledged.
+		// Each send has its own optimistic message and delivery state.
+		void onSend(trimmed, replyTo?.id).catch(() => undefined);
 	}, [value, disabled, onSend, replyTo, onCancelReply]);
 
 	const onKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {

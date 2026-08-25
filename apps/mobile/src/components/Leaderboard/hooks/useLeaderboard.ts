@@ -3,6 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useGpaProfiles } from "@/contexts/GpaDataContext";
 import { LeaderboardService } from "@/firebase/services";
 import { db } from "@/firebase/config";
+import { selectNearbyLeaderboardEntries } from "@bhemu/shared";
 import type { LeaderboardData, LeaderboardEntry } from "@bhemu/shared";
 
 export function useLeaderboard() {
@@ -65,7 +66,10 @@ export function useLeaderboard() {
 			if (!isInTop10 && userRank > 10) {
 				const rawNearby = await LeaderboardService.getNearbyAbove(db, groupKey, cgpa, 5);
 				if (fetchId !== fetchIdRef.current) return;
-				nearbyEntries = LeaderboardService.deduplicateByVid(rawNearby, entryUserId!, profileId!).slice(-2);
+				nearbyEntries = selectNearbyLeaderboardEntries(
+					LeaderboardService.deduplicateByVid(rawNearby, entryUserId!, profileId!),
+					topEntries,
+				);
 			}
 
 			setLeaderboardData({ topEntries, userEntry, userRank, nearbyEntries, totalStudents });

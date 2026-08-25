@@ -1,3 +1,5 @@
+import type { LeaderboardEntry } from "../types/leaderboard";
+
 export function getPercentile(rank: number, total: number): number {
 	if (total <= 1) return 100;
 	return Math.round(((total - rank) / (total - 1)) * 100);
@@ -16,4 +18,30 @@ export function getRankTier(rank: number): "gold" | "silver" | "bronze" | "defau
 	if (rank === 2) return "silver";
 	if (rank === 3) return "bronze";
 	return "default";
+}
+
+/**
+ * Keeps nearby rows from repeating students already visible in the top list.
+ * Nearby entries are ordered from the farthest matching rank to the closest.
+ */
+export function selectNearbyLeaderboardEntries(
+	nearbyEntries: LeaderboardEntry[],
+	visibleEntries: LeaderboardEntry[],
+	limit: number = 2,
+): LeaderboardEntry[] {
+	const visibleKeys = new Set(visibleEntries.map(getLeaderboardEntryKey));
+	const seenKeys = new Set<string>();
+
+	return nearbyEntries
+		.filter((entry) => {
+			const key = getLeaderboardEntryKey(entry);
+			if (visibleKeys.has(key) || seenKeys.has(key)) return false;
+			seenKeys.add(key);
+			return true;
+		})
+		.slice(-limit);
+}
+
+function getLeaderboardEntryKey(entry: LeaderboardEntry): string {
+	return entry.vid || `${entry.userId}_${entry.profileId}`;
 }

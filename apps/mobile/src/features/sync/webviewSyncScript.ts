@@ -36,6 +36,47 @@ export const WEBVIEW_SYNC_SCRIPT = `
            t.includes('login required') || t.includes('login.aspx');
   }
 
+  function isCloudflareChallenge(text) {
+    var t = String(text || '').toLowerCase();
+    return t.includes('performing security verification') ||
+           t.includes('just a moment') ||
+           t.includes('checking your browser') ||
+           t.includes('verify you are human') ||
+           (t.includes('cloudflare') && t.includes('verifying'));
+  }
+
+  function createChallengeError() {
+    var error = new Error('Cloudflare verification is required.');
+    error.code = 'CLOUDFLARE_CHALLENGE';
+    return error;
+  }
+
+  async function fetchText(url, options) {
+    var response = await fetch(url, options);
+    var text = await response.text();
+    if (isCloudflareChallenge(text)) throw createChallengeError();
+    if (!response.ok) throw new Error('UMS request failed with HTTP ' + response.status + '.');
+    return text;
+  }
+
+  async function fetchJson(url, options) {
+    var text = await fetchText(url, options);
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      throw new Error('UMS returned an invalid response.');
+    }
+  }
+
+  async function fetchOptionalJson(url, options) {
+    try {
+      return await fetchJson(url, options);
+    } catch (error) {
+      if (error && error.code === 'CLOUDFLARE_CHALLENGE') throw error;
+      return null;
+    }
+  }
+
   function parseCourseGrades(doc) {
     var courses = [];
     var seen = {};
@@ -183,9 +224,9 @@ export const WEBVIEW_SYNC_SCRIPT = `
 
       // Parallel: results page + student info + attendance
       var [resHtml, siRaw, attRaw] = await Promise.all([
-        fetch(RESULTS_URL, {credentials:'include'}).then(function(r){return r.text();}),
-        fetch(DASH+'/GetStudentBasicInformation',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json;charset=UTF-8','X-Requested-With':'XMLHttpRequest'},body:'{}'}).then(function(r){return r.json();}).catch(function(){return null;}),
-        fetch(DASH+'/StudentAttendanceSummary',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json;charset=UTF-8','X-Requested-With':'XMLHttpRequest'},body:'{}'}).then(function(r){return r.json();}).catch(function(){return null;})
+        fetchText(RESULTS_URL, {credentials:'include'}),
+        fetchJson(DASH+'/GetStudentBasicInformation',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json;charset=UTF-8','X-Requested-With':'XMLHttpRequest'},body:'{}'}),
+        fetchJson(DASH+'/StudentAttendanceSummary',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json;charset=UTF-8','X-Requested-With':'XMLHttpRequest'},body:'{}'})
       ]);
 
       var resDoc = htmlDoc(resHtml);
@@ -206,11 +247,11 @@ export const WEBVIEW_SYNC_SCRIPT = `
 
       var termResults = await Promise.allSettled(allTermIds.map(function(tid){
         var mp = buildMultipart(tid, viewState, eventValidation, vstate);
-        return fetch(RESULTS_URL, {
+        return fetchText(RESULTS_URL, {
           method:'POST', credentials:'include',
           headers:{'Content-Type':'multipart/form-data; boundary='+mp.boundary},
           body:mp.body
-        }).then(function(r){return r.text();})
+        })
           .then(function(html){
             var d=htmlDoc(html);
             return { courses:parseCourseGrades(d), assessments:parseCourseWiseMarks(d,tid) };
@@ -219,6 +260,7 @@ export const WEBVIEW_SYNC_SCRIPT = `
 
       termResults.forEach(function(r){
         if(r.status==='fulfilled'){ allCourses=allCourses.concat(r.value.courses); allAssessments=allAssessments.concat(r.value.assessments); }
+        else throw r.reason || new Error('UMS term data could not be loaded.');
       });
 
       // Dedupe courses
@@ -235,12 +277,16 @@ export const WEBVIEW_SYNC_SCRIPT = `
       var attendance=[];
       if(attRaw&&typeof attRaw.d==='string'&&attRaw.d.trim()) attendance=parseAttendance(attRaw.d);
 
+      if(!si || (allCourses.length===0 && allAssessments.length===0 && attendance.length===0 && terms.length===0)) {
+        throw new Error('UMS returned incomplete data. Existing data was kept.');
+      }
+
       // ── Additional UMS data (local-only, not written to Firestore) ──────────
 
       var [msgsRaw, annRaw, seatRaw] = await Promise.all([
-        fetch(DASH+'/ViewAllMessages',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json;charset=UTF-8','X-Requested-With':'XMLHttpRequest'},body:'{}'}).then(function(r){return r.json();}).catch(function(){return null;}),
-        fetch(DASH+'/AnnouncementDetails',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json;charset=UTF-8','X-Requested-With':'XMLHttpRequest'},body:JSON.stringify({LoginId:'Reg',Type:'S'})}).then(function(r){return r.json();}).catch(function(){return null;}),
-        fetch(DASH+'/GetSeatingPlan',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json;charset=UTF-8','X-Requested-With':'XMLHttpRequest'},body:'{}'}).then(function(r){return r.json();}).catch(function(){return null;})
+        fetchOptionalJson(DASH+'/ViewAllMessages',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json;charset=UTF-8','X-Requested-With':'XMLHttpRequest'},body:'{}'}),
+        fetchOptionalJson(DASH+'/AnnouncementDetails',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json;charset=UTF-8','X-Requested-With':'XMLHttpRequest'},body:JSON.stringify({LoginId:'Reg',Type:'S'})}),
+        fetchOptionalJson(DASH+'/GetSeatingPlan',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json;charset=UTF-8','X-Requested-With':'XMLHttpRequest'},body:'{}'})
       ]);
 
       // Parse messages HTML
@@ -289,17 +335,20 @@ export const WEBVIEW_SYNC_SCRIPT = `
       var timetable = [];
       try {
         var TT_BASE = 'https://ums.lpu.in/lpuums/frmMyCurrentTimeTable.aspx';
-        var ttPageHtml = await fetch(TT_BASE, {credentials:'include'}).then(function(r){return r.text();});
+        var ttPageHtml = await fetchText(TT_BASE, {credentials:'include'});
         var ttDoc = htmlDoc(ttPageHtml);
         var firstOpt = ttDoc.querySelector('select#Select1 option') || ttDoc.querySelector('select[name="Select1"] option');
         var termId = firstOpt ? (firstOpt.getAttribute('value')||'') : '';
 
         if (/^\\d+$/.test(termId)) {
-          var ttRes = await fetch(TT_BASE+'/GetTimeTable', {
+          var ttRes = await fetchJson(TT_BASE+'/GetTimeTable', {
             method:'POST', credentials:'include',
             headers:{'Content-Type':'application/json;charset=UTF-8','X-Requested-With':'XMLHttpRequest','Referer':TT_BASE},
             body: JSON.stringify({TermId: termId})
-          }).then(function(r){return r.json();}).catch(function(){return null;});
+          }).catch(function(error){
+            if(error && error.code==='CLOUDFLARE_CHALLENGE') throw error;
+            return null;
+          });
 
           var ttHtml = ttRes && typeof ttRes.d === 'string' ? ttRes.d : '';
           if (ttHtml) {
@@ -336,7 +385,10 @@ export const WEBVIEW_SYNC_SCRIPT = `
             });
           }
         }
-      } catch(ttErr) { /* timetable is optional */ }
+      } catch(ttErr) {
+        if(ttErr && ttErr.code==='CLOUDFLARE_CHALLENGE') throw ttErr;
+        /* timetable is optional */
+      }
 
       // Post umsLocalData BEFORE syncData — syncData unmounts the WebView
       post('umsLocalData', { messages: messages, announcements: announcements, seatingPlan: seatingPlan, timetable: timetable });
@@ -349,7 +401,8 @@ export const WEBVIEW_SYNC_SCRIPT = `
         terms: terms
       });
     } catch(e) {
-      post('error', e&&e.message ? e.message : String(e));
+      if(e && e.code==='CLOUDFLARE_CHALLENGE') post('cloudflareChallenge', {source:'fetch'});
+      else post('error', e&&e.message ? e.message : String(e));
     }
   }
 

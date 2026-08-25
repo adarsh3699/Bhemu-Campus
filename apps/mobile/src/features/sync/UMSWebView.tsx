@@ -34,6 +34,8 @@ const FORM_CAPTURE_JS = `(function(){
     var text=((document.title||'')+' '+(document.body&&document.body.innerText||'')).toLowerCase();
     return text.indexOf('performing security verification')!==-1
       ||text.indexOf('just a moment')!==-1
+      ||text.indexOf('checking your browser')!==-1
+      ||text.indexOf('verify you are human')!==-1
       ||(text.indexOf('cloudflare')!==-1&&text.indexOf('verifying')!==-1);
   }
   function detectPageState(){
@@ -117,6 +119,7 @@ const UMSWebView = ({
 	const dashboardReadyRef = useRef(false);
 	const pageReadyRef = useRef(false);
 	const challengeActiveRef = useRef(false);
+	const challengeReloadedRef = useRef(false);
 	const [loading, setLoading] = useState(true);
 	const [currentUrl, setCurrentUrl] = useState(DASHBOARD_URL);
 	const [pageError, setPageError] = useState<string | null>(null);
@@ -151,9 +154,22 @@ const UMSWebView = ({
 		try {
 			const msg = JSON.parse(event.nativeEvent.data) as { type: string; payload: unknown };
 			if (msg.type === "cloudflareChallenge") {
+				// A challenge can be discovered by a background fetch even when the
+				// visible document is still the dashboard. Allow a fresh sync attempt
+				// after the user completes verification in the WebView.
+				syncStartedRef.current = false;
 				challengeActiveRef.current = true;
 				pageReadyRef.current = false;
 				onChallengeDetected();
+				if (
+					msg.payload &&
+					typeof msg.payload === "object" &&
+					(msg.payload as { source?: string }).source === "fetch" &&
+					!challengeReloadedRef.current
+				) {
+					challengeReloadedRef.current = true;
+					webViewRef.current?.reload();
+				}
 			} else if (msg.type === "umsPageReady") {
 				challengeActiveRef.current = false;
 				pageReadyRef.current = true;
@@ -193,6 +209,7 @@ const UMSWebView = ({
 		dashboardReadyRef.current = false;
 		pageReadyRef.current = false;
 		challengeActiveRef.current = false;
+		challengeReloadedRef.current = false;
 		webViewRef.current?.reload();
 	};
 

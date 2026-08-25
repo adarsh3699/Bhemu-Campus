@@ -254,6 +254,7 @@ export default function TabsLayout() {
 
 	const handleChallengeDetected = useCallback(() => {
 		setLoginVisible(true);
+		setSyncState("login_needed");
 	}, []);
 
 	const handleLoginDone = useCallback(() => {
@@ -337,7 +338,7 @@ export default function TabsLayout() {
 										<AnimatedTooltip message="Sync Successful!" color={Colors.success} />
 									) : syncState === "error" ? (
 										<AnimatedTooltip message="Sync Failed!" color={Colors.destructive} />
-									) : !hasSynced && !umsLoading && !isSharedProfile ? (
+									) : syncState === "idle" && !hasSynced && !umsLoading && !isSharedProfile ? (
 										<AnimatedTooltip message="Sync with UMS" color={Colors.primary} />
 									) : null}
 									<SyncButton
