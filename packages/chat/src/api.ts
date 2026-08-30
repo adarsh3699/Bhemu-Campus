@@ -12,10 +12,22 @@ import type {
 	RoomPin,
 	PaginatedResult,
 	ApiResponse,
+	AppRole,
+	ModerationStatus,
 	ReportReason,
 } from "@bhemu/shared";
 import { ChatApiError } from "./errors";
 import { CHAT_API_BASE } from "./constants";
+
+export interface ChatSession {
+	token: string;
+	expiresAt: string;
+	role: AppRole;
+	moderation: {
+		status: ModerationStatus;
+		expiresAt: string | null;
+	};
+}
 
 // ---- Core fetch helper ----
 
@@ -54,8 +66,8 @@ async function chatFetch<T>(
 export async function apiCreateChatSession(
 	firebaseToken: string,
 	baseUrl?: string,
-): Promise<{ token: string; expiresAt: string }> {
-	return chatFetch<{ token: string; expiresAt: string }>(
+): Promise<ChatSession> {
+	return chatFetch<ChatSession>(
 		firebaseToken,
 		"/api/v1/session",
 		{ method: "POST" },
@@ -276,4 +288,108 @@ export async function apiVotePoll(
 		baseUrl,
 	);
 	return data.poll;
+}
+
+export async function apiClosePoll(
+	token: string,
+	pollId: string,
+	baseUrl?: string,
+): Promise<ChatPoll> {
+	const data = await chatFetch<{ poll: ChatPoll }>(
+		token,
+		`/api/v1/polls/${pollId}/close`,
+		{ method: "PATCH" },
+		baseUrl,
+	);
+	return data.poll;
+}
+
+// ---- Pins ----
+
+export async function apiPinMessage(
+	token: string,
+	roomId: string,
+	messageId: string,
+	baseUrl?: string,
+): Promise<void> {
+	await chatFetch<unknown>(
+		token,
+		`/api/v1/moderation/pin/${roomId}/${messageId}`,
+		{ method: "POST" },
+		baseUrl,
+	);
+}
+
+export async function apiUnpinMessage(
+	token: string,
+	roomId: string,
+	messageId: string,
+	baseUrl?: string,
+): Promise<void> {
+	await chatFetch<null>(
+		token,
+		`/api/v1/moderation/pin/${roomId}/${messageId}`,
+		{ method: "DELETE" },
+		baseUrl,
+	);
+}
+
+// ---- Moderation ----
+
+export async function apiWarnUser(
+	token: string,
+	targetUserUid: string,
+	reason?: string,
+	messageId?: string,
+	baseUrl?: string,
+): Promise<void> {
+	await chatFetch<unknown>(
+		token,
+		"/api/v1/moderation/warn",
+		{ method: "POST", body: JSON.stringify({ targetUserUid, reason: reason ?? null, messageId }) },
+		baseUrl,
+	);
+}
+
+export async function apiSuspendUser(
+	token: string,
+	targetUserUid: string,
+	expiresAt: string,
+	reason?: string,
+	baseUrl?: string,
+): Promise<void> {
+	await chatFetch<unknown>(
+		token,
+		"/api/v1/moderation/suspend",
+		{ method: "POST", body: JSON.stringify({ targetUserUid, expiresAt, reason: reason ?? null }) },
+		baseUrl,
+	);
+}
+
+export async function apiBanUser(
+	token: string,
+	targetUserUid: string,
+	reason?: string,
+	baseUrl?: string,
+): Promise<void> {
+	await chatFetch<unknown>(
+		token,
+		"/api/v1/moderation/ban",
+		{ method: "POST", body: JSON.stringify({ targetUserUid, reason: reason ?? null }) },
+		baseUrl,
+	);
+}
+
+export async function apiModerationDeleteMessage(
+	token: string,
+	messageId: string,
+	reason?: string,
+	baseUrl?: string,
+): Promise<void> {
+	await chatFetch<unknown>(
+		token,
+		`/api/v1/moderation/delete-message/${messageId}`,
+		{ method: "POST", body: JSON.stringify({ reason: reason ?? null }) },
+		baseUrl,
+	);
 }

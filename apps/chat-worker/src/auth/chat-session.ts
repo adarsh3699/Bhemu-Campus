@@ -32,6 +32,8 @@ function secretBytes(env: Env): Uint8Array {
 export interface IssuedChatSession {
 	token: string;
 	expiresAt: string;
+	role: AuthUser["role"];
+	moderation: AuthUser["moderation"];
 }
 
 export async function issueChatSession(user: AuthUser, env: Env): Promise<IssuedChatSession> {
@@ -53,7 +55,12 @@ export async function issueChatSession(user: AuthUser, env: Env): Promise<Issued
 		.setExpirationTime(Math.floor(expiresAt.getTime() / 1_000))
 		.sign(secretBytes(env));
 
-	return { token, expiresAt: expiresAt.toISOString() };
+	return {
+		token,
+		expiresAt: expiresAt.toISOString(),
+		role: user.role,
+		moderation: user.moderation,
+	};
 }
 
 /** Returns null when the bearer is a Firebase token rather than a chat token. */

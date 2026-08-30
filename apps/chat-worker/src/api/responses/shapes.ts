@@ -77,6 +77,7 @@ export interface MessageResponse {
 	editedAt: string | null;
 	deletedAt: string | null;
 	attachments: AttachmentResponse[];
+	poll: PollResponse | null;
 	createdAt: string;
 	updatedAt: string;
 }

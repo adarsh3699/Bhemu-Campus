@@ -62,8 +62,6 @@ export class ModerationService {
 			messageId: null,
 			expiresAt: input.expiresAt ?? null,
 		});
-		// NOTE: Firestore moderation.status update is handled by the calling route handler
-		// via Firestore REST API to keep the service layer decoupled.
 	}
 
 	async banUser(moderator: AuthUser, input: ModerationActionInput): Promise<ModerationAction> {
@@ -91,6 +89,9 @@ export class ModerationService {
 		if (msg.visibility === "DELETED") throw Errors.messageDeleted();
 
 		await this.msgRepo.softDelete(messageId);
+		const wasPinned = msg.type === "ANNOUNCEMENT"
+			? await this.pinRepo.unpin(msg.roomId, messageId)
+			: false;
 
 		const action = await this.modRepo.create({
 			userUid: msg.authorUid,
@@ -105,6 +106,12 @@ export class ModerationService {
 			event: "message.deleted",
 			data: { messageId, roomId: msg.roomId, byModerator: true },
 		});
+		if (wasPinned) {
+			await broadcast(msg.roomId, {
+				event: "pin.updated",
+				data: { messageId, roomId: msg.roomId, action: "unpinned" },
+			});
+		}
 
 		return action;
 	}

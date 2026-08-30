@@ -4,6 +4,7 @@ import { MAX_MESSAGE_LENGTH, MESSAGE_PAGE_SIZE } from "../../constants";
 export const CreateMessageSchema = z.object({
 	roomId: z.string().uuid("roomId must be a valid UUID."),
 	content: z.string().max(MAX_MESSAGE_LENGTH).optional().default(""),
+	type: z.enum(["TEXT", "ANNOUNCEMENT"]).optional().default("TEXT"),
 	replyToMessageId: z.string().uuid().nullable().optional().default(null),
 	/** FRD §5.16 — client-generated unique key for idempotent retries */
 	idempotencyKey: z.string().min(1).max(128).nullable().optional().default(null),

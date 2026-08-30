@@ -26,6 +26,16 @@ import {
 	apiSetReaction,
 	apiRemoveReaction,
 	apiReportMessage,
+	apiGetRoomPins,
+	apiCreatePoll,
+	apiVotePoll,
+	apiClosePoll,
+	apiPinMessage,
+	apiUnpinMessage,
+	apiWarnUser,
+	apiSuspendUser,
+	apiBanUser,
+	apiModerationDeleteMessage,
 	ChatApiError,
 	WS_EVENTS,
 	CHAT_API_BASE,
@@ -34,6 +44,9 @@ import type {
 	ChatDisplayMessage,
 	ChatRoom,
 	ChatMessage,
+	ChatPoll,
+	RoomPin,
+	AppRole,
 	WsEnvelope,
 	PresenceUser,
 	ReportReason,
@@ -49,7 +62,9 @@ interface ChatContextValue {
 	setActiveRoom: (r: ActiveRoom) => void;
 	currentRoom: ChatRoom | null;
 	currentUserId: string | null; // lifted so MessageBubble doesn't call useAuth()
+	chatRole: AppRole | null;
 	messages: ChatDisplayMessage[];
+	pinnedMessages: RoomPin[];
 	hasMore: boolean;
 	loadingMessages: boolean;
 	loadOlderMessages: () => Promise<void>;
@@ -60,6 +75,15 @@ interface ChatContextValue {
 	react: (messageId: string, emoji: string) => Promise<void>;
 	unreact: (messageId: string) => Promise<void>;
 	report: (messageId: string, reason: ReportReason, description?: string) => Promise<void>;
+	createPoll: (content: string, options: string[], multipleChoice?: boolean, closesAt?: string | null) => Promise<void>;
+	votePoll: (pollId: string, optionIds: string[]) => Promise<void>;
+	closePoll: (pollId: string) => Promise<void>;
+	sendAnnouncement: (content: string) => Promise<void>;
+	togglePin: (messageId: string) => Promise<void>;
+	moderationDelete: (messageId: string, reason?: string) => Promise<void>;
+	warnUser: (userUid: string, reason?: string, messageId?: string) => Promise<void>;
+	suspendUser: (userUid: string, expiresAt: string, reason?: string) => Promise<void>;
+	banUser: (userUid: string, reason?: string) => Promise<void>;
 	onlineUsers: PresenceUser[];
 	connected: boolean;
 	error: string | null;
@@ -83,6 +107,8 @@ interface RoomSyncedPayload {
 	roomId: string;
 	onlineUsers: PresenceUser[];
 }
+type PollEventPayload = ChatPoll;
+interface PinEventPayload { roomId: string; messageId: string; action: "pinned" | "unpinned"; pinnedBy?: string; pinnedAt?: string }
 
 const HEARTBEAT_MS = 25_000;
 const HEARTBEAT_TIMEOUT_MS = 10_000;
@@ -177,6 +203,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 	const [batchmateRoom, setBatchmateRoom] = useState<ChatRoom | null>(null);
 	const [activeRoom, setActiveRoom] = useState<ActiveRoom>("university");
 	const [messages, setMessages] = useState<ChatDisplayMessage[]>([]);
+	const [pinnedMessages, setPinnedMessages] = useState<RoomPin[]>([]);
+	const [chatRole, setChatRole] = useState<AppRole | null>(null);
 	const [hasMore, setHasMore] = useState(false);
 	const [loadingMessages, setLoadingMessages] = useState(false);
 	const [connected, setConnected] = useState(false);
@@ -198,7 +226,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 	} | null>(null);
 	const batchmateRoomLoadRef = useRef(new Map<string, Promise<ChatRoom | null>>());
 	const tokenCacheRef = useRef<{ token: string; expiresAt: number } | null>(null);
-	const chatSessionCacheRef = useRef<{ token: string; expiresAt: number; uid: string } | null>(null);
+	const chatSessionCacheRef = useRef<{ token: string; expiresAt: number; uid: string; role: AppRole } | null>(null);
 	const sessionBootstrapRef = useRef<Promise<string | null> | null>(null);
 	const messagesRef = useRef<ChatDisplayMessage[]>([]);
 	const messageRequestRef = useRef(0);
@@ -254,6 +282,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 		const cached = chatSessionCacheRef.current;
 		if (!forceRefresh && cached && cached.uid === currentUser.uid
 			&& Date.now() + SESSION_REFRESH_SKEW_MS < cached.expiresAt) {
+			setChatRole(cached.role);
 			return cached.token;
 		}
 
@@ -290,7 +319,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 				if (!Number.isFinite(expiresAt)) {
 					throw new Error("Chat session response had an invalid expiry.");
 				}
-				chatSessionCacheRef.current = { token: session.token, expiresAt, uid: currentUser.uid };
+				chatSessionCacheRef.current = { token: session.token, expiresAt, uid: currentUser.uid, role: session.role };
+				setChatRole(session.role);
 				setError(null);
 				return session.token;
 			} catch (error) {
@@ -533,6 +563,30 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 				}));
 				break;
 			}
+			case WS_EVENTS.POLL_UPDATED:
+			case WS_EVENTS.POLL_CLOSED: {
+				const poll = envelope.payload as PollEventPayload;
+				if (!poll?.id || !poll.messageId) break;
+				setMsgs(prev => prev.map(message =>
+					message.id === poll.messageId ? { ...message, poll } : message,
+				));
+				break;
+			}
+			case WS_EVENTS.PIN_UPDATED: {
+				const pin = envelope.payload as PinEventPayload;
+				if (!pin?.roomId || pin.roomId !== currentRoomIdRef.current || !pin.messageId) break;
+				setPinnedMessages(prev => {
+					const withoutMessage = prev.filter(item => item.messageId !== pin.messageId);
+					if (pin.action === "unpinned") return withoutMessage;
+					return [...withoutMessage, {
+						roomId: pin.roomId,
+						messageId: pin.messageId,
+						pinnedBy: pin.pinnedBy ?? "",
+						pinnedAt: pin.pinnedAt ?? envelope.timestamp,
+					}];
+				});
+				break;
+			}
 			case WS_EVENTS.PRESENCE_JOINED: {
 				const p = envelope.payload as PresenceJoinedPayload;
 				setPresence(prev =>
@@ -572,7 +626,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 	}, []);
 
 	const sendMessageOverSocket = useCallback(
-		(roomId: string, content: string, replyToId: string | undefined, idempotencyKey: string) =>
+		(roomId: string, content: string, replyToId: string | undefined, idempotencyKey: string, type: "TEXT" | "ANNOUNCEMENT" = "TEXT") =>
 			new Promise<ChatMessage>((resolve, reject) => {
 				const ws = wsRef.current;
 				if (!ws || ws.readyState !== WebSocket.OPEN) {
@@ -592,6 +646,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 						payload: {
 							roomId,
 							content,
+							type,
 							replyToMessageId: replyToId ?? null,
 							idempotencyKey,
 						},
@@ -805,6 +860,15 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 		}
 	}, [requestWithChatAuth]);
 
+	const loadPins = useCallback(async (roomId: string) => {
+		try {
+			const pins = await requestWithChatAuth((token) => apiGetRoomPins(token, roomId));
+			if (currentRoomIdRef.current === roomId && pins) setPinnedMessages(pins);
+		} catch (e) {
+			if (currentRoomIdRef.current === roomId && e instanceof ChatApiError) setError(e.message);
+		}
+	}, [requestWithChatAuth]);
+
 	/**
 	 * Snapshot reconciliation is the source for initial history,
 	 * replay expiry, and unavailable event-stream recovery. It fetches every
@@ -877,8 +941,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 		
 		const cachedMessages = readCachedMessages(currentRoomId);
 		setMessages(cachedMessages);
+		setPinnedMessages([]);
 		
 		void loadMessages(currentRoomId, true);
+		void loadPins(currentRoomId);
 		void connectWs(currentRoomId);
 		return () => {
 			if (currentRoomIdRef.current === currentRoomId) currentRoomIdRef.current = null;
@@ -1089,16 +1155,135 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 		await apiReportMessage(token, messageId, reason, description);
 	}, [getFirebaseToken]);
 
+	const updatePoll = useCallback((poll: ChatPoll) => {
+		setMessages(prev => prev.map(message =>
+			message.id === poll.messageId ? { ...message, poll } : message,
+		));
+	}, []);
+
+	const createPoll = useCallback(async (
+		content: string,
+		options: string[],
+		multipleChoice = false,
+		closesAt: string | null = null,
+	) => {
+		const roomId = currentRoomIdRef.current;
+		if (!roomId) return;
+		const poll = await requestWithChatAuth(token => apiCreatePoll(token, roomId, content, options, multipleChoice, closesAt));
+		if (poll) {
+			updatePoll(poll);
+			void syncLatestMessages(roomId);
+		}
+	}, [requestWithChatAuth, syncLatestMessages, updatePoll]);
+
+	const votePoll = useCallback(async (pollId: string, optionIds: string[]) => {
+		const poll = await requestWithChatAuth(token => apiVotePoll(token, pollId, optionIds));
+		if (poll) updatePoll(poll);
+	}, [requestWithChatAuth, updatePoll]);
+
+	const closePoll = useCallback(async (pollId: string) => {
+		const poll = await requestWithChatAuth(token => apiClosePoll(token, pollId));
+		if (poll) updatePoll(poll);
+	}, [requestWithChatAuth, updatePoll]);
+
+	const sendAnnouncement = useCallback(async (content: string) => {
+		const roomId = currentRoomIdRef.current;
+		if (!currentUser || !roomId) return;
+		const trimmedContent = content.trim();
+		if (!trimmedContent) {
+			setError("Announcement cannot be empty.");
+			return;
+		}
+		if (trimmedContent.length > MAX_CHAT_MESSAGE_LENGTH) {
+			setError(`Announcement exceeds ${MAX_CHAT_MESSAGE_LENGTH} characters.`);
+			return;
+		}
+
+		const idempotencyKey = createChatClientMessageId();
+		const optimisticMessage: ChatDisplayMessage = {
+			id: idempotencyKey,
+			idempotencyKey,
+			roomId,
+			authorUid: currentUser.uid,
+			authorName: normalizeChatDisplayName(currentUser.displayName),
+			replyToMessageId: null,
+			type: "ANNOUNCEMENT",
+			visibility: "VISIBLE",
+			content: trimmedContent,
+			editedAt: null,
+			deletedAt: null,
+			attachments: [],
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		};
+		setMessages(prev => [...prev, optimisticMessage]);
+
+		try {
+			await waitForMessageSocket(roomId);
+			const confirmed = await sendMessageOverSocket(roomId, trimmedContent, undefined, idempotencyKey, "ANNOUNCEMENT");
+			upsertMessage({ ...confirmed, idempotencyKey });
+		} catch (error) {
+			setMessages(prev => prev.filter(message => message.id !== idempotencyKey));
+			if (error instanceof ChatApiError) setError(error.message);
+		}
+	}, [currentUser, sendMessageOverSocket, upsertMessage, waitForMessageSocket]);
+
+	const togglePin = useCallback(async (messageId: string) => {
+		const roomId = currentRoomIdRef.current;
+		if (!roomId) return;
+		const isPinned = pinnedMessages.some(pin => pin.messageId === messageId);
+		setPinnedMessages(prev => isPinned
+			? prev.filter(pin => pin.messageId !== messageId)
+			: [...prev, { roomId, messageId, pinnedBy: currentUserId ?? "", pinnedAt: new Date().toISOString() }]
+		);
+		try {
+			await requestWithChatAuth(token => isPinned
+				? apiUnpinMessage(token, roomId, messageId)
+				: apiPinMessage(token, roomId, messageId));
+		} catch (error) {
+			void loadPins(roomId);
+			if (error instanceof ChatApiError) setError(error.message);
+		}
+	}, [currentUserId, loadPins, pinnedMessages, requestWithChatAuth]);
+
+	const moderationDelete = useCallback(async (messageId: string, reason?: string) => {
+		setMessages(prev => prev.map(message =>
+			message.id === messageId ? { ...message, visibility: "DELETED" as const, content: "" } : message,
+		));
+		try {
+			await requestWithChatAuth(token => apiModerationDeleteMessage(token, messageId, reason));
+		} catch (error) {
+			void syncLatestMessages(currentRoomIdRef.current ?? "");
+			if (error instanceof ChatApiError) setError(error.message);
+		}
+	}, [requestWithChatAuth, syncLatestMessages]);
+
+	const warnUser = useCallback(async (userUid: string, reason?: string, messageId?: string) => {
+		await requestWithChatAuth(token => apiWarnUser(token, userUid, reason, messageId));
+	}, [requestWithChatAuth]);
+
+	const suspendUser = useCallback(async (userUid: string, expiresAt: string, reason?: string) => {
+		await requestWithChatAuth(token => apiSuspendUser(token, userUid, expiresAt, reason));
+	}, [requestWithChatAuth]);
+
+	const banUser = useCallback(async (userUid: string, reason?: string) => {
+		await requestWithChatAuth(token => apiBanUser(token, userUid, reason));
+	}, [requestWithChatAuth]);
+
 	const value = useMemo<ChatContextValue>(() => ({
 		universityRoom, batchmateRoom, activeRoom, setActiveRoom, currentRoom,
-		currentUserId,
-		messages, hasMore, loadingMessages, loadOlderMessages,
+		currentUserId, chatRole,
+		messages, pinnedMessages, hasMore, loadingMessages, loadOlderMessages,
 		sendText, editMsg, deleteMsg, retryMessage, react, unreact, report,
+		createPoll, votePoll, closePoll, sendAnnouncement, togglePin,
+		moderationDelete, warnUser, suspendUser, banUser,
 		onlineUsers, connected, error, dismissError, hasBatchmateRoom,
 	}), [
-		universityRoom, batchmateRoom, activeRoom, currentRoom, currentUserId,
-		messages, hasMore, loadingMessages, loadOlderMessages,
+		universityRoom, batchmateRoom, activeRoom, currentRoom, currentUserId, chatRole,
+		messages, pinnedMessages, hasMore, loadingMessages, loadOlderMessages,
 		sendText, editMsg, deleteMsg, retryMessage, react, unreact, report,
+		createPoll, votePoll, closePoll, sendAnnouncement, togglePin,
+		moderationDelete, warnUser, suspendUser, banUser,
 		onlineUsers, connected, error, dismissError, hasBatchmateRoom,
 	]);
 

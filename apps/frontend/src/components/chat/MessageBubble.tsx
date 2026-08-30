@@ -1,25 +1,32 @@
 "use client";
 
-import React, { memo, useRef, useState, useCallback, useEffect } from "react";
-import { Pencil, Trash2, Flag, Reply, MoreHorizontal, Check, Clock, AlertCircle, SmilePlus } from "lucide-react";
+import { memo, type MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Megaphone, Pin, PinOff, ShieldAlert } from "lucide-react";
 import {
 	CHAT_OPTIMISTIC_PREFIX,
 	formatChatDate,
 	formatChatTime,
-	getChatAuthorInitials,
-	getChatAvatarIndex,
 	messageTimestamp,
 	normalizeChatDisplayName,
-	QUICK_CHAT_REACTIONS,
 	summarizeChatReactions,
 	type ChatDisplayMessage,
 	type ChatMessage,
 } from "@bhemu/shared";
+import PollCard from "./PollCard";
+import MessageContextMenu, { type MenuPosition } from "./MessageContextMenu";
+import {
+	DeletedMessage,
+	MessageActions,
+	MessageMeta,
+	MessageRow,
+	MessageText,
+	ReactionSummary,
+} from "./MessageBubbleParts";
 
 interface MessageBubbleProps {
 	message: ChatDisplayMessage;
 	repliedMessage?: ChatDisplayMessage;
-	currentUserId: string | null; // passed from MessageList — avoids useAuth() per bubble
+	currentUserId: string | null;
 	showIdentity: boolean;
 	onReply: (msg: ChatMessage) => void;
 	onEdit: (msg: ChatMessage) => void;
@@ -28,25 +35,27 @@ interface MessageBubbleProps {
 	onReact: (messageId: string, emoji: string) => void;
 	onUnreact: (messageId: string) => void;
 	onReport: (messageId: string) => void;
+	isPinned: boolean;
+	isHighlighted: boolean;
+	canPin: boolean;
+	canModerate: boolean;
+	canClosePoll: boolean;
+	onTogglePin: (messageId: string) => Promise<void>;
+	onModerationDelete: (messageId: string) => Promise<void>;
+	onModerate: (message: ChatMessage) => void;
+	onVotePoll: (pollId: string, optionIds: string[]) => Promise<void>;
+	onClosePoll: (pollId: string) => Promise<void>;
 }
 
 export function DateSeparator({ iso }: { iso: string }) {
 	return (
-		<div className="my-6 flex justify-center">
+		<div className="my-4 flex justify-center">
 			<span className="rounded-full border border-white/10 bg-[#17151b]/90 px-3 py-1 text-[11px] font-semibold text-white/80 shadow-sm backdrop-blur-sm">
 				{formatChatDate(iso)}
 			</span>
 		</div>
 	);
 }
-
-const AVATAR_COLORS = [
-	"from-cyan-500 to-blue-600",
-	"from-violet-500 to-fuchsia-600",
-	"from-amber-500 to-orange-600",
-	"from-emerald-500 to-teal-600",
-	"from-rose-500 to-pink-600",
-] as const;
 
 const MessageBubble = memo(function MessageBubble({
 	message,
@@ -60,10 +69,22 @@ const MessageBubble = memo(function MessageBubble({
 	onReact,
 	onUnreact,
 	onReport,
+	isPinned,
+	isHighlighted,
+	canPin,
+	canModerate,
+	canClosePoll,
+	onTogglePin,
+	onModerationDelete,
+	onModerate,
+	onVotePoll,
+	onClosePoll,
 }: MessageBubbleProps) {
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [reactionTrayOpen, setReactionTrayOpen] = useState(false);
-	const menuRef = useRef<HTMLDivElement>(null);
+	const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
+	const [contextMenuPoint, setContextMenuPoint] = useState<{ x: number; y: number } | null>(null);
+	const menuPanelRef = useRef<HTMLDivElement>(null);
 	const reactionRef = useRef<HTMLDivElement>(null);
 
 	const isOwn = currentUserId === message.authorUid;
@@ -71,329 +92,266 @@ const MessageBubble = memo(function MessageBubble({
 	const isAnnouncement = message.type === "ANNOUNCEMENT";
 	const isOptimistic = message.id.startsWith(CHAT_OPTIMISTIC_PREFIX);
 	const authorName = normalizeChatDisplayName(message.authorName);
+	const reactionCounts = useMemo(
+		() => summarizeChatReactions(message.reactions, currentUserId),
+		[message.reactions, currentUserId],
+	);
 
-	// Aggregate reactions
-	const reactionCounts = React.useMemo(() => summarizeChatReactions(message.reactions, currentUserId), [message.reactions, currentUserId]);
-
-	// Close menu on outside click
-	useEffect(() => {
-		if (!menuOpen && !reactionTrayOpen) return;
-		const handleOutsideClick = (e: MouseEvent) => {
-			if (menuRef.current && menuRef.current.contains(e.target as Node)) return;
-			if (reactionRef.current && reactionRef.current.contains(e.target as Node)) return;
-			setMenuOpen(false);
-			setReactionTrayOpen(false);
-		};
-		document.addEventListener("mousedown", handleOutsideClick);
-		return () => document.removeEventListener("mousedown", handleOutsideClick);
-	}, [menuOpen, reactionTrayOpen]);
-
-	const toggleMenu = useCallback(() => {
-		setMenuOpen((v) => !v);
-		setReactionTrayOpen(false);
-	}, []);
 	const closeMenu = useCallback(() => {
 		setMenuOpen(false);
 		setReactionTrayOpen(false);
+		setMenuPosition(null);
+		setContextMenuPoint(null);
 	}, []);
+
+	const handleContextMenu = useCallback((event: ReactMouseEvent<HTMLElement>) => {
+		if (isOptimistic || message.failed) return;
+		event.preventDefault();
+		setReactionTrayOpen(false);
+		setMenuPosition(null);
+		setContextMenuPoint({ x: event.clientX, y: event.clientY });
+		setMenuOpen(true);
+	}, [isOptimistic, message.failed]);
+
+	const updateMenuPosition = useCallback(() => {
+		const panel = menuPanelRef.current;
+		if (!panel || !contextMenuPoint) return;
+
+		const { height, width } = panel.getBoundingClientRect();
+		const edgePadding = 8;
+		const gap = 8;
+		const topBelow = contextMenuPoint.y + gap;
+		const top = topBelow + height <= window.innerHeight - edgePadding
+			? topBelow
+			: Math.max(edgePadding, contextMenuPoint.y - height - gap);
+		const left = Math.max(
+			edgePadding,
+			Math.min(contextMenuPoint.x + gap, window.innerWidth - width - edgePadding),
+		);
+
+		setMenuPosition({ top, left });
+	}, [contextMenuPoint]);
+
+	useEffect(() => {
+		if (!menuOpen && !reactionTrayOpen) return;
+
+		const handleOutsideClick = (event: MouseEvent) => {
+			const target = event.target as Node;
+			if (menuPanelRef.current?.contains(target) || reactionRef.current?.contains(target)) return;
+			closeMenu();
+		};
+
+		document.addEventListener("mousedown", handleOutsideClick);
+		return () => document.removeEventListener("mousedown", handleOutsideClick);
+	}, [closeMenu, menuOpen, reactionTrayOpen]);
+
+	useEffect(() => {
+		if (!menuOpen) return;
+
+		const frame = requestAnimationFrame(updateMenuPosition);
+		window.addEventListener("resize", updateMenuPosition);
+		window.addEventListener("scroll", updateMenuPosition, true);
+		return () => {
+			cancelAnimationFrame(frame);
+			window.removeEventListener("resize", updateMenuPosition);
+			window.removeEventListener("scroll", updateMenuPosition, true);
+		};
+	}, [menuOpen, updateMenuPosition]);
+
+	const toggleReactionTray = useCallback(() => {
+		setReactionTrayOpen((open) => !open);
+		setMenuOpen(false);
+	}, []);
+
+	// Deleted announcements remain in storage for audit/retention, but never
+	// render an empty announcement card in the conversation.
+	if (isAnnouncement && isDeleted) return null;
+
+	const contextMenu = menuOpen ? (
+		<MessageContextMenu
+			message={message}
+			menuPanelRef={menuPanelRef}
+			position={menuPosition}
+			isOwn={isOwn}
+			isPinned={isPinned}
+			canPin={canPin}
+			canModerate={canModerate}
+			onClose={closeMenu}
+			onEdit={onEdit}
+			onDelete={onDelete}
+			onReport={onReport}
+			onModerationDelete={(messageId) => void onModerationDelete(messageId)}
+			onTogglePin={(messageId) => void onTogglePin(messageId)}
+			onModerate={onModerate}
+		/>
+	) : null;
 
 	if (isAnnouncement) {
 		return (
-			<div className="my-4 flex justify-center">
-				<div className="max-w-[85%] rounded-2xl border border-primary/30 bg-primary/10 px-5 py-3 text-center shadow-lg shadow-black/20">
-					<p className="mb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-primary">Announcement</p>
-					<p className="text-sm leading-relaxed text-white">{message.content}</p>
-					<p className="mt-1 text-[10px] text-white/50">{formatChatTime(messageTimestamp(message))}</p>
+			<div onContextMenu={handleContextMenu} className="group my-3 flex justify-center px-2">
+				<div
+					className={`relative w-full max-w-[min(100%,420px)] overflow-hidden rounded-xl border bg-[#11191b]/95 shadow-[0_8px_24px_rgba(0,0,0,0.22)] transition-[box-shadow,border-color] duration-200 sm:w-fit sm:min-w-[280px] ${
+						isHighlighted
+							? "border-primary/75 ring-2 ring-primary/60 ring-offset-2 ring-offset-[#09070b] shadow-[0_0_24px_rgba(0,190,210,0.16)]"
+							: "border-primary/30"
+					}`}
+					role="article"
+					aria-label={`Announcement from ${authorName}`}
+				>
+					<div className="absolute inset-y-0 left-0 w-1 bg-primary" aria-hidden="true" />
+					<div className="flex items-start gap-2.5 px-3 py-2.5 sm:px-3.5">
+						<div className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-primary/25 bg-primary/10 text-primary">
+							<Megaphone className="size-4" strokeWidth={1.8} aria-hidden="true" />
+						</div>
+						<div className="min-w-0 flex-1">
+							<div className="flex items-center justify-between gap-3">
+								<div className="min-w-0">
+									<p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-primary">
+										<span className="size-1.5 rounded-full bg-primary" aria-hidden="true" />
+										Announcement
+									</p>
+									<p className="mt-0.5 truncate text-[11px] text-white/50">{authorName}</p>
+								</div>
+								<time className="shrink-0 text-[10px] tabular-nums text-white/45">
+									{formatChatTime(messageTimestamp(message))}
+								</time>
+							</div>
+							<p className="mt-1.5 whitespace-pre-wrap text-[13px] leading-5 text-white/95">{message.content}</p>
+						</div>
+					</div>
+					{(canPin || canModerate) && !isOptimistic && (
+						<div className="absolute inset-x-0 bottom-0 flex items-center justify-end gap-1 border-t border-white/10 bg-[#11191b]/95 px-2 py-0.5 opacity-100 transition-opacity duration-150 sm:pointer-events-none sm:opacity-0 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100">
+							{canPin && (
+								<button
+									type="button"
+									onClick={() => void onTogglePin(message.id)}
+									className="inline-flex min-h-9 items-center gap-1 rounded-md px-2 text-[11px] text-white/60 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+									aria-label={isPinned ? "Unpin announcement" : "Pin announcement"}
+								>
+									{isPinned ? <PinOff className="size-3" /> : <Pin className="size-3" />}
+									{isPinned ? "Unpin" : "Pin"}
+								</button>
+							)}
+							{canModerate && (
+								<button
+									type="button"
+									onClick={() => onModerate(message)}
+									className="inline-flex min-h-9 items-center gap-1 rounded-md px-2 text-[11px] text-white/60 transition-colors hover:bg-red-500/15 hover:text-red-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+								>
+									<ShieldAlert className="size-3" />
+									Moderate
+								</button>
+							)}
+						</div>
+					)}
 				</div>
+				{contextMenu}
 			</div>
 		);
 	}
 
 	if (isDeleted) {
 		return (
-			<div className={`flex ${isOwn ? "justify-end" : "justify-start"} my-0.5`}>
-				<p className="text-xs text-muted-foreground italic px-3 py-1.5 rounded-xl bg-white/3 border border-white/5">
-					Message deleted
-				</p>
-			</div>
+			<MessageRow
+				authorName={authorName}
+				authorUid={message.authorUid}
+				showIdentity={showIdentity}
+				isOwn={isOwn}
+			>
+				<DeletedMessage />
+			</MessageRow>
 		);
 	}
 
 	return (
-		<div
-			className={`group flex items-end gap-3 ${showIdentity ? "mt-5" : "mt-1"} ${isOwn ? "flex-row-reverse" : "flex-row"}`}
+		<MessageRow
+			authorName={authorName}
+			authorUid={message.authorUid}
+			showIdentity={showIdentity}
+			isOwn={isOwn}
+			onContextMenu={handleContextMenu}
 		>
-			{/* Room messages retain a stable identity without a remote image lookup. */}
-			{!isOwn && (
-				<div className="w-10 shrink-0 self-end">
-					{showIdentity && (
-						<div
-							className={`flex size-10 select-none items-center justify-center rounded-full bg-gradient-to-br ${AVATAR_COLORS[getChatAvatarIndex(message.authorUid, AVATAR_COLORS.length)]} text-xs font-bold text-white ring-2 ring-[#09070b] shadow-lg shadow-black/30`}
-							role="img"
-							aria-label={`${authorName}'s avatar`}
-						>
-							{getChatAuthorInitials(authorName)}
-						</div>
-					)}
-				</div>
-			)}
-
-			<div className={`relative flex max-w-[86%] flex-col sm:max-w-[74%] ${isOwn ? "items-end" : "items-start"}`}>
-				{!isOwn && showIdentity && (
-					<p className="mb-1.5 px-1 text-sm font-semibold tracking-tight text-sky-400">{authorName}</p>
-				)}
-
-				<div
-					className={`relative flow-root min-w-[80px] rounded-2xl border px-2 py-1 text-[15px] font-normal leading-relaxed break-words select-text shadow-[0_8px_20px_rgba(0,0,0,0.16)] transition-[border-color,background-color,box-shadow] ${
-						isOwn
-							? `rounded-br-md border-primary/50 bg-primary text-white ${isOptimistic ? "opacity-80" : "hover:border-primary/70 hover:shadow-primary/20"}`
-							: "rounded-bl-md border-white/10 bg-[#202020]/95 text-foreground hover:border-white/20"
-					}`}
-				>
-					{message.replyToMessageId && (
-						<div
-							className={`relative mb-1.5 mt-0.5 flex flex-col overflow-hidden rounded-[4px] border-l-[3px] pl-2 pr-2 py-0.5 text-[13px] leading-tight cursor-pointer ${
-								isOwn ? "border-l-white/40 bg-black/10" : "border-l-sky-500 bg-white/5"
-							}`}
-						>
-							<span className={`font-semibold ${isOwn ? "text-white" : "text-sky-400"}`}>
-								{repliedMessage
-									? repliedMessage.authorUid === currentUserId
-										? "You"
-										: normalizeChatDisplayName(repliedMessage.authorName)
-									: "Replied message"}
-							</span>
-							<span className={`truncate text-[12px] ${isOwn ? "text-white/80" : "text-white/60"}`}>
-								{repliedMessage ? repliedMessage.content : "Message content not loaded"}
-							</span>
-						</div>
-					)}
-					<span className="whitespace-pre-wrap">
-						{message.content.split(/(https?:\/\/[^\s]+)/g).map((part, i) =>
-							part.match(/^https?:\/\//) ? (
-								<a
-									key={i}
-									href={part}
-									target="_blank"
-									className={`underline transition-colors ${
-										isOwn ? "text-white" : "text-sky-400 hover:text-sky-300"
-									}`}
-								>
-									{part}
-								</a>
-							) : (
-								part
-							)
-						)}
-					</span>
-
-					{reactionCounts && reactionCounts.length > 0 ? (
-						<div className="mt-2 flex flex-wrap items-end justify-between gap-3">
-							<div className="flex flex-wrap gap-1.5">
-								{reactionCounts.map(([emoji, { count, hasReacted }]) => (
-									<button
-										key={emoji}
-										onClick={() =>
-											hasReacted ? onUnreact(message.id) : onReact(message.id, emoji)
-										}
-										className={`flex items-center gap-1.5 rounded-full pl-1.5 pr-2.5 py-0.5 text-[12px] font-medium border transition-colors ${
-											hasReacted
-												? isOwn
-													? "bg-white/30 border-white/20 text-white"
-													: "bg-sky-500/20 border-sky-500/30 text-sky-400"
-												: isOwn
-													? "bg-black/20 border-black/10 text-white/90 hover:bg-black/30"
-													: "bg-white/10 border-white/5 text-white/80 hover:bg-white/20"
-										}`}
-										title={hasReacted ? "Remove reaction" : "React"}
-									>
-										<span className="text-[16px] leading-none">{emoji}</span>
-										<span className="pt-[1px]">{count}</span>
-									</button>
-								))}
-							</div>
-							<div
-								className={`flex shrink-0 items-center justify-end gap-1 mb-0.5 ${isOwn ? "text-white/80" : "text-white/45"}`}
-							>
-								{message.editedAt && <span className="text-[10px] opacity-70">edited</span>}
-								{message.failed ? (
-									<>
-										<span className="text-[10px] font-medium text-red-300">Failed to send</span>
-										<button
-											onClick={() => onRetry(message.idempotencyKey || message.id)}
-											className="ml-1 flex items-center gap-1 text-[10px] font-semibold text-red-400 hover:text-red-300 transition-colors"
-										>
-											<AlertCircle className="size-3" />
-											Retry
-										</button>
-									</>
-								) : isOptimistic ? (
-									<>
-										<span className="text-[10px] font-medium tabular-nums">
-											{formatChatTime(messageTimestamp(message))}
-										</span>
-										{isOwn && <Clock className="size-[11px] opacity-70" aria-label="Sending" />}
-									</>
-								) : (
-									<>
-										<span className="text-[10px] font-medium tabular-nums">
-											{formatChatTime(messageTimestamp(message))}
-										</span>
-										{isOwn && <Check className="size-3" strokeWidth={3} aria-label="Sent" />}
-									</>
-								)}
-							</div>
-						</div>
-					) : (
-						<span
-							className={`float-right ml-4 mt-2 flex items-center justify-end gap-1 ${isOwn ? "text-white/80" : "text-white/45"}`}
-						>
-							{message.editedAt && <span className="text-[10px] opacity-70">edited</span>}
-							{message.failed ? (
-								<>
-									<span className="text-[10px] font-medium text-red-300">Failed to send</span>
-									<button
-										onClick={() => onRetry(message.idempotencyKey || message.id)}
-										className="ml-1 flex items-center gap-1 text-[10px] font-semibold text-red-400 hover:text-red-300 transition-colors"
-									>
-										<AlertCircle className="size-3" />
-										Retry
-									</button>
-								</>
-							) : isOptimistic ? (
-								<>
-									<span className="text-[10px] font-medium tabular-nums">
-										{formatChatTime(messageTimestamp(message))}
-									</span>
-									{isOwn && <Clock className="size-[11px] opacity-70" aria-label="Sending" />}
-								</>
-							) : (
-								<>
-									<span className="text-[10px] font-medium tabular-nums">
-										{formatChatTime(messageTimestamp(message))}
-									</span>
-									{isOwn && <Check className="size-3" strokeWidth={3} aria-label="Sent" />}
-								</>
-							)}
-						</span>
-					)}
-				</div>
-
-				{/* Hover actions — don't show on optimistic or failed messages */}
-				{!isOptimistic && !message.failed && (
+			<div
+				className={`relative flow-root min-w-[72px] rounded-xl border px-2 py-0.5 text-[14px] font-normal leading-5 break-words select-text shadow-[0_4px_12px_rgba(0,0,0,0.16)] transition-[border-color,background-color,box-shadow] ${
+					isOwn
+						? `rounded-br-md border-primary/50 bg-primary text-white ${isOptimistic ? "opacity-80" : "hover:border-primary/70 hover:shadow-primary/20"}`
+						: "rounded-bl-md border-white/10 bg-[#202020]/95 text-foreground hover:border-white/20"
+				} ${isHighlighted ? "ring-2 ring-primary/70 ring-offset-2 ring-offset-[#09070b]" : ""}`}
+			>
+				{message.replyToMessageId && (
 					<div
-						className={`absolute bottom-0 ${
-							isOwn ? "left-0 -translate-x-full pr-1.5" : "right-0 translate-x-full pl-1.5"
-						} flex items-center gap-1 transition-opacity duration-200 ${
-							menuOpen || reactionTrayOpen
-								? "opacity-100"
-								: "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+						className={`relative mb-1.5 mt-0.5 flex cursor-pointer flex-col overflow-hidden rounded-[4px] border-l-[3px] py-0.5 pl-2 pr-2 text-[13px] leading-tight ${
+							isOwn ? "border-l-white/40 bg-black/10" : "border-l-sky-500 bg-white/5"
 						}`}
 					>
-						<div ref={reactionRef} className="relative">
-							<button
-								onClick={() => {
-									setReactionTrayOpen((v) => !v);
-									setMenuOpen(false);
-								}}
-								className="flex size-9 items-center justify-center rounded-full border border-white/10 bg-[#1a1f20] text-muted-foreground shadow-sm transition-all hover:border-white/20 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-								title="React"
-								aria-label="React to message"
-							>
-								<SmilePlus className="size-4" />
-							</button>
-							{reactionTrayOpen && (
-								<div
-									className={`absolute bottom-full mb-2 z-50 flex items-center gap-1 rounded-full border border-white/10 bg-[#121212]/95 backdrop-blur-md shadow-xl shadow-black/50 px-2 py-1.5 animate-in fade-in zoom-in-95 duration-150 ${
-										isOwn ? "right-0" : "left-0"
-									}`}
-								>
-									{QUICK_CHAT_REACTIONS.map((emoji) => (
-										<button
-											key={emoji}
-											onClick={() => {
-												setReactionTrayOpen(false);
-												const alreadyReactedWithThis = message.reactions?.some(
-													(r) => r.userUid === currentUserId && r.emoji === emoji
-												);
-												if (alreadyReactedWithThis) {
-													onUnreact(message.id);
-												} else {
-													onReact(message.id, emoji);
-												}
-											}}
-											className="flex size-8 items-center justify-center rounded-full text-[17px] hover:bg-white/15 transition-all hover:scale-110 active:scale-95"
-											title={emoji}
-										>
-											{emoji}
-										</button>
-									))}
-								</div>
-							)}
-						</div>
-						<button
-							onClick={() => onReply(message)}
-							className="flex size-9 items-center justify-center rounded-full border border-white/10 bg-[#1a1f20] text-muted-foreground shadow-sm transition-all hover:border-white/20 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-							title="Reply"
-							aria-label="Reply to message"
-						>
-							<Reply className="size-4" />
-						</button>
-						<div ref={menuRef} className="relative">
-							<button
-								onClick={toggleMenu}
-								className="flex size-9 items-center justify-center rounded-full border border-white/10 bg-[#1a1f20] text-muted-foreground shadow-sm transition-all hover:border-white/20 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-								title="More"
-								aria-label="More message actions"
-							>
-								<MoreHorizontal className="size-4" />
-							</button>
-							{menuOpen && (
-								<div
-									className={`absolute top-8 z-50 w-36 rounded-xl border border-white/10 bg-[#121212]/95 backdrop-blur-md shadow-xl shadow-black/50 py-1.5 text-sm animate-in fade-in zoom-in-95 duration-150 ${
-										isOwn ? "right-0" : "left-0"
-									}`}
-								>
-									{isOwn && (
-										<button
-											className="flex w-full items-center gap-2 px-3 py-2 text-foreground hover:bg-white/5 transition-colors"
-											onClick={() => {
-												closeMenu();
-												onEdit(message);
-											}}
-										>
-											<Pencil className="w-3.5 h-3.5 text-muted-foreground" /> Edit
-										</button>
-									)}
-									{isOwn && (
-										<button
-											className="flex w-full items-center gap-2 px-3 py-2 text-red-400 hover:bg-red-950/20 transition-colors"
-											onClick={() => {
-												closeMenu();
-												onDelete(message.id);
-											}}
-										>
-											<Trash2 className="w-3.5 h-3.5" /> Delete
-										</button>
-									)}
-									{!isOwn && (
-										<button
-											className="flex w-full items-center gap-2 px-3 py-2 text-foreground hover:bg-white/5 transition-colors"
-											onClick={() => {
-												closeMenu();
-												onReport(message.id);
-											}}
-										>
-											<Flag className="w-3.5 h-3.5 text-muted-foreground" /> Report
-										</button>
-									)}
-								</div>
-							)}
-						</div>
+						<span className={`font-semibold ${isOwn ? "text-white" : "text-sky-400"}`}>
+							{repliedMessage
+								? repliedMessage.authorUid === currentUserId
+									? "You"
+									: normalizeChatDisplayName(repliedMessage.authorName)
+								: "Replied message"}
+						</span>
+						<span className={`truncate text-[12px] ${isOwn ? "text-white/80" : "text-white/60"}`}>
+							{repliedMessage ? repliedMessage.content : "Message content not loaded"}
+						</span>
 					</div>
 				)}
+
+				<MessageText content={message.content} isPoll={message.type === "POLL"} isOwn={isOwn} />
+
+				{message.type === "POLL" && message.poll && (
+					<PollCard
+						poll={message.poll}
+						isOwn={isOwn}
+						canClose={canClosePoll}
+						onVote={onVotePoll}
+						onClose={onClosePoll}
+					/>
+				)}
+
+				{reactionCounts.length > 0 ? (
+					<div className="mt-2 flex flex-wrap items-end justify-between gap-3">
+						<ReactionSummary
+							counts={reactionCounts}
+							messageId={message.id}
+							isOwn={isOwn}
+							onReact={onReact}
+							onUnreact={onUnreact}
+						/>
+						<MessageMeta
+							message={message}
+							isOwn={isOwn}
+							isOptimistic={isOptimistic}
+							onRetry={onRetry}
+							className="mb-0.5"
+						/>
+					</div>
+				) : (
+					<MessageMeta
+						message={message}
+						isOwn={isOwn}
+						isOptimistic={isOptimistic}
+						onRetry={onRetry}
+						className="float-right ml-4 mt-2"
+					/>
+				)}
 			</div>
-		</div>
+
+			<MessageActions
+				message={message}
+				currentUserId={currentUserId}
+								isOwn={isOwn}
+								isVisible={!isOptimistic && !message.failed}
+								menuOpen={menuOpen}
+								reactionTrayOpen={reactionTrayOpen}
+				reactionRef={reactionRef}
+				onToggleReactionTray={toggleReactionTray}
+				onReply={onReply}
+				onReact={onReact}
+				onUnreact={onUnreact}
+			/>
+			{contextMenu}
+		</MessageRow>
 	);
 });
 

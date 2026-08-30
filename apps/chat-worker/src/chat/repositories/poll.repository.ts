@@ -63,6 +63,47 @@ export class PollRepository {
 		return this.loadWithOptions(pollRows[0]!);
 	}
 
+	/** Loads poll relations for a page of messages without an N+1 query. */
+	async findByMessageIds(messageIds: string[]): Promise<Map<string, PollWithOptions>> {
+		if (messageIds.length === 0) return new Map();
+
+		const pollRows = await this.db
+			.select()
+			.from(polls)
+			.where(inArray(polls.messageId, messageIds));
+		if (pollRows.length === 0) return new Map();
+
+		const pollIds = pollRows.map((poll) => poll.id);
+		const optionRows = await this.db
+			.select()
+			.from(pollOptions)
+			.where(inArray(pollOptions.pollId, pollIds))
+			.orderBy(pollOptions.displayOrder);
+		const optionIds = optionRows.map((option) => option.id);
+		const voteCounts = optionIds.length === 0
+			? []
+			: await this.db
+					.select({ optionId: pollVotes.optionId, count: sql<number>`COUNT(*)` })
+					.from(pollVotes)
+					.where(inArray(pollVotes.optionId, optionIds))
+					.groupBy(pollVotes.optionId);
+
+		const countMap = new Map(voteCounts.map((vote) => [vote.optionId, Number(vote.count)]));
+		const optionsByPoll = new Map<string, PollOptionWithVoteCount[]>();
+		for (const option of optionRows) {
+			const options = optionsByPoll.get(option.pollId) ?? [];
+			options.push({ ...option, voteCount: countMap.get(option.id) ?? 0 });
+			optionsByPoll.set(option.pollId, options);
+		}
+
+		return new Map(
+			pollRows.map((poll) => [
+				poll.messageId,
+				{ ...poll, options: optionsByPoll.get(poll.id) ?? [] },
+			] as const),
+		);
+	}
+
 	/** Returns all vote option IDs the user has cast for this poll. */
 	async getUserVotes(pollId: string, userUid: string): Promise<string[]> {
 		const options = await this.db

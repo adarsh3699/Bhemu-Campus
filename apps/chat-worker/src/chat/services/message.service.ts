@@ -19,6 +19,7 @@ import {
 	type CreateMessageIdempotencyInput,
 } from "../repositories/message.repository";
 import { RoomRepository } from "../repositories/room.repository";
+import { PinRepository } from "../repositories/pin.repository";
 import type { Database } from "../../db/drizzle";
 import { RoomService } from "./room.service";
 import { enforceRoomPolicy } from "../policies/room.policy";
@@ -112,11 +113,13 @@ export class RoomSequenceConflictError extends Error {
 export class MessageService {
 	private readonly msgRepo: MessageRepository;
 	private readonly roomRepo: RoomRepository;
+	private readonly pinRepo: PinRepository;
 	private readonly roomService: RoomService;
 
 	constructor(db: Database) {
 		this.msgRepo = new MessageRepository(db);
 		this.roomRepo = new RoomRepository(db);
+		this.pinRepo = new PinRepository(db);
 		this.roomService = new RoomService(db);
 	}
 
@@ -353,11 +356,20 @@ export class MessageService {
 
 		await this.msgRepo.softDelete(messageId);
 		await this.roomRepo.decrementMessageCount(msg.roomId);
+		const wasPinned = msg.type === "ANNOUNCEMENT"
+			? await this.pinRepo.unpin(msg.roomId, messageId)
+			: false;
 
 		await broadcast(msg.roomId, {
 			event: "message.deleted",
 			data: { messageId, roomId: msg.roomId },
 		});
+		if (wasPinned) {
+			await broadcast(msg.roomId, {
+				event: "pin.updated",
+				data: { messageId, roomId: msg.roomId, action: "unpinned" },
+			});
+		}
 	}
 
 }

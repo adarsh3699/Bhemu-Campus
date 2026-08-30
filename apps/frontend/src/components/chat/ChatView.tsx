@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useState, useEffect } from "react";
+import React, { useCallback, useState, useEffect, useRef } from "react";
 import { AlertCircle, X } from "lucide-react";
 import { type ActiveRoom, useChat } from "@/contexts/ChatContext";
 import MessageList from "./MessageList";
@@ -8,6 +8,16 @@ import MessageInput from "./MessageInput";
 import EditMessageModal from "./EditMessageModal";
 import ReportModal from "./ReportModal";
 import type { ChatMessage, ReportReason } from "@bhemu/shared";
+import type { AppRole } from "@bhemu/shared";
+import PinnedMessagesBar from "./PinnedMessagesBar";
+import PollComposer from "./PollComposer";
+import ModerationModal, { type ModerationAction } from "./ModerationModal";
+
+const ROLE_LEVEL: Record<AppRole, number> = { STUDENT: 0, MODERATOR: 1, ADMIN: 2 };
+
+function canPerform(role: AppRole | null, requiredRole: AppRole | undefined): boolean {
+	return Boolean(role && requiredRole && ROLE_LEVEL[role] >= ROLE_LEVEL[requiredRole]);
+}
 
 export default function ChatView() {
 	const {
@@ -16,7 +26,9 @@ export default function ChatView() {
 		setActiveRoom,
 		currentRoom,
 		currentUserId,
+		chatRole,
 		messages,
+		pinnedMessages,
 		hasMore,
 		loadingMessages,
 		loadOlderMessages,
@@ -27,6 +39,15 @@ export default function ChatView() {
 		react,
 		unreact,
 		report,
+		createPoll,
+		votePoll,
+		closePoll,
+		sendAnnouncement,
+		togglePin,
+		moderationDelete,
+		warnUser,
+		suspendUser,
+		banUser,
 		onlineUsers,
 		error,
 		dismissError,
@@ -35,6 +56,10 @@ export default function ChatView() {
 	const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
 	const [editingMsg, setEditingMsg] = useState<ChatMessage | null>(null);
 	const [reportingId, setReportingId] = useState<string | null>(null);
+	const [pollComposerOpen, setPollComposerOpen] = useState(false);
+	const [moderationMessage, setModerationMessage] = useState<ChatMessage | null>(null);
+	const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+	const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	// Cache online counts to prevent UI flashing when switching tabs
 	const [lastKnownCounts, setLastKnownCounts] = useState<Record<string, number>>({});
@@ -58,6 +83,12 @@ export default function ChatView() {
 
 	const uniCount = lastKnownCounts["university"] || 0;
 	const batchCount = lastKnownCounts["batchmate"] || 0;
+	const pinnedMessageIds = React.useMemo(() => new Set(pinnedMessages.map(pin => pin.messageId)), [pinnedMessages]);
+	const canCreatePoll = canPerform(chatRole, currentRoom?.policy.createPollRole);
+	const canAnnounce = canPerform(chatRole, currentRoom?.policy.createAnnouncementRole);
+	const canPin = canPerform(chatRole, currentRoom?.policy.pinMessageRole);
+	const canModerate = chatRole === "MODERATOR" || chatRole === "ADMIN";
+	const canClosePoll = canCreatePoll;
 
 	const handleReport = useCallback(
 		async (reason: ReportReason, description?: string) => {
@@ -83,6 +114,26 @@ export default function ChatView() {
 		setReplyTo(null);
 		setActiveRoom(room);
 	}, [setActiveRoom]);
+	const handleModeration = useCallback(async (action: ModerationAction, reason: string, expiresAt?: string) => {
+		if (!moderationMessage) return;
+		if (action === "delete") await moderationDelete(moderationMessage.id, reason);
+		if (action === "warn") await warnUser(moderationMessage.authorUid, reason, moderationMessage.id);
+		if (action === "suspend" && expiresAt) await suspendUser(moderationMessage.authorUid, expiresAt, reason);
+		if (action === "ban") await banUser(moderationMessage.authorUid, reason);
+	}, [banUser, moderationDelete, moderationMessage, suspendUser, warnUser]);
+
+	const handleJumpToMessage = useCallback((messageId: string) => {
+		const target = document.getElementById(`msg-${messageId}`);
+		if (!target) return;
+		target.scrollIntoView({ behavior: "smooth", block: "center" });
+		setHighlightedMessageId(messageId);
+		if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+		highlightTimerRef.current = setTimeout(() => setHighlightedMessageId(null), 1600);
+	}, []);
+
+	useEffect(() => () => {
+		if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+	}, []);
 
 	useEffect(() => {
 		if (error) {
@@ -174,6 +225,13 @@ export default function ChatView() {
 					)}
 
 					{/* Messages */}
+					<PinnedMessagesBar
+						pins={pinnedMessages}
+						messages={messages}
+						onSelect={handleJumpToMessage}
+						onUnpin={togglePin}
+						canManage={canPin}
+					/>
 					<MessageList
 						messages={messages}
 						currentUserId={currentUserId}
@@ -187,6 +245,16 @@ export default function ChatView() {
 						onReact={react}
 						onUnreact={unreact}
 						onReport={setReportingId}
+						pinnedMessageIds={pinnedMessageIds}
+						canPin={canPin}
+						canModerate={canModerate}
+						canClosePoll={canClosePoll}
+						onTogglePin={togglePin}
+						onModerationDelete={moderationDelete}
+						onModerate={setModerationMessage}
+						onVotePoll={votePoll}
+						onClosePoll={closePoll}
+						highlightedMessageId={highlightedMessageId}
 					/>
 
 					{/* Input — allow typing while connecting; disable only if no room */}
@@ -195,6 +263,10 @@ export default function ChatView() {
 						replyTo={replyTo}
 						onCancelReply={handleCancelReply}
 						disabled={!currentRoom}
+						canCreatePoll={canCreatePoll}
+						canAnnounce={canAnnounce}
+						onCreatePoll={() => setPollComposerOpen(true)}
+						onSendAnnouncement={sendAnnouncement}
 					/>
 				</div>
 			</div>
@@ -207,6 +279,8 @@ export default function ChatView() {
 				onClose={handleCloseEdit}
 			/>
 			<ReportModal isOpen={!!reportingId} onConfirm={handleReport} onClose={handleCloseReport} />
+			<PollComposer isOpen={pollComposerOpen} onClose={() => setPollComposerOpen(false)} onSubmit={createPoll} />
+			<ModerationModal message={moderationMessage} role={chatRole} onClose={() => setModerationMessage(null)} onConfirm={handleModeration} />
 		</>
 	);
 }

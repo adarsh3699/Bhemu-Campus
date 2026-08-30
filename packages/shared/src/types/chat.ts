@@ -114,6 +114,8 @@ export interface ChatMessage {
 	/** ISO string — set when the message is soft-deleted */
 	deletedAt: string | null;
 	attachments: ChatAttachment[];
+	/** Present when this message is a POLL message. */
+	poll?: ChatPoll | null;
 	reactions?: ChatReaction[];
 	createdAt: string;
 	updatedAt: string;

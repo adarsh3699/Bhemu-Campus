@@ -15,10 +15,12 @@ import {
 } from "../../db/schema";
 import type { Message, MessageAttachment, MessageReaction } from "../../db/schema";
 import { MESSAGE_PAGE_SIZE } from "../../constants";
+import { PollRepository, type PollWithOptions } from "./poll.repository";
 
 export interface MessageWithRelations extends Message {
 	attachments: MessageAttachment[];
 	reactions: MessageReaction[];
+	poll: PollWithOptions | null;
 }
 
 export interface CreateMessageInput {
@@ -167,7 +169,7 @@ export class MessageRepository {
 			}
 			const msg = rows[0];
 			if (!msg) throw new Error("Message insert returned no row");
-			return { ...msg, attachments: [], reactions: [] };
+			return { ...msg, attachments: [], reactions: [], poll: null };
 		}
 
 		const attachmentQuery = this.db
@@ -211,7 +213,7 @@ export class MessageRepository {
 		}
 		const msg = rows[0];
 		if (!msg) throw new Error("Message insert returned no row");
-		return { ...msg, attachments: atts, reactions: [] };
+		return { ...msg, attachments: atts, reactions: [], poll: null };
 	}
 
 	/** Finds the message committed for a retried command. */
@@ -259,8 +261,8 @@ export class MessageRepository {
 	async findByIdWithRelations(id: string): Promise<MessageWithRelations | null> {
 		const msg = await this.findById(id);
 		if (!msg) return null;
-		
-		const [attachments, reactions] = await Promise.all([
+
+		const [attachments, reactions, pollsByMessage] = await Promise.all([
 			this.db
 				.select()
 				.from(messageAttachments)
@@ -269,10 +271,11 @@ export class MessageRepository {
 			this.db
 				.select()
 				.from(messageReactions)
-				.where(eq(messageReactions.messageId, id))
+				.where(eq(messageReactions.messageId, id)),
+			new PollRepository(this.db).findByMessageIds([id]),
 		]);
-		
-		return { ...msg, attachments, reactions };
+
+		return { ...msg, attachments, reactions, poll: pollsByMessage.get(id) ?? null };
 	}
 
 	async listByRoom(
@@ -311,7 +314,7 @@ export class MessageRepository {
 
 		const messageIds = rows.map((m) => m.id);
 
-		const [attachments, reactions] = await Promise.all([
+		const [attachments, reactions, pollsByMessage] = await Promise.all([
 			this.db
 				.select()
 				.from(messageAttachments)
@@ -321,6 +324,8 @@ export class MessageRepository {
 				.select()
 				.from(messageReactions)
 				.where(inArray(messageReactions.messageId, messageIds))
+			,
+			new PollRepository(this.db).findByMessageIds(messageIds),
 		]);
 
 		const attMap = new Map<string, MessageAttachment[]>();
@@ -341,6 +346,7 @@ export class MessageRepository {
 			...msg,
 			attachments: attMap.get(msg.id) ?? [],
 			reactions: rxMap.get(msg.id) ?? [],
+			poll: pollsByMessage.get(msg.id) ?? null,
 		}));
 	}
 

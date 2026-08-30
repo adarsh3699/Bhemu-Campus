@@ -18,11 +18,23 @@ interface MessageListProps {
 	onReact: (messageId: string, emoji: string) => void;
 	onUnreact: (messageId: string) => void;
 	onReport: (messageId: string) => void;
+	pinnedMessageIds: ReadonlySet<string>;
+	canPin: boolean;
+	canModerate: boolean;
+	canClosePoll: boolean;
+	onTogglePin: (messageId: string) => Promise<void>;
+	onModerationDelete: (messageId: string) => Promise<void>;
+	onModerate: (message: ChatMessage) => void;
+	onVotePoll: (pollId: string, optionIds: string[]) => Promise<void>;
+	onClosePoll: (pollId: string) => Promise<void>;
+	highlightedMessageId?: string | null;
 }
 
 const MessageList = memo(function MessageList({
 	messages, currentUserId, hasMore, loadingMessages,
 	onLoadOlder, onReply, onEdit, onDelete, onRetry, onReact, onUnreact, onReport,
+	pinnedMessageIds, canPin, canModerate, canClosePoll, onTogglePin, onModerationDelete, onModerate, onVotePoll, onClosePoll,
+	highlightedMessageId,
 }: MessageListProps) {
 	const bottomRef = useRef<HTMLDivElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -30,15 +42,21 @@ const MessageList = memo(function MessageList({
 	const prevLenRef = useRef(0);
 	const scrollRafRef = useRef<number | null>(null);
 
-	const messageMap = React.useMemo(() => new Map(messages.map((m) => [m.id, m])), [messages]);
+	// Announcements follow the chat's soft-delete/audit policy, but a deleted
+	// announcement must not leave an empty announcement card in the timeline.
+	const visibleMessages = React.useMemo(
+		() => messages.filter((message) => !(message.type === "ANNOUNCEMENT" && message.visibility === "DELETED")),
+		[messages],
+	);
+	const messageMap = React.useMemo(() => new Map(visibleMessages.map((m) => [m.id, m])), [visibleMessages]);
 
 	// Scroll to bottom when messages change length
 	// Keeps messages out of deps — only scroll position logic needs length
 	const lastMsgIdRef = useRef<string | undefined>(undefined);
 	useEffect(() => {
-		const newCount = messages.length;
+		const newCount = visibleMessages.length;
 		const prevCount = prevLenRef.current;
-		const lastMsg = messages[newCount - 1];
+		const lastMsg = visibleMessages[newCount - 1];
 
 		if (newCount > prevCount && isAtBottomRef.current) {
 			const isOptimistic = lastMsg?.id.startsWith("optimistic_") ?? false;
@@ -52,9 +70,9 @@ const MessageList = memo(function MessageList({
 
 		prevLenRef.current = newCount;
 		lastMsgIdRef.current = lastMsg?.id;
-	// messages.length is the only stable dep we need here — avoids re-running on edits/deletes
+	// visibleMessages.length is the only stable dep we need here — avoids re-running on edits/deletes
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [messages.length]);
+	}, [visibleMessages.length]);
 
 	useEffect(() => {
 		return () => {
@@ -67,8 +85,8 @@ const MessageList = memo(function MessageList({
 	const handleLoadOlder = useCallback(() => {
 		if (loadingMessages || !hasMore) return;
 		
-		if (messages.length > 0) {
-			const firstId = messages[0].idempotencyKey || messages[0].id;
+		if (visibleMessages.length > 0) {
+			const firstId = visibleMessages[0].id;
 			const node = document.getElementById(`msg-${firstId}`);
 			if (node) {
 				oldFirstMsgRef.current = { id: firstId, offsetTop: node.offsetTop };
@@ -76,7 +94,7 @@ const MessageList = memo(function MessageList({
 		}
 		
 		onLoadOlder();
-	}, [loadingMessages, hasMore, messages, onLoadOlder]);
+	}, [loadingMessages, hasMore, visibleMessages, onLoadOlder]);
 
 	const handleScroll = useCallback(() => {
 		if (scrollRafRef.current) return;
@@ -116,9 +134,9 @@ const MessageList = memo(function MessageList({
 			}
 			oldFirstMsgRef.current = null;
 		}
-	}, [loadingMessages, messages.length]);
+	}, [loadingMessages, visibleMessages.length]);
 
-	if (!loadingMessages && messages.length === 0) {
+	if (!loadingMessages && visibleMessages.length === 0) {
 		return (
 			<div className="flex-1 flex items-center justify-center">
 				<div className="text-center space-y-1">
@@ -133,11 +151,11 @@ const MessageList = memo(function MessageList({
 		<div
 			ref={containerRef}
 			onScroll={handleScroll}
-			className="chat-conversation-canvas flex-1 overflow-y-auto px-3 py-4 sm:px-6 sm:py-6 relative"
+			className="chat-conversation-canvas relative flex-1 overflow-y-auto px-3 py-3 sm:px-5 sm:py-4"
 		>
 			<div className="mx-auto w-full max-w-4xl">
 				{/* Loading older — top spinner */}
-				{loadingMessages && messages.length > 0 && (
+				{loadingMessages && visibleMessages.length > 0 && (
 					<div className="flex justify-center py-2" style={{ overflowAnchor: "none" }}>
 						<Loader2 className="w-4 h-4 text-muted-foreground animate-spin" aria-label="Loading older messages" />
 					</div>
@@ -156,22 +174,23 @@ const MessageList = memo(function MessageList({
 				)}
 
 				{/* Initial loading spinner */}
-				{loadingMessages && messages.length === 0 && (
+				{loadingMessages && visibleMessages.length === 0 && (
 					<div className="flex min-h-[200px] flex-1 items-center justify-center">
 						<Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-label="Loading messages" />
 					</div>
 				)}
 
-				{messages.map((msg, i) => {
+				{visibleMessages.map((msg, i) => {
 					const msgId = msg.idempotencyKey || msg.id;
 					return (
-						<div key={msgId} id={`msg-${msgId}`}>
-							{shouldShowChatDateSeparator(msg, messages[i - 1]) && <DateSeparator iso={msg.createdAt} />}
+						<div key={msgId} id={`msg-${msg.id}`}>
+							{shouldShowChatDateSeparator(msg, visibleMessages[i - 1]) && <DateSeparator iso={msg.createdAt} />}
 							<MessageBubble
 								message={msg}
+								isHighlighted={highlightedMessageId === msg.id}
 								repliedMessage={msg.replyToMessageId ? messageMap.get(msg.replyToMessageId) : undefined}
 								currentUserId={currentUserId}
-								showIdentity={startsChatAuthorGroup(msg, messages[i - 1])}
+								showIdentity={startsChatAuthorGroup(msg, visibleMessages[i - 1])}
 								onReply={onReply}
 								onEdit={onEdit}
 								onDelete={onDelete}
@@ -179,6 +198,15 @@ const MessageList = memo(function MessageList({
 								onReact={onReact}
 								onUnreact={onUnreact}
 								onReport={onReport}
+								isPinned={pinnedMessageIds.has(msg.id)}
+								canPin={canPin}
+								canModerate={canModerate}
+								canClosePoll={canClosePoll}
+								onTogglePin={onTogglePin}
+								onModerationDelete={onModerationDelete}
+								onModerate={onModerate}
+								onVotePoll={onVotePoll}
+								onClosePoll={onClosePoll}
 							/>
 						</div>
 					);

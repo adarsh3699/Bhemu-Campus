@@ -33,6 +33,19 @@ function getStr(v: FirestoreValue | undefined): string | null {
 	return null;
 }
 
+/** Firestore stores roles in lowercase; chat claims use the API enum casing. */
+function resolveRole(value: string | null): AuthUser["role"] {
+	switch (value?.toUpperCase()) {
+		case "ADMIN":
+			return "ADMIN";
+		case "MODERATOR":
+			return "MODERATOR";
+		case "STUDENT":
+		default:
+			return "STUDENT";
+	}
+}
+
 interface FirestoreDoc {
 	fields?: Record<string, FirestoreValue>;
 }
@@ -117,7 +130,7 @@ export async function resolveSession(token: string, env: Env): Promise<AuthUser>
 
 	const fields = doc?.fields ?? {};
 	const displayName = resolveDisplayName(getStr(fields["displayName"]) ?? payload.displayName);
-	const role = (getStr(fields["role"]) as AuthUser["role"] | null) ?? "STUDENT";
+	const role = resolveRole(getStr(fields["role"]));
 
 	const modFields =
 		"mapValue" in (fields["moderation"] ?? {})
