@@ -92,6 +92,9 @@ export interface PinUpdatedPayload {
 	roomId: string;
 	messageId: string;
 	action: "pinned" | "unpinned";
+	pinnedBy?: string;
+	pinnedAt?: string;
+	expiresAt?: string | null;
 }
 
 export interface PresencePayload {

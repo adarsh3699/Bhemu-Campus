@@ -17,6 +17,7 @@ import {
 	SuspendUserSchema,
 	BanUserSchema,
 	DeleteMessageModerationSchema,
+	PinMessageSchema,
 } from "../validators/moderation.validator";
 import { ModerationService } from "../../chat/services/moderation.service";
 import { createDb } from "../../db/drizzle";
@@ -105,6 +106,7 @@ router.post("/delete-message/:messageId", async (c) => {
 // POST /api/v1/moderation/pin/:roomId/:messageId
 router.post("/pin/:roomId/:messageId", async (c) => {
 	try {
+		const body = validateBody(PinMessageSchema, await c.req.json().catch(() => ({})));
 		const db = createDb(c.env.DATABASE_URL);
 		const service = new ModerationService(db);
 
@@ -116,6 +118,7 @@ router.post("/pin/:roomId/:messageId", async (c) => {
 			c.req.param("roomId"),
 			c.req.param("messageId"),
 			broadcast,
+			body.duration,
 		);
 		return ok(c, { pinned: true });
 	} catch (err) {

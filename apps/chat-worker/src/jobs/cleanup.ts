@@ -13,7 +13,7 @@
 // Per FRD §4.21: Pinned messages are exempt.
 // Per FRD §8.23: rooms.message_count is updated after each batch.
 
-import { and, eq, lt, notInArray, sql, inArray } from "drizzle-orm";
+import { and, eq, gt, isNull, lt, notInArray, or, sql, inArray } from "drizzle-orm";
 import { createDb } from "../db/drizzle";
 import {
 	messages,
@@ -57,6 +57,10 @@ export async function runRetentionCleanup(env: Env): Promise<void> {
 
 	logger.info("cleanup.start", { job: "retention" });
 
+	// Expired pins must not keep messages alive forever. The API also excludes
+	// them from active pin reads, but this removes their rows for retention.
+	await db.delete(roomPins).where(lt(roomPins.expiresAt, new Date().toISOString()));
+
 	// Load all rooms with their policies
 	const roomRows = await db
 		.select({
@@ -75,7 +79,10 @@ export async function runRetentionCleanup(env: Env): Promise<void> {
 		const pinnedRows = await db
 			.select({ messageId: roomPins.messageId })
 			.from(roomPins)
-			.where(eq(roomPins.roomId, room.roomId));
+			.where(and(
+				eq(roomPins.roomId, room.roomId),
+				or(isNull(roomPins.expiresAt), gt(roomPins.expiresAt, new Date().toISOString())),
+			));
 		const pinnedIds = pinnedRows.map((p) => p.messageId);
 
 		let roomDeleted = 0;

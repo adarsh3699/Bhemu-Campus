@@ -231,6 +231,9 @@ A Room controls which messages remain pinned.
 
 Messages themselves do not know whether they are pinned.
 
+A pin may last 8 hours, 1 day, 1 week, 1 month, or Forever. Expired pins are
+removed from the active room pin set automatically.
+
 ---
 
 ## 11. Report

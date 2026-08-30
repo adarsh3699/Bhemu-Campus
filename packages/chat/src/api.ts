@@ -15,6 +15,7 @@ import type {
 	AppRole,
 	ModerationStatus,
 	ReportReason,
+	PinDuration,
 } from "@bhemu/shared";
 import { ChatApiError } from "./errors";
 import { CHAT_API_BASE } from "./constants";
@@ -310,12 +311,13 @@ export async function apiPinMessage(
 	token: string,
 	roomId: string,
 	messageId: string,
+	duration: PinDuration = "forever",
 	baseUrl?: string,
 ): Promise<void> {
 	await chatFetch<unknown>(
 		token,
 		`/api/v1/moderation/pin/${roomId}/${messageId}`,
-		{ method: "POST" },
+		{ method: "POST", body: JSON.stringify({ duration }) },
 		baseUrl,
 	);
 }

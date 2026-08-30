@@ -13,6 +13,7 @@ import { Errors } from "../../lib/errors";
 import type { AuthUser } from "../../types";
 import type { ModerationAction } from "../../db/schema";
 import type { BroadcastFn } from "./message.service";
+import { PIN_DURATION_MS, type PinDuration } from "@bhemu/shared";
 
 export interface ModerationActionInput {
 	targetUserUid: string;
@@ -121,6 +122,7 @@ export class ModerationService {
 		roomId: string,
 		messageId: string,
 		broadcast: BroadcastFn,
+		duration: PinDuration = "forever",
 	): Promise<void> {
 		const room = await this.roomService.getRoom(roomId);
 		enforceRoomPolicy(room.policy, moderator.role, "pin_message");
@@ -138,11 +140,21 @@ export class ModerationService {
 			throw Errors.pinLimitReached(room.policy.pinLimit);
 		}
 
-		await this.pinRepo.pin(roomId, messageId, moderator.uid);
+		const expiresAt = duration === "forever"
+			? null
+			: new Date(Date.now() + PIN_DURATION_MS[duration]!).toISOString();
+		const pin = await this.pinRepo.pin(roomId, messageId, moderator.uid, expiresAt);
 
 		await broadcast(roomId, {
 			event: "pin.updated",
-			data: { roomId, messageId, action: "pinned" },
+			data: {
+				roomId,
+				messageId,
+				action: "pinned",
+				pinnedBy: pin.pinnedBy,
+				pinnedAt: pin.pinnedAt,
+				expiresAt: pin.expiresAt,
+			},
 		});
 	}
 

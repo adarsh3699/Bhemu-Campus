@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { BarChart3, Check, Plus, X } from "lucide-react";
 
 interface PollComposerProps {
@@ -18,6 +18,7 @@ const PollComposer = memo(function PollComposer({ isOpen, onClose, onSubmit }: P
 	const [multipleChoice, setMultipleChoice] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const optionRefs = useRef<Array<HTMLInputElement | null>>([]);
 
 	useEffect(() => {
 		if (!isOpen) return;
@@ -43,6 +44,27 @@ const PollComposer = memo(function PollComposer({ isOpen, onClose, onSubmit }: P
 
 	const updateOption = (index: number, value: string) => {
 		setOptions(current => current.map((option, optionIndex) => optionIndex === index ? value : option));
+	};
+
+	const addOption = () => {
+		const nextIndex = options.length;
+		if (nextIndex >= MAX_OPTIONS) return;
+
+		setOptions(current => current.length >= MAX_OPTIONS ? current : [...current, ""]);
+		requestAnimationFrame(() => optionRefs.current[nextIndex]?.focus());
+	};
+
+	const handleOptionKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>, index: number) => {
+		if (event.key !== "Enter") return;
+
+		event.preventDefault();
+		const nextIndex = index + 1;
+		if (nextIndex < options.length) {
+			optionRefs.current[nextIndex]?.focus();
+			return;
+		}
+
+		addOption();
 	};
 
 	const submit = async () => {
@@ -123,8 +145,10 @@ const PollComposer = memo(function PollComposer({ isOpen, onClose, onSubmit }: P
 						<div key={index} className="flex items-center gap-2">
 							<span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white/5 text-xs font-semibold text-white/40">{index + 1}</span>
 							<input
+								ref={element => { optionRefs.current[index] = element; }}
 								value={option}
 								onChange={event => updateOption(index, event.target.value)}
+								onKeyDown={event => handleOptionKeyDown(event, index)}
 								maxLength={255}
 								placeholder={`Option ${index + 1}`}
 								className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white outline-none transition-colors placeholder:text-white/30 focus:border-primary/70 focus:ring-2 focus:ring-primary/20"
@@ -138,7 +162,7 @@ const PollComposer = memo(function PollComposer({ isOpen, onClose, onSubmit }: P
 					))}
 				</div>
 				{options.length < MAX_OPTIONS && (
-					<button type="button" onClick={() => setOptions(current => [...current, ""])} className="mt-2 inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+					<button type="button" onClick={addOption} className="mt-2 inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
 						<Plus className="size-3.5" /> Add option
 					</button>
 				)}

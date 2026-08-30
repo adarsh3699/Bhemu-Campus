@@ -2,7 +2,7 @@
 
 import React, { memo, useCallback, useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
-import { shouldShowChatDateSeparator, startsChatAuthorGroup, type ChatDisplayMessage, type ChatMessage } from "@bhemu/shared";
+import { shouldShowChatDateSeparator, startsChatAuthorGroup, type ChatDisplayMessage, type ChatMessage, type PinDuration } from "@bhemu/shared";
 import MessageBubble, { DateSeparator } from "./MessageBubble";
 
 interface MessageListProps {
@@ -22,7 +22,7 @@ interface MessageListProps {
 	canPin: boolean;
 	canModerate: boolean;
 	canClosePoll: boolean;
-	onTogglePin: (messageId: string) => Promise<void>;
+	onTogglePin: (messageId: string, duration?: PinDuration) => Promise<void>;
 	onModerationDelete: (messageId: string) => Promise<void>;
 	onModerate: (message: ChatMessage) => void;
 	onVotePoll: (pollId: string, optionIds: string[]) => Promise<void>;

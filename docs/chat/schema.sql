@@ -603,6 +603,8 @@ CREATE TABLE room_pins (
         NOT NULL
         DEFAULT NOW(),
 
+    expires_at TIMESTAMPTZ,
+
     PRIMARY KEY (
         room_id,
         message_id

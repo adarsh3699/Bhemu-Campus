@@ -36,6 +36,28 @@ export type ModerationActionType =
 	| "BAN"
 	| "DELETE_MESSAGE";
 
+/** How long a room pin should remain visible. `forever` is stored as null. */
+export type PinDuration = "8h" | "1d" | "1w" | "1m" | "forever";
+
+export const PIN_DURATION_OPTIONS: ReadonlyArray<{
+	value: PinDuration;
+	label: string;
+}> = [
+	{ value: "8h", label: "8 hours" },
+	{ value: "1d", label: "1 day" },
+	{ value: "1w", label: "1 week" },
+	{ value: "1m", label: "1 month" },
+	{ value: "forever", label: "Forever" },
+];
+
+/** Finite pin durations are calculated from the server clock. */
+export const PIN_DURATION_MS: Readonly<Record<Exclude<PinDuration, "forever">, number>> = {
+	"8h": 8 * 60 * 60 * 1_000,
+	"1d": 24 * 60 * 60 * 1_000,
+	"1w": 7 * 24 * 60 * 60 * 1_000,
+	"1m": 30 * 24 * 60 * 60 * 1_000,
+};
+
 // ---- API Response Envelope ----
 
 export interface ApiSuccess<T> {
@@ -178,6 +200,7 @@ export interface RoomPin {
 	messageId: string;
 	pinnedBy: string;
 	pinnedAt: string;
+	expiresAt: string | null;
 }
 
 // ---- Moderation ----

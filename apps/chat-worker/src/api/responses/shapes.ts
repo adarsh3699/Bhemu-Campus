@@ -137,6 +137,7 @@ export interface PinResponse {
 	messageId: string;
 	pinnedBy: string;
 	pinnedAt: string;
+	expiresAt: string | null;
 }
 
 // ---- Moderation responses ----

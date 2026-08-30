@@ -382,6 +382,7 @@ export const roomPins = pgTable(
 		pinnedAt: timestamp("pinned_at", { withTimezone: true, mode: "string" })
 			.defaultNow()
 			.notNull(),
+		expiresAt: timestamp("expires_at", { withTimezone: true, mode: "string" }),
 	},
 	(table) => [
 		primaryKey({ columns: [table.roomId, table.messageId] }),

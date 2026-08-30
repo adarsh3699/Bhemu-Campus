@@ -46,6 +46,12 @@ const MessageInput = memo(function MessageInput({
 		};
 	}, [toolsOpen]);
 
+	useEffect(() => {
+		if (announcementMode && !disabled) {
+			taRef.current?.focus();
+		}
+	}, [announcementMode, disabled]);
+
 	const autoResize = useCallback(() => {
 		const ta = taRef.current;
 		if (!ta) return;

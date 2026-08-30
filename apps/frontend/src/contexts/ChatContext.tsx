@@ -50,8 +50,9 @@ import type {
 	WsEnvelope,
 	PresenceUser,
 	ReportReason,
+	PinDuration,
 } from "@bhemu/shared";
-import { CHAT_OPTIMISTIC_PREFIX, createChatClientMessageId, MAX_CHAT_CACHED_MESSAGES, MAX_CHAT_MESSAGE_LENGTH, mergeChatMessages, normalizeChatDisplayName } from "@bhemu/shared";
+import { CHAT_OPTIMISTIC_PREFIX, createChatClientMessageId, MAX_CHAT_CACHED_MESSAGES, MAX_CHAT_MESSAGE_LENGTH, mergeChatMessages, normalizeChatDisplayName, PIN_DURATION_MS } from "@bhemu/shared";
 import type { GPAProfile } from "@bhemu/shared";
 
 export type ActiveRoom = "university" | "batchmate";
@@ -79,7 +80,7 @@ interface ChatContextValue {
 	votePoll: (pollId: string, optionIds: string[]) => Promise<void>;
 	closePoll: (pollId: string) => Promise<void>;
 	sendAnnouncement: (content: string) => Promise<void>;
-	togglePin: (messageId: string) => Promise<void>;
+	togglePin: (messageId: string, duration?: PinDuration) => Promise<void>;
 	moderationDelete: (messageId: string, reason?: string) => Promise<void>;
 	warnUser: (userUid: string, reason?: string, messageId?: string) => Promise<void>;
 	suspendUser: (userUid: string, expiresAt: string, reason?: string) => Promise<void>;
@@ -108,7 +109,14 @@ interface RoomSyncedPayload {
 	onlineUsers: PresenceUser[];
 }
 type PollEventPayload = ChatPoll;
-interface PinEventPayload { roomId: string; messageId: string; action: "pinned" | "unpinned"; pinnedBy?: string; pinnedAt?: string }
+interface PinEventPayload {
+	roomId: string;
+	messageId: string;
+	action: "pinned" | "unpinned";
+	pinnedBy?: string;
+	pinnedAt?: string;
+	expiresAt?: string | null;
+}
 
 const HEARTBEAT_MS = 25_000;
 const HEARTBEAT_TIMEOUT_MS = 10_000;
@@ -120,6 +128,11 @@ const SESSION_REFRESH_SKEW_MS = 60_000;
 const AUTH_RECOVERY_MESSAGE = "Your chat session has expired. Please sign in again.";
 const ROOM_SEQUENCE_STORAGE_PREFIX = "bhemu:chat:room-seq:";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+function getPinExpiry(duration: PinDuration): string | null {
+	return duration === "forever"
+		? null
+		: new Date(Date.now() + PIN_DURATION_MS[duration]).toISOString();
+}
 
 function roomSequenceStorageKey(roomId: string): string {
 	return `${ROOM_SEQUENCE_STORAGE_PREFIX}${roomId}`;
@@ -583,6 +596,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 						messageId: pin.messageId,
 						pinnedBy: pin.pinnedBy ?? "",
 						pinnedAt: pin.pinnedAt ?? envelope.timestamp,
+						expiresAt: pin.expiresAt ?? null,
 					}];
 				});
 				break;
@@ -868,6 +882,24 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 			if (currentRoomIdRef.current === roomId && e instanceof ChatApiError) setError(e.message);
 		}
 	}, [requestWithChatAuth]);
+
+	useEffect(() => {
+		const nextExpiry = pinnedMessages.reduce<number | null>((soonest, pin) => {
+			if (!pin.expiresAt) return soonest;
+			const expiresAt = Date.parse(pin.expiresAt);
+			return Number.isNaN(expiresAt) || (soonest !== null && soonest <= expiresAt)
+				? soonest
+				: expiresAt;
+		}, null);
+		if (nextExpiry === null) return;
+
+		const timeout = window.setTimeout(() => {
+			const now = Date.now();
+			setPinnedMessages((prev) => prev.filter((pin) => !pin.expiresAt || Date.parse(pin.expiresAt) > now));
+		}, Math.max(0, nextExpiry - Date.now()) + 50);
+
+		return () => window.clearTimeout(timeout);
+	}, [pinnedMessages]);
 
 	/**
 	 * Snapshot reconciliation is the source for initial history,
@@ -1228,18 +1260,24 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 		}
 	}, [currentUser, sendMessageOverSocket, upsertMessage, waitForMessageSocket]);
 
-	const togglePin = useCallback(async (messageId: string) => {
+	const togglePin = useCallback(async (messageId: string, duration: PinDuration = "forever") => {
 		const roomId = currentRoomIdRef.current;
 		if (!roomId) return;
 		const isPinned = pinnedMessages.some(pin => pin.messageId === messageId);
 		setPinnedMessages(prev => isPinned
 			? prev.filter(pin => pin.messageId !== messageId)
-			: [...prev, { roomId, messageId, pinnedBy: currentUserId ?? "", pinnedAt: new Date().toISOString() }]
+			: [...prev, {
+				roomId,
+				messageId,
+				pinnedBy: currentUserId ?? "",
+				pinnedAt: new Date().toISOString(),
+				expiresAt: getPinExpiry(duration),
+			}]
 		);
 		try {
 			await requestWithChatAuth(token => isPinned
 				? apiUnpinMessage(token, roomId, messageId)
-				: apiPinMessage(token, roomId, messageId));
+				: apiPinMessage(token, roomId, messageId, duration));
 		} catch (error) {
 			void loadPins(roomId);
 			if (error instanceof ChatApiError) setError(error.message);

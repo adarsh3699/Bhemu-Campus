@@ -2,7 +2,7 @@
 // bCampus Chat Worker — Pin Repository
 // ============================================================
 
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, gt, isNull, or, sql } from "drizzle-orm";
 import type { Database } from "../../db/drizzle";
 import { roomPins } from "../../db/schema";
 import type { RoomPin } from "../../db/schema";
@@ -14,7 +14,10 @@ export class PinRepository {
 		return this.db
 			.select()
 			.from(roomPins)
-			.where(eq(roomPins.roomId, roomId))
+			.where(and(
+				eq(roomPins.roomId, roomId),
+				or(isNull(roomPins.expiresAt), gt(roomPins.expiresAt, sql`NOW()`)),
+			))
 			.orderBy(roomPins.pinnedAt);
 	}
 
@@ -22,7 +25,10 @@ export class PinRepository {
 		const result = await this.db
 			.select({ count: sql<number>`count(*)` })
 			.from(roomPins)
-			.where(eq(roomPins.roomId, roomId));
+			.where(and(
+				eq(roomPins.roomId, roomId),
+				or(isNull(roomPins.expiresAt), gt(roomPins.expiresAt, sql`NOW()`)),
+			));
 		return Number(result[0]?.count ?? 0);
 	}
 
@@ -30,15 +36,23 @@ export class PinRepository {
 		const rows = await this.db
 			.select({ roomId: roomPins.roomId })
 			.from(roomPins)
-			.where(and(eq(roomPins.roomId, roomId), eq(roomPins.messageId, messageId)))
+			.where(and(
+				eq(roomPins.roomId, roomId),
+				eq(roomPins.messageId, messageId),
+				or(isNull(roomPins.expiresAt), gt(roomPins.expiresAt, sql`NOW()`)),
+			))
 			.limit(1);
 		return rows.length > 0;
 	}
 
-	async pin(roomId: string, messageId: string, pinnedBy: string): Promise<RoomPin> {
+	async pin(roomId: string, messageId: string, pinnedBy: string, expiresAt: string | null): Promise<RoomPin> {
 		const rows = await this.db
 			.insert(roomPins)
-			.values({ roomId, messageId, pinnedBy })
+			.values({ roomId, messageId, pinnedBy, expiresAt })
+			.onConflictDoUpdate({
+				target: [roomPins.roomId, roomPins.messageId],
+				set: { pinnedBy, pinnedAt: sql`NOW()`, expiresAt },
+			})
 			.returning();
 		return rows[0]!;
 	}

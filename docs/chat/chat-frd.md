@@ -1722,6 +1722,17 @@ Pinning is restricted by role.
 
 When the limit is reached, the backend rejects additional pins.
 
+The pin duration is selected when pinning a message:
+
+- 8 hours
+- 1 day
+- 1 week
+- 1 month
+- Forever
+
+Finite durations are calculated by the server and expired pins are excluded
+from active pins and retention exemptions.
+
 ---
 
 # 4.21 Automatic Cleanup

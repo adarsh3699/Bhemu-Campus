@@ -8,9 +8,11 @@ import {
 	formatChatTime,
 	messageTimestamp,
 	normalizeChatDisplayName,
+	PIN_DURATION_OPTIONS,
 	summarizeChatReactions,
 	type ChatDisplayMessage,
 	type ChatMessage,
+	type PinDuration,
 } from "@bhemu/shared";
 import PollCard from "./PollCard";
 import MessageContextMenu, { type MenuPosition } from "./MessageContextMenu";
@@ -40,7 +42,7 @@ interface MessageBubbleProps {
 	canPin: boolean;
 	canModerate: boolean;
 	canClosePoll: boolean;
-	onTogglePin: (messageId: string) => Promise<void>;
+	onTogglePin: (messageId: string, duration?: PinDuration) => Promise<void>;
 	onModerationDelete: (messageId: string) => Promise<void>;
 	onModerate: (message: ChatMessage) => void;
 	onVotePoll: (pollId: string, optionIds: string[]) => Promise<void>;
@@ -84,8 +86,10 @@ const MessageBubble = memo(function MessageBubble({
 	const [reactionTrayOpen, setReactionTrayOpen] = useState(false);
 	const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
 	const [contextMenuPoint, setContextMenuPoint] = useState<{ x: number; y: number } | null>(null);
+	const [pinDurationOpen, setPinDurationOpen] = useState(false);
 	const menuPanelRef = useRef<HTMLDivElement>(null);
 	const reactionRef = useRef<HTMLDivElement>(null);
+	const pinDurationRef = useRef<HTMLDivElement>(null);
 
 	const isOwn = currentUserId === message.authorUid;
 	const isDeleted = message.visibility === "DELETED";
@@ -102,12 +106,14 @@ const MessageBubble = memo(function MessageBubble({
 		setReactionTrayOpen(false);
 		setMenuPosition(null);
 		setContextMenuPoint(null);
+		setPinDurationOpen(false);
 	}, []);
 
 	const handleContextMenu = useCallback((event: ReactMouseEvent<HTMLElement>) => {
 		if (isOptimistic || message.failed) return;
 		event.preventDefault();
 		setReactionTrayOpen(false);
+		setPinDurationOpen(false);
 		setMenuPosition(null);
 		setContextMenuPoint({ x: event.clientX, y: event.clientY });
 		setMenuOpen(true);
@@ -137,7 +143,11 @@ const MessageBubble = memo(function MessageBubble({
 
 		const handleOutsideClick = (event: MouseEvent) => {
 			const target = event.target as Node;
-			if (menuPanelRef.current?.contains(target) || reactionRef.current?.contains(target)) return;
+			if (
+				menuPanelRef.current?.contains(target)
+				|| reactionRef.current?.contains(target)
+				|| pinDurationRef.current?.contains(target)
+			) return;
 			closeMenu();
 		};
 
@@ -151,10 +161,15 @@ const MessageBubble = memo(function MessageBubble({
 		const frame = requestAnimationFrame(updateMenuPosition);
 		window.addEventListener("resize", updateMenuPosition);
 		window.addEventListener("scroll", updateMenuPosition, true);
+		const resizeObserver = typeof ResizeObserver !== "undefined" && menuPanelRef.current
+			? new ResizeObserver(updateMenuPosition)
+			: null;
+		if (resizeObserver && menuPanelRef.current) resizeObserver.observe(menuPanelRef.current);
 		return () => {
 			cancelAnimationFrame(frame);
 			window.removeEventListener("resize", updateMenuPosition);
 			window.removeEventListener("scroll", updateMenuPosition, true);
+			resizeObserver?.disconnect();
 		};
 	}, [menuOpen, updateMenuPosition]);
 
@@ -181,7 +196,7 @@ const MessageBubble = memo(function MessageBubble({
 			onDelete={onDelete}
 			onReport={onReport}
 			onModerationDelete={(messageId) => void onModerationDelete(messageId)}
-			onTogglePin={(messageId) => void onTogglePin(messageId)}
+			onTogglePin={(messageId, duration) => void onTogglePin(messageId, duration)}
 			onModerate={onModerate}
 		/>
 	) : null;
@@ -190,7 +205,7 @@ const MessageBubble = memo(function MessageBubble({
 		return (
 			<div onContextMenu={handleContextMenu} className="group my-3 flex justify-center px-2">
 				<div
-					className={`relative w-full max-w-[min(100%,420px)] overflow-hidden rounded-xl border bg-[#11191b]/95 shadow-[0_8px_24px_rgba(0,0,0,0.22)] transition-[box-shadow,border-color] duration-200 sm:w-fit sm:min-w-[280px] ${
+					className={`relative w-full max-w-[min(100%,420px)] overflow-visible rounded-xl border bg-[#11191b]/95 shadow-[0_8px_24px_rgba(0,0,0,0.22)] transition-[box-shadow,border-color] duration-200 sm:w-fit sm:min-w-[280px] ${
 						isHighlighted
 							? "border-primary/75 ring-2 ring-primary/60 ring-offset-2 ring-offset-[#09070b] shadow-[0_0_24px_rgba(0,190,210,0.16)]"
 							: "border-primary/30"
@@ -220,11 +235,18 @@ const MessageBubble = memo(function MessageBubble({
 						</div>
 					</div>
 					{(canPin || canModerate) && !isOptimistic && (
+						<>
 						<div className="absolute inset-x-0 bottom-0 flex items-center justify-end gap-1 border-t border-white/10 bg-[#11191b]/95 px-2 py-0.5 opacity-100 transition-opacity duration-150 sm:pointer-events-none sm:opacity-0 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100">
 							{canPin && (
 								<button
 									type="button"
-									onClick={() => void onTogglePin(message.id)}
+									onClick={() => {
+										if (isPinned) {
+											void onTogglePin(message.id);
+										} else {
+											setPinDurationOpen((open) => !open);
+										}
+									}}
 									className="inline-flex min-h-9 items-center gap-1 rounded-md px-2 text-[11px] text-white/60 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
 									aria-label={isPinned ? "Unpin announcement" : "Pin announcement"}
 								>
@@ -243,6 +265,31 @@ const MessageBubble = memo(function MessageBubble({
 								</button>
 							)}
 						</div>
+						{pinDurationOpen && !isPinned && (
+							<div
+								ref={pinDurationRef}
+								role="menu"
+								aria-label="Pin message for"
+								className="absolute bottom-10 right-2 z-20 w-36 rounded-lg border border-white/10 bg-[#121212]/98 p-1 shadow-xl shadow-black/40"
+							>
+								<p className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/45">Pin for</p>
+								{PIN_DURATION_OPTIONS.map((option) => (
+									<button
+										key={option.value}
+										type="button"
+										role="menuitem"
+										className="flex min-h-11 w-full items-center rounded-md px-2.5 text-left text-xs text-white/80 transition-colors hover:bg-primary/10 hover:text-primary focus-visible:bg-primary/10 focus-visible:outline-none"
+										onClick={() => {
+											setPinDurationOpen(false);
+											void onTogglePin(message.id, option.value);
+										}}
+									>
+										{option.label}
+									</button>
+								))}
+							</div>
+						)}
+						</>
 					)}
 				</div>
 				{contextMenu}
