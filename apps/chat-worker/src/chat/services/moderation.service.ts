@@ -90,9 +90,7 @@ export class ModerationService {
 		if (msg.visibility === "DELETED") throw Errors.messageDeleted();
 
 		await this.msgRepo.softDelete(messageId);
-		const wasPinned = msg.type === "ANNOUNCEMENT"
-			? await this.pinRepo.unpin(msg.roomId, messageId)
-			: false;
+		const wasPinned = await this.pinRepo.unpin(msg.roomId, messageId);
 
 		const action = await this.modRepo.create({
 			userUid: msg.authorUid,

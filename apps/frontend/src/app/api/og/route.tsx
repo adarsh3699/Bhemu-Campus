@@ -3,7 +3,9 @@ import { NextRequest } from "next/server";
 import { fetchLeaderboardEntry } from "@/lib/fetchLeaderboardEntry";
 import { formatProgramLabel } from "@bhemu/shared";
 
-export const runtime = "edge";
+// Next.js 16 deprecates the Edge runtime for route handlers. This handler also
+// uses Buffer for font encoding, so the Node.js runtime is the correct target.
+export const runtime = "nodejs";
 
 const CACHE_HEADERS = {
 	"Cache-Control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",

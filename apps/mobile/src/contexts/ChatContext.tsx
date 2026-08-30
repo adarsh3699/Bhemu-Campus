@@ -10,21 +10,27 @@ import {
 import { useIsFocused } from "expo-router";
 import {
 	apiCreateChatSession,
+	apiCreatePoll,
+	apiClosePoll,
 	apiDeleteMessage,
 	apiEditMessage,
 	apiGetBatchmateRoom,
 	apiGetMessages,
+	apiGetRoomPins,
 	apiGetRoomEvents,
 	apiGetUniversityRoom,
+	apiPinMessage,
 	apiRemoveReaction,
 	apiReportMessage,
 	apiSetReaction,
+	apiUnpinMessage,
+	apiVotePoll,
 	ChatApiError,
 	CHAT_API_BASE,
 	WS_EVENTS,
 } from "@bhemu/chat";
-import type { ChatDisplayMessage, ChatMessage, ChatRoom, PresenceUser, ReportReason, WsEnvelope } from "@bhemu/shared";
-import { CHAT_OPTIMISTIC_PREFIX, createChatClientMessageId, MAX_CHAT_MESSAGE_LENGTH, mergeChatMessages, normalizeChatDisplayName } from "@bhemu/shared";
+import type { AppRole, ChatDisplayMessage, ChatMessage, ChatPoll, ChatRoom, PinDuration, PresenceUser, ReportReason, RoomPin, WsEnvelope } from "@bhemu/shared";
+import { CHAT_OPTIMISTIC_PREFIX, createChatClientMessageId, getChatPinExpiry, MAX_CHAT_MESSAGE_LENGTH, mergeChatMessages, normalizeChatDisplayName, removeChatPinForMessage } from "@bhemu/shared";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGpaProfiles } from "@/contexts/GpaDataContext";
 import {
@@ -45,7 +51,9 @@ interface ChatContextValue {
 	setActiveRoom: (room: ActiveRoom) => void;
 	currentRoom: ChatRoom | null;
 	currentUserId: string | null;
+	chatRole: AppRole | null;
 	messages: ChatDisplayMessage[];
+	pinnedMessages: RoomPin[];
 	hasMore: boolean;
 	loadingMessages: boolean;
 	loadOlderMessages: () => Promise<void>;
@@ -56,6 +64,11 @@ interface ChatContextValue {
 	react: (messageId: string, emoji: string) => Promise<void>;
 	unreact: (messageId: string) => Promise<void>;
 	report: (messageId: string, reason: ReportReason, description?: string) => Promise<void>;
+	createPoll: (content: string, options: string[], multipleChoice?: boolean, closesAt?: string | null) => Promise<void>;
+	votePoll: (pollId: string, optionIds: string[]) => Promise<void>;
+	closePoll: (pollId: string) => Promise<void>;
+	sendAnnouncement: (content: string) => Promise<void>;
+	togglePin: (messageId: string, duration?: PinDuration) => Promise<void>;
 	onlineUsers: PresenceUser[];
 	connected: boolean;
 	error: string | null;
@@ -116,6 +129,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 	const [batchmateRoom, setBatchmateRoom] = useState<ChatRoom | null>(null);
 	const [activeRoom, setActiveRoomState] = useState<ActiveRoom>("university");
 	const [messages, setMessages] = useState<ChatDisplayMessage[]>([]);
+	const [pinnedMessages, setPinnedMessages] = useState<RoomPin[]>([]);
+	const [chatRole, setChatRole] = useState<AppRole | null>(null);
 	const [hasMore, setHasMore] = useState(false);
 	const [loadingMessages, setLoadingMessages] = useState(false);
 	const [connected, setConnected] = useState(false);
@@ -136,7 +151,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 	const loadingOlderRef = useRef(false);
 	const messageRequestRef = useRef(0);
 	const tokenCacheRef = useRef<{ token: string; expiresAt: number } | null>(null);
-	const sessionCacheRef = useRef<{ token: string; expiresAt: number; uid: string } | null>(null);
+	const sessionCacheRef = useRef<{ token: string; expiresAt: number; uid: string; role: AppRole } | null>(null);
 	const sessionBootstrapRef = useRef<Promise<string | null> | null>(null);
 	const roomSequencesRef = useRef(new Map<string, number>());
 	const roomEventSyncRef = useRef(new Map<string, Promise<void>>());
@@ -191,7 +206,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
 					const expiresAt = Date.parse(session.expiresAt);
 					if (!Number.isFinite(expiresAt)) throw new Error("Chat session response had an invalid expiry.");
-					sessionCacheRef.current = { token: session.token, expiresAt, uid: currentUser.uid };
+					sessionCacheRef.current = { token: session.token, expiresAt, uid: currentUser.uid, role: session.role };
+					setChatRole(session.role);
 					return session.token;
 				} catch (authenticationError) {
 					setError(chatErrorMessage(authenticationError, "Chat authentication is temporarily unavailable."));
@@ -230,6 +246,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 		tokenCacheRef.current = null;
 		sessionCacheRef.current = null;
 		sessionBootstrapRef.current = null;
+		// The session role belongs to the authenticated user and must be cleared on account changes.
+		// eslint-disable-next-line react-hooks/set-state-in-effect
+		setChatRole(null);
 	}, [currentUser?.uid]);
 
 	const dismissError = useCallback(() => setError(null), []);
@@ -379,6 +398,31 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 		[requestWithChatAuth],
 	);
 
+	const loadPins = useCallback(async (roomId: string) => {
+		try {
+			const pins = await requestWithChatAuth((token) => apiGetRoomPins(token, roomId));
+			if (pins && currentRoomIdRef.current === roomId) setPinnedMessages(pins);
+		} catch (loadError) {
+			if (currentRoomIdRef.current === roomId) setError(chatErrorMessage(loadError, "Pinned messages could not be loaded."));
+		}
+	}, [requestWithChatAuth]);
+
+	useEffect(() => {
+		const nextExpiry = pinnedMessages.reduce<number | null>((soonest, pin) => {
+			if (!pin.expiresAt) return soonest;
+			const expiresAt = Date.parse(pin.expiresAt);
+			return Number.isNaN(expiresAt) || (soonest !== null && soonest <= expiresAt) ? soonest : expiresAt;
+		}, null);
+		if (nextExpiry === null) return;
+
+		const timeout = setTimeout(() => {
+			const now = Date.now();
+			setPinnedMessages((current) => current.filter((pin) => !pin.expiresAt || Date.parse(pin.expiresAt) > now));
+		}, Math.max(0, nextExpiry - Date.now()) + 50);
+
+		return () => clearTimeout(timeout);
+	}, [pinnedMessages]);
+
 	const handleWsEvent = useCallback(
 		(envelope: WsEnvelope) => {
 			if (envelope.type === WS_EVENTS.ROOM_SYNCED) {
@@ -448,8 +492,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
 			if (envelope.type === WS_EVENTS.MESSAGE_DELETED) {
 				const payload = envelope.payload as { messageId?: string };
-				if (!payload.messageId) return;
-				setMessages((current) => current.map((message) => message.id === payload.messageId ? { ...message, visibility: "DELETED", content: "" } : message));
+				const messageId = payload.messageId;
+				if (!messageId) return;
+				setPinnedMessages((current) => removeChatPinForMessage(current, messageId));
+				setMessages((current) => current.map((message) => message.id === messageId ? { ...message, visibility: "DELETED", content: "" } : message));
 				return;
 			}
 
@@ -471,6 +517,34 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 					}
 					return { ...message, reactions };
 				}));
+				return;
+			}
+
+			if (envelope.type === WS_EVENTS.POLL_UPDATED || envelope.type === WS_EVENTS.POLL_CLOSED) {
+				const poll = envelope.payload as ChatPoll;
+				if (!poll?.messageId) return;
+				setMessages((current) => current.map((message) => message.id === poll.messageId ? { ...message, poll } : message));
+				return;
+			}
+
+			if (envelope.type === WS_EVENTS.PIN_UPDATED) {
+				const payload = envelope.payload as { roomId?: string; messageId?: string; action?: "pinned" | "unpinned"; pinnedBy?: string; pinnedAt?: string; expiresAt?: string | null };
+				if (payload.roomId !== currentRoomIdRef.current || !payload.messageId || !payload.action) return;
+				const roomId = payload.roomId;
+				const messageId = payload.messageId;
+				setPinnedMessages((current) => payload.action === "unpinned"
+					? current.filter((pin) => pin.messageId !== messageId)
+					: [
+						...current.filter((pin) => pin.messageId !== messageId),
+						{
+							roomId,
+							messageId,
+							pinnedBy: payload.pinnedBy ?? "",
+							pinnedAt: payload.pinnedAt ?? envelope.timestamp,
+							expiresAt: payload.expiresAt ?? null,
+						},
+					]
+				);
 				return;
 			}
 
@@ -634,6 +708,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 			// This effect owns the external WebSocket lifecycle for the focused room.
 			// eslint-disable-next-line react-hooks/set-state-in-effect
 			setMessages([]);
+			setPinnedMessages([]);
 			setHasMore(false);
 			setOnlineUsers([]);
 			setLoadingMessages(false);
@@ -644,6 +719,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 		currentRoomIdRef.current = currentRoomId;
 		cursorRef.current = null;
 		setMessages([]);
+		setPinnedMessages([]);
 		setOnlineUsers([]);
 		setHasMore(false);
 		setLoadingMessages(true);
@@ -661,6 +737,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 			roomSequencesRef.current.set(currentRoomId, Math.max(getRoomSequence(currentRoomId), cachedSequence));
 			if (cachedMessages.length > 0) setMessages((current) => mergeChatMessages(current, cachedMessages));
 			void loadMessages(currentRoomId, true);
+			void loadPins(currentRoomId);
 			void connectWs(currentRoomId);
 		})();
 
@@ -669,7 +746,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 			if (currentRoomIdRef.current === currentRoomId) currentRoomIdRef.current = null;
 			disconnectWs();
 		};
-	}, [connectWs, currentRoomId, currentUser, disconnectWs, getRoomSequence, isFocused, loadMessages]);
+	}, [connectWs, currentRoomId, currentUser, disconnectWs, getRoomSequence, isFocused, loadMessages, loadPins]);
 
 	useEffect(() => () => disconnectWs(), [disconnectWs]);
 
@@ -697,7 +774,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 	}, [currentRoomId, hasMore, loadMessages, loadingMessages]);
 
 	const sendMessageOverSocket = useCallback(
-		(roomId: string, content: string, replyToId: string | undefined, idempotencyKey: string) =>
+		(roomId: string, content: string, replyToId: string | undefined, idempotencyKey: string, type: "TEXT" | "ANNOUNCEMENT" = "TEXT") =>
 			new Promise<ChatMessage>((resolve, reject) => {
 				const socket = wsRef.current;
 				if (!socket || socket.readyState !== WebSocket.OPEN) {
@@ -714,7 +791,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 				try {
 					socket.send(JSON.stringify({
 						type: "message.send",
-						payload: { roomId, content, replyToMessageId: replyToId ?? null, idempotencyKey },
+						payload: { roomId, content, type, replyToMessageId: replyToId ?? null, idempotencyKey },
 					}));
 				} catch {
 					clearTimeout(timer);
@@ -844,6 +921,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 	}, [requestWithChatAuth]);
 
 	const deleteMessage = useCallback(async (messageId: string) => {
+		setPinnedMessages((current) => removeChatPinForMessage(current, messageId));
 		setMessages((current) => current.map((message) => message.id === messageId
 			? { ...message, visibility: "DELETED", content: "", deletedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
 			: message));
@@ -891,6 +969,118 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 		}
 	}, [requestWithChatAuth]);
 
+	const updatePoll = useCallback((poll: ChatPoll) => {
+		setMessages((current) => current.map((message) => message.id === poll.messageId ? { ...message, poll } : message));
+	}, []);
+
+	const createPoll = useCallback(async (
+		content: string,
+		options: string[],
+		multipleChoice = false,
+		closesAt: string | null = null,
+	) => {
+		const roomId = currentRoomIdRef.current;
+		if (!roomId) return;
+		try {
+			const poll = await requestWithChatAuth((token) => apiCreatePoll(token, roomId, content, options, multipleChoice, closesAt));
+			if (poll) {
+				updatePoll(poll);
+				void syncLatestMessages(roomId);
+			}
+		} catch (createError) {
+			setError(chatErrorMessage(createError, "Poll could not be created."));
+		}
+	}, [requestWithChatAuth, syncLatestMessages, updatePoll]);
+
+	const votePoll = useCallback(async (pollId: string, optionIds: string[]) => {
+		try {
+			const poll = await requestWithChatAuth((token) => apiVotePoll(token, pollId, optionIds));
+			if (poll) updatePoll(poll);
+		} catch (voteError) {
+			setError(chatErrorMessage(voteError, "Vote could not be saved."));
+		}
+	}, [requestWithChatAuth, updatePoll]);
+
+	const closePoll = useCallback(async (pollId: string) => {
+		try {
+			const poll = await requestWithChatAuth((token) => apiClosePoll(token, pollId));
+			if (poll) updatePoll(poll);
+		} catch (closeError) {
+			setError(chatErrorMessage(closeError, "Poll could not be closed."));
+		}
+	}, [requestWithChatAuth, updatePoll]);
+
+	const sendAnnouncement = useCallback(async (content: string) => {
+		const roomId = currentRoomIdRef.current;
+		if (!currentUser || !roomId) return;
+		const trimmed = content.trim();
+		if (!trimmed) {
+			setError("Announcement cannot be empty.");
+			return;
+		}
+		if (trimmed.length > MAX_CHAT_MESSAGE_LENGTH) {
+			setError(`Announcement exceeds ${MAX_CHAT_MESSAGE_LENGTH} characters.`);
+			return;
+		}
+
+		const idempotencyKey = createChatClientMessageId();
+		const now = new Date().toISOString();
+		const optimisticMessage: ChatDisplayMessage = {
+			id: idempotencyKey,
+			idempotencyKey,
+			roomId,
+			authorUid: currentUser.uid,
+			authorName: normalizeChatDisplayName(currentUser.displayName),
+			replyToMessageId: null,
+			type: "ANNOUNCEMENT",
+			visibility: "VISIBLE",
+			content: trimmed,
+			editedAt: null,
+			deletedAt: null,
+			attachments: [],
+			createdAt: now,
+			updatedAt: now,
+		};
+		setMessages((current) => upsertMessages(current, optimisticMessage));
+
+		try {
+			await waitForSocket(roomId);
+			const confirmed = await sendMessageOverSocket(roomId, trimmed, undefined, idempotencyKey, "ANNOUNCEMENT");
+			upsertMessage({ ...confirmed, idempotencyKey });
+		} catch (sendError) {
+			setMessages((current) => current.filter((message) => message.id !== idempotencyKey));
+			setError(chatErrorMessage(sendError, "Announcement could not be sent."));
+		}
+	}, [currentUser, sendMessageOverSocket, upsertMessage, waitForSocket]);
+
+	const togglePin = useCallback(async (messageId: string, duration: PinDuration = "forever") => {
+		const roomId = currentRoomIdRef.current;
+		if (!roomId) return;
+		const isPinned = pinnedMessages.some((pin) => pin.messageId === messageId);
+		setPinnedMessages((current) => isPinned
+			? current.filter((pin) => pin.messageId !== messageId)
+			: [
+				...current,
+				{
+					roomId,
+					messageId,
+					pinnedBy: currentUser?.uid ?? "",
+					pinnedAt: new Date().toISOString(),
+					expiresAt: getChatPinExpiry(duration),
+				},
+			]
+		);
+
+		try {
+			await requestWithChatAuth((token) => isPinned
+				? apiUnpinMessage(token, roomId, messageId)
+				: apiPinMessage(token, roomId, messageId, duration));
+		} catch (pinError) {
+			void loadPins(roomId);
+			setError(chatErrorMessage(pinError, "Pin could not be updated."));
+		}
+	}, [currentUser?.uid, loadPins, pinnedMessages, requestWithChatAuth]);
+
 	const value = useMemo<ChatContextValue>(() => ({
 		universityRoom,
 		batchmateRoom,
@@ -898,7 +1088,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 		setActiveRoom,
 		currentRoom,
 		currentUserId: currentUser?.uid ?? null,
+		chatRole,
 		messages,
+		pinnedMessages,
 		hasMore,
 		loadingMessages,
 		loadOlderMessages,
@@ -909,6 +1101,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 		react,
 		unreact,
 		report,
+		createPoll,
+		votePoll,
+		closePoll,
+		sendAnnouncement,
+		togglePin,
 		onlineUsers,
 		connected,
 		error,
@@ -917,6 +1114,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 	}), [
 		activeRoom,
 		batchmateRoom,
+		chatRole,
 		connected,
 		currentRoom,
 		currentUser,
@@ -926,6 +1124,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 		loadOlderMessages,
 		loadingMessages,
 		messages,
+		pinnedMessages,
 		onlineUsers,
 		sendText,
 		editMessage,
@@ -934,6 +1133,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 		react,
 		unreact,
 		report,
+		createPoll,
+		votePoll,
+		closePoll,
+		sendAnnouncement,
+		togglePin,
 		setActiveRoom,
 		universityRoom,
 	]);

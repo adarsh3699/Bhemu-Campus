@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { AlertCircle, CheckCircle2, X } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import type { ChatMessage, ReportReason } from "@bhemu/shared";
+import { canPerformChatAction, type ChatMessage, type ReportReason } from "@bhemu/shared";
 import { Colors, FontSize, FontWeight, Radius, Spacing } from "@/constants/Theme";
 import { Layout } from "@/styles";
 import { ChatProvider, useChat } from "@/contexts/ChatContext";
@@ -11,6 +11,7 @@ import ChatConversationBackground from "./ChatConversationBackground";
 import ChatMessageEditModal from "./ChatMessageEditModal";
 import ChatMessageList from "./ChatMessageList";
 import ChatMessageReportModal from "./ChatMessageReportModal";
+import ChatPollComposer from "./ChatPollComposer";
 import ChatRoomTabs from "./ChatRoomTabs";
 
 export default function ChatScreen() {
@@ -42,12 +43,20 @@ function ChatScreenContent() {
 		editMessage,
 		setActiveRoom,
 		sendText,
+		chatRole,
+		pinnedMessages,
+		createPoll,
+		votePoll,
+		closePoll,
+		sendAnnouncement,
+		togglePin,
 		currentUserId,
 	} = useChat();
 
 	const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
 	const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
 	const [reportingId, setReportingId] = useState<string | null>(null);
+	const [pollComposerOpen, setPollComposerOpen] = useState(false);
 	const [onlineCounts, setOnlineCounts] = useState<Record<typeof activeRoom, number>>({
 		university: 0,
 		batchmate: 0,
@@ -58,6 +67,7 @@ function ChatScreenContent() {
 	const handleSelectRoom = useCallback(
 		(room: typeof activeRoom) => {
 			setReplyTo(null);
+			setPollComposerOpen(false);
 			setActiveRoom(room);
 		},
 		[setActiveRoom]
@@ -78,6 +88,10 @@ function ChatScreenContent() {
 		},
 		[report, reportingId]
 	);
+	const canCreatePoll = canPerformChatAction(chatRole, currentRoom?.policy.createPollRole);
+	const canAnnounce = canPerformChatAction(chatRole, currentRoom?.policy.createAnnouncementRole);
+	const canPin = canPerformChatAction(chatRole, currentRoom?.policy.pinMessageRole);
+	const canClosePoll = canCreatePoll;
 
 	useEffect(() => {
 		if (onlineUsers.length === 0) return;
@@ -149,6 +163,9 @@ function ChatScreenContent() {
 						<ChatConversationBackground />
 						<ChatMessageList
 							currentUserId={currentUserId}
+							pinnedMessages={pinnedMessages}
+							canPin={canPin}
+							canClosePoll={canClosePoll}
 							hasMore={hasMore}
 							loadingMessages={loadingMessages}
 							messages={messages}
@@ -160,6 +177,9 @@ function ChatScreenContent() {
 							onReact={react}
 							onUnreact={unreact}
 							onReport={handleReport}
+							onTogglePin={togglePin}
+							onVotePoll={votePoll}
+							onClosePoll={closePoll}
 						/>
 					</View>
 
@@ -168,6 +188,10 @@ function ChatScreenContent() {
 						onCancelReply={() => setReplyTo(null)}
 						onSend={handleSend}
 						replyTo={replyTo}
+						canCreatePoll={canCreatePoll}
+						canAnnounce={canAnnounce}
+						onCreatePoll={() => setPollComposerOpen(true)}
+						onSendAnnouncement={sendAnnouncement}
 					/>
 				</KeyboardAvoidingView>
 			</SafeAreaView>
@@ -183,6 +207,12 @@ function ChatScreenContent() {
 				visible={Boolean(reportingId)}
 				onConfirm={handleConfirmReport}
 				onClose={() => setReportingId(null)}
+			/>
+			<ChatPollComposer
+				key={pollComposerOpen ? "poll-open" : "poll-closed"}
+				visible={pollComposerOpen}
+				onClose={() => setPollComposerOpen(false)}
+				onSubmit={createPoll}
 			/>
 		</>
 	);

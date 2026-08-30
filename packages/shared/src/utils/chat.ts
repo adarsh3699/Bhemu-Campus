@@ -1,11 +1,69 @@
-import type { ChatDisplayMessage, ChatMessage, ChatReaction } from "../types/chat";
-import { CHAT_OPTIMISTIC_PREFIX } from "../constants/chat";
+import type { AppRole, ChatDisplayMessage, ChatMessage, ChatReaction, PinDuration, PollOption, RoomPin } from "../types/chat";
+import { CHAT_OPTIMISTIC_PREFIX, CHAT_POLL_VALIDATION_MESSAGES, MAX_CHAT_POLL_OPTIONS, MAX_CHAT_POLL_OPTION_LENGTH, MAX_CHAT_POLL_QUESTION_LENGTH, MIN_CHAT_POLL_OPTIONS } from "../constants/chat";
+import { PIN_DURATION_MS } from "../types/chat";
 
 export type ChatTimestampLike = string | number | Date | Record<string, unknown> | null | undefined;
 
 export interface ChatReactionSummary {
 	count: number;
 	hasReacted: boolean;
+}
+
+export const CHAT_ROLE_LEVEL: Readonly<Record<AppRole, number>> = { STUDENT: 0, MODERATOR: 1, ADMIN: 2 };
+
+export function canPerformChatAction(role: AppRole | null, requiredRole: AppRole | undefined): boolean {
+	return Boolean(role && requiredRole && CHAT_ROLE_LEVEL[role] >= CHAT_ROLE_LEVEL[requiredRole]);
+}
+
+export function getChatPinExpiry(duration: PinDuration, now = Date.now()): string | null {
+	return duration === "forever" ? null : new Date(now + PIN_DURATION_MS[duration]).toISOString();
+}
+
+export interface ChatPollDraftValidation {
+	question: string;
+	options: string[];
+	error: string | null;
+}
+
+export function normalizeChatPollOptions(options: readonly string[]): string[] {
+	return options.map((option) => option.trim()).filter(Boolean);
+}
+
+export function validateChatPollDraft(question: string, options: readonly string[]): ChatPollDraftValidation {
+	const normalizedQuestion = question.trim();
+	const normalizedOptions = normalizeChatPollOptions(options);
+	let error: string | null = null;
+
+	if (!normalizedQuestion) error = CHAT_POLL_VALIDATION_MESSAGES.questionRequired;
+	else if (normalizedQuestion.length > MAX_CHAT_POLL_QUESTION_LENGTH) error = CHAT_POLL_VALIDATION_MESSAGES.questionTooLong;
+	else if (normalizedOptions.length < MIN_CHAT_POLL_OPTIONS || normalizedOptions.length > MAX_CHAT_POLL_OPTIONS) error = CHAT_POLL_VALIDATION_MESSAGES.optionCount;
+	else if (normalizedOptions.some((option) => option.length > MAX_CHAT_POLL_OPTION_LENGTH)) error = CHAT_POLL_VALIDATION_MESSAGES.optionTooLong;
+	else if (new Set(normalizedOptions.map((option) => option.toLocaleLowerCase())).size !== normalizedOptions.length) error = CHAT_POLL_VALIDATION_MESSAGES.duplicateOptions;
+
+	return { question: normalizedQuestion, options: normalizedOptions, error };
+}
+
+export function getChatPollTotalVotes(options: ReadonlyArray<Pick<PollOption, "voteCount">>): number {
+	return options.reduce((total, option) => total + option.voteCount, 0);
+}
+
+export function getChatPollOptionPercentage(option: Pick<PollOption, "voteCount">, totalVotes: number): number {
+	return totalVotes > 0 ? Math.round((option.voteCount / totalVotes) * 100) : 0;
+}
+
+export function toggleChatPollOption(selectedOptionIds: readonly string[], optionId: string, multipleChoice: boolean): string[] {
+	if (!multipleChoice) return [optionId];
+	return selectedOptionIds.includes(optionId)
+		? selectedOptionIds.filter((id) => id !== optionId)
+		: [...selectedOptionIds, optionId];
+}
+
+export function isDeletedChatAnnouncement(message: Pick<ChatMessage, "type" | "visibility">): boolean {
+	return message.type === "ANNOUNCEMENT" && message.visibility === "DELETED";
+}
+
+export function removeChatPinForMessage(pins: readonly RoomPin[], messageId: string): RoomPin[] {
+	return pins.filter((pin) => pin.messageId !== messageId);
 }
 
 function epochToDate(value: number): Date | null {

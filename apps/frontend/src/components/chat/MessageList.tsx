@@ -2,7 +2,7 @@
 
 import React, { memo, useCallback, useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
-import { shouldShowChatDateSeparator, startsChatAuthorGroup, type ChatDisplayMessage, type ChatMessage, type PinDuration } from "@bhemu/shared";
+import { isDeletedChatAnnouncement, shouldShowChatDateSeparator, startsChatAuthorGroup, type ChatDisplayMessage, type ChatMessage, type PinDuration } from "@bhemu/shared";
 import MessageBubble, { DateSeparator } from "./MessageBubble";
 
 interface MessageListProps {
@@ -45,7 +45,7 @@ const MessageList = memo(function MessageList({
 	// Announcements follow the chat's soft-delete/audit policy, but a deleted
 	// announcement must not leave an empty announcement card in the timeline.
 	const visibleMessages = React.useMemo(
-		() => messages.filter((message) => !(message.type === "ANNOUNCEMENT" && message.visibility === "DELETED")),
+		() => messages.filter((message) => !isDeletedChatAnnouncement(message)),
 		[messages],
 	);
 	const messageMap = React.useMemo(() => new Map(visibleMessages.map((m) => [m.id, m])), [visibleMessages]);

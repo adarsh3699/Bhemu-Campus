@@ -52,7 +52,7 @@ import type {
 	ReportReason,
 	PinDuration,
 } from "@bhemu/shared";
-import { CHAT_OPTIMISTIC_PREFIX, createChatClientMessageId, MAX_CHAT_CACHED_MESSAGES, MAX_CHAT_MESSAGE_LENGTH, mergeChatMessages, normalizeChatDisplayName, PIN_DURATION_MS } from "@bhemu/shared";
+import { CHAT_OPTIMISTIC_PREFIX, createChatClientMessageId, getChatPinExpiry, MAX_CHAT_CACHED_MESSAGES, MAX_CHAT_MESSAGE_LENGTH, mergeChatMessages, normalizeChatDisplayName, removeChatPinForMessage } from "@bhemu/shared";
 import type { GPAProfile } from "@bhemu/shared";
 
 export type ActiveRoom = "university" | "batchmate";
@@ -128,12 +128,6 @@ const SESSION_REFRESH_SKEW_MS = 60_000;
 const AUTH_RECOVERY_MESSAGE = "Your chat session has expired. Please sign in again.";
 const ROOM_SEQUENCE_STORAGE_PREFIX = "bhemu:chat:room-seq:";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-function getPinExpiry(duration: PinDuration): string | null {
-	return duration === "forever"
-		? null
-		: new Date(Date.now() + PIN_DURATION_MS[duration]).toISOString();
-}
-
 function roomSequenceStorageKey(roomId: string): string {
 	return `${ROOM_SEQUENCE_STORAGE_PREFIX}${roomId}`;
 }
@@ -550,6 +544,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 			}
 			case WS_EVENTS.MESSAGE_DELETED: {
 				const { messageId } = envelope.payload as MsgDeletedPayload;
+				setPinnedMessages(prev => removeChatPinForMessage(prev, messageId));
 				setMsgs(prev => prev.map(m =>
 					m.id === messageId ? { ...m, visibility: "DELETED" as const, content: "" } : m,
 				));
@@ -1166,6 +1161,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 	}, [requestWithChatAuth]);
 
 	const deleteMsg = useCallback(async (messageId: string) => {
+		setPinnedMessages(prev => removeChatPinForMessage(prev, messageId));
 		setMessages(prev => prev.map(m =>
 			m.id === messageId ? { ...m, visibility: "DELETED" as const, content: "" } : m,
 		));
@@ -1271,7 +1267,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 				messageId,
 				pinnedBy: currentUserId ?? "",
 				pinnedAt: new Date().toISOString(),
-				expiresAt: getPinExpiry(duration),
+				expiresAt: getChatPinExpiry(duration),
 			}]
 		);
 		try {
@@ -1285,6 +1281,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 	}, [currentUserId, loadPins, pinnedMessages, requestWithChatAuth]);
 
 	const moderationDelete = useCallback(async (messageId: string, reason?: string) => {
+		setPinnedMessages(prev => removeChatPinForMessage(prev, messageId));
 		setMessages(prev => prev.map(message =>
 			message.id === messageId ? { ...message, visibility: "DELETED" as const, content: "" } : message,
 		));

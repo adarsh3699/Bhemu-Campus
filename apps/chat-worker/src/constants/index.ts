@@ -2,7 +2,7 @@
 // bCampus Chat Worker — Shared Constants
 // ============================================================
 
-import { MAX_CHAT_ATTACHMENTS_PER_MESSAGE, MAX_CHAT_MESSAGE_LENGTH } from "@bhemu/shared";
+import { MAX_CHAT_ATTACHMENTS_PER_MESSAGE, MAX_CHAT_MESSAGE_LENGTH, MAX_CHAT_POLL_OPTIONS, MIN_CHAT_POLL_OPTIONS } from "@bhemu/shared";
 
 // Pagination
 export const MESSAGE_PAGE_SIZE = 50;
@@ -23,8 +23,8 @@ export const ALLOWED_MIME_TYPES = [
 
 // Messages
 export const MAX_MESSAGE_LENGTH = MAX_CHAT_MESSAGE_LENGTH;
-export const MAX_POLL_OPTIONS = 8;
-export const MIN_POLL_OPTIONS = 2;
+export const MAX_POLL_OPTIONS = MAX_CHAT_POLL_OPTIONS;
+export const MIN_POLL_OPTIONS = MIN_CHAT_POLL_OPTIONS;
 
 // Spam detection
 export const SPAM_WINDOW_MS = 10_000; // 10 seconds

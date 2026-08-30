@@ -2,15 +2,13 @@
 
 import { memo, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { BarChart3, Check, Plus, X } from "lucide-react";
+import { MAX_CHAT_POLL_OPTIONS, MAX_CHAT_POLL_OPTION_LENGTH, MAX_CHAT_POLL_QUESTION_LENGTH, MIN_CHAT_POLL_OPTIONS, validateChatPollDraft } from "@bhemu/shared";
 
 interface PollComposerProps {
 	isOpen: boolean;
 	onClose: () => void;
 	onSubmit: (question: string, options: string[], multipleChoice: boolean) => Promise<void>;
 }
-
-const MIN_OPTIONS = 2;
-const MAX_OPTIONS = 8;
 
 const PollComposer = memo(function PollComposer({ isOpen, onClose, onSubmit }: PollComposerProps) {
 	const [question, setQuestion] = useState("");
@@ -48,9 +46,9 @@ const PollComposer = memo(function PollComposer({ isOpen, onClose, onSubmit }: P
 
 	const addOption = () => {
 		const nextIndex = options.length;
-		if (nextIndex >= MAX_OPTIONS) return;
+		if (nextIndex >= MAX_CHAT_POLL_OPTIONS) return;
 
-		setOptions(current => current.length >= MAX_OPTIONS ? current : [...current, ""]);
+		setOptions(current => current.length >= MAX_CHAT_POLL_OPTIONS ? current : [...current, ""]);
 		requestAnimationFrame(() => optionRefs.current[nextIndex]?.focus());
 	};
 
@@ -66,27 +64,18 @@ const PollComposer = memo(function PollComposer({ isOpen, onClose, onSubmit }: P
 
 		addOption();
 	};
+	const pollDraft = validateChatPollDraft(question, options);
 
 	const submit = async () => {
-		const trimmedQuestion = question.trim();
-		const trimmedOptions = options.map(option => option.trim()).filter(Boolean);
-		if (!trimmedQuestion) {
-			setError("Add a question first.");
-			return;
-		}
-		if (trimmedOptions.length < MIN_OPTIONS) {
-			setError("Add at least two options.");
-			return;
-		}
-		if (new Set(trimmedOptions.map(option => option.toLowerCase())).size !== trimmedOptions.length) {
-			setError("Poll options must be unique.");
+		if (pollDraft.error) {
+			setError(pollDraft.error);
 			return;
 		}
 
 		setSubmitting(true);
 		setError(null);
 		try {
-			await onSubmit(trimmedQuestion, trimmedOptions, multipleChoice);
+			await onSubmit(pollDraft.question, pollDraft.options, multipleChoice);
 			onClose();
 		} catch (submitError) {
 			setError(submitError instanceof Error ? submitError.message : "Poll could not be created.");
@@ -94,8 +83,7 @@ const PollComposer = memo(function PollComposer({ isOpen, onClose, onSubmit }: P
 			setSubmitting(false);
 		}
 	};
-	const filledOptions = options.map(option => option.trim()).filter(Boolean);
-	const canSubmit = question.trim().length > 0 && filledOptions.length >= MIN_OPTIONS && !submitting;
+	const canSubmit = !pollDraft.error && !submitting;
 
 	return (
 		<div
@@ -127,7 +115,7 @@ const PollComposer = memo(function PollComposer({ isOpen, onClose, onSubmit }: P
 				<textarea
 					value={question}
 					onChange={event => setQuestion(event.target.value)}
-					maxLength={500}
+					maxLength={MAX_CHAT_POLL_QUESTION_LENGTH}
 					rows={3}
 					placeholder="What should the campus community decide?"
 					className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white outline-none transition-colors placeholder:text-white/30 focus:border-primary/70 focus:ring-2 focus:ring-primary/20"
@@ -138,7 +126,7 @@ const PollComposer = memo(function PollComposer({ isOpen, onClose, onSubmit }: P
 			<div className="mb-4">
 				<div className="mb-1.5 flex items-center justify-between">
 					<span className="text-xs font-medium text-white/70">Options</span>
-					<span className="text-[11px] text-white/35">{options.length}/{MAX_OPTIONS}</span>
+							<span className="text-[11px] text-white/35">{options.length}/{MAX_CHAT_POLL_OPTIONS}</span>
 				</div>
 				<div className="space-y-2">
 					{options.map((option, index) => (
@@ -149,11 +137,11 @@ const PollComposer = memo(function PollComposer({ isOpen, onClose, onSubmit }: P
 								value={option}
 								onChange={event => updateOption(index, event.target.value)}
 								onKeyDown={event => handleOptionKeyDown(event, index)}
-								maxLength={255}
+								maxLength={MAX_CHAT_POLL_OPTION_LENGTH}
 								placeholder={`Option ${index + 1}`}
 								className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white outline-none transition-colors placeholder:text-white/30 focus:border-primary/70 focus:ring-2 focus:ring-primary/20"
 							/>
-							{options.length > MIN_OPTIONS && (
+							{options.length > MIN_CHAT_POLL_OPTIONS && (
 								<button type="button" onClick={() => setOptions(current => current.filter((_, optionIndex) => optionIndex !== index))} className="flex size-10 items-center justify-center rounded-lg text-white/35 transition-colors hover:bg-red-500/10 hover:text-red-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label={`Remove option ${index + 1}`}>
 									<X className="size-4" />
 								</button>
@@ -161,7 +149,7 @@ const PollComposer = memo(function PollComposer({ isOpen, onClose, onSubmit }: P
 						</div>
 					))}
 				</div>
-				{options.length < MAX_OPTIONS && (
+				{options.length < MAX_CHAT_POLL_OPTIONS && (
 					<button type="button" onClick={addOption} className="mt-2 inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
 						<Plus className="size-3.5" /> Add option
 					</button>

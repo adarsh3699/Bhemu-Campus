@@ -1,6 +1,6 @@
 import { memo, useMemo } from "react";
 import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
-import { AlertCircle, Check, Clock3, Reply } from "lucide-react-native";
+import { AlertCircle, Check, Clock3, Megaphone, Reply } from "lucide-react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import {
@@ -8,12 +8,14 @@ import {
 	formatChatTime,
 	getChatAuthorInitials,
 	getChatAvatarIndex,
+	isDeletedChatAnnouncement,
 	messageTimestamp,
 	normalizeChatDisplayName,
 	summarizeChatReactions,
 	type ChatDisplayMessage,
 } from "@bhemu/shared";
 import { Colors, FontSize, FontWeight, Radius, Spacing } from "@/constants/Theme";
+import ChatPollCard from "./ChatPollCard";
 
 const AVATAR_COLORS = [Colors.primary, Colors.indigo, Colors.warning, Colors.success, Colors.destructive] as const;
 const SWIPE_REPLY_DISTANCE = 76;
@@ -29,6 +31,9 @@ interface Props {
 	onRetry: (messageId: string) => void;
 	onReact: (messageId: string, emoji: string) => void;
 	onUnreact: (messageId: string) => void;
+	canClosePoll: boolean;
+	onVotePoll: (pollId: string, optionIds: string[]) => Promise<void>;
+	onClosePoll: (pollId: string) => Promise<void>;
 }
 
 function renderMessageContent(content: string, isOwn: boolean) {
@@ -57,6 +62,9 @@ const ChatMessageBubble = memo(function ChatMessageBubbleView({
 	onRetry,
 	onReact,
 	onUnreact,
+	canClosePoll,
+	onVotePoll,
+	onClosePoll,
 }: Props) {
 	const isOwn = currentUserId === message.authorUid;
 	const isDeleted = message.visibility === "DELETED";
@@ -101,22 +109,48 @@ const ChatMessageBubble = memo(function ChatMessageBubbleView({
 		[canReply, message.id, onSwipeReply, swipeX],
 	);
 
+	if (isDeletedChatAnnouncement(message)) return null;
+
 	if (isAnnouncement) {
 		return (
 			<View style={local.announcementRow}>
-				<View style={local.announcement}>
-					<Text style={local.announcementLabel}>Announcement</Text>
+				<Pressable
+					accessibilityRole="text"
+					accessibilityLabel={`Announcement from ${authorName}: ${message.content}`}
+					delayLongPress={350}
+					onLongPress={!isPending ? () => onLongPress(message) : undefined}
+					style={({ pressed }) => [local.announcement, pressed && local.pressed]}
+				>
+					<View style={local.announcementHeader}>
+						<View style={local.announcementIcon}><Megaphone size={16} color={Colors.primary} /></View>
+						<View style={local.announcementCopy}>
+							<Text style={local.announcementLabel}>Announcement</Text>
+							<Text style={local.announcementAuthor}>{authorName}</Text>
+						</View>
+						<Text style={local.announcementTime}>{formatChatTime(messageTimestamp(message))}</Text>
+					</View>
 					<Text style={local.announcementText}>{message.content}</Text>
-					<Text style={local.announcementTime}>{formatChatTime(messageTimestamp(message))}</Text>
-				</View>
+				</Pressable>
 			</View>
 		);
 	}
 
 	if (isDeleted) {
 		return (
-			<View style={[local.deletedRow, isOwn && local.ownDeletedRow]}>
-				<Text style={local.deleted}>Message deleted</Text>
+			<View style={[local.row, isOwn && local.ownRow, showIdentity ? local.groupStart : local.groupContinuation]}>
+				{!isOwn ? (
+					<View style={local.avatarSlot}>
+						{showIdentity ? (
+							<View style={[local.avatar, { backgroundColor: AVATAR_COLORS[getChatAvatarIndex(message.authorUid, AVATAR_COLORS.length)] }]}>
+								<Text style={local.avatarText}>{getChatAuthorInitials(authorName)}</Text>
+							</View>
+						) : null}
+					</View>
+				) : null}
+				<View style={[local.messageColumn, isOwn && local.ownMessageColumn]}>
+					{!isOwn && showIdentity ? <Text style={local.author}>{authorName}</Text> : null}
+					<View style={local.deleted}><Text style={local.deletedText}>Message deleted</Text></View>
+				</View>
 			</View>
 		);
 	}
@@ -165,7 +199,17 @@ const ChatMessageBubble = memo(function ChatMessageBubbleView({
 								</View>
 							) : null}
 
-							<Text style={[local.content, isOwn && local.ownContent]}>{renderMessageContent(message.content, isOwn)}</Text>
+							<Text style={[local.content, message.type === "POLL" && local.pollContent, isOwn && local.ownContent]}>{renderMessageContent(message.content, isOwn)}</Text>
+
+							{message.type === "POLL" && message.poll ? (
+								<ChatPollCard
+									poll={message.poll}
+									isOwn={isOwn}
+									canClose={canClosePoll}
+									onVote={onVotePoll}
+									onClose={onClosePoll}
+								/>
+							) : null}
 
 							<View style={[local.footer, reactions.length > 0 && local.footerWithReactions]}>
 								{reactions.length > 0 ? (
@@ -231,6 +275,7 @@ const local = StyleSheet.create({
 	ownBubble: { borderColor: Colors.primary, borderBottomRightRadius: Radius.sm, backgroundColor: Colors.primary },
 	pendingBubble: { opacity: 0.8 },
 	content: { fontSize: FontSize.md, lineHeight: 22, color: Colors.textPrimary },
+	pollContent: { fontWeight: FontWeight.semibold, lineHeight: 21 },
 	ownContent: { color: Colors.textPrimary },
 	link: { color: Colors.secondary, textDecorationLine: "underline" },
 	ownLink: { color: Colors.textPrimary, textDecorationLine: "underline" },
@@ -255,12 +300,15 @@ const local = StyleSheet.create({
 	retry: { flexDirection: "row", alignItems: "center", gap: 4 },
 	retryText: { fontSize: FontSize.xs, fontWeight: FontWeight.semibold, color: Colors.destructive },
 	pressed: { opacity: 0.75 },
-	announcementRow: { alignItems: "center", marginVertical: Spacing.md },
-	announcement: { maxWidth: "88%", alignItems: "center", borderWidth: 1, borderColor: "rgba(3,152,172,0.3)", borderRadius: Radius.xl, paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md, backgroundColor: "rgba(3,152,172,0.1)" },
-	announcementLabel: { marginBottom: Spacing.xs, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.4, textTransform: "uppercase", color: Colors.primary },
-	announcementText: { fontSize: FontSize.base, lineHeight: 21, textAlign: "center", color: Colors.textPrimary },
-	announcementTime: { marginTop: Spacing.xs, fontSize: 10, color: Colors.textMuted },
-	deletedRow: { width: "100%", alignItems: "flex-start", marginVertical: Spacing.xs },
-	ownDeletedRow: { alignItems: "flex-end" },
-	deleted: { borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.lg, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, fontSize: FontSize.sm, fontStyle: "italic", color: Colors.textSubtle, backgroundColor: Colors.surface },
+	announcementRow: { alignItems: "center", marginVertical: Spacing.sm },
+	announcement: { width: "92%", maxWidth: 420, borderWidth: 1, borderColor: Colors.primaryDark, borderRadius: Radius.lg, padding: Spacing.md, backgroundColor: Colors.surface },
+	announcementHeader: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
+	announcementIcon: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: Radius.md, backgroundColor: Colors.surfaceElevated },
+	announcementCopy: { flex: 1, minWidth: 0 },
+	announcementLabel: { fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.4, textTransform: "uppercase", color: Colors.primary },
+	announcementAuthor: { marginTop: 2, fontSize: FontSize.xs, color: Colors.textMuted },
+	announcementText: { marginTop: Spacing.sm, fontSize: FontSize.base, lineHeight: 21, color: Colors.textPrimary },
+	announcementTime: { alignSelf: "flex-start", fontSize: 10, color: Colors.textMuted },
+	deleted: { borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.lg, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, backgroundColor: Colors.surface },
+	deletedText: { fontSize: FontSize.sm, fontStyle: "italic", color: Colors.textSubtle },
 });

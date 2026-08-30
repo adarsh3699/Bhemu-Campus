@@ -356,9 +356,7 @@ export class MessageService {
 
 		await this.msgRepo.softDelete(messageId);
 		await this.roomRepo.decrementMessageCount(msg.roomId);
-		const wasPinned = msg.type === "ANNOUNCEMENT"
-			? await this.pinRepo.unpin(msg.roomId, messageId)
-			: false;
+		const wasPinned = await this.pinRepo.unpin(msg.roomId, messageId);
 
 		await broadcast(msg.roomId, {
 			event: "message.deleted",

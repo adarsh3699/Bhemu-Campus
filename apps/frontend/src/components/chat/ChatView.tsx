@@ -7,17 +7,10 @@ import MessageList from "./MessageList";
 import MessageInput from "./MessageInput";
 import EditMessageModal from "./EditMessageModal";
 import ReportModal from "./ReportModal";
-import type { ChatMessage, ReportReason } from "@bhemu/shared";
-import type { AppRole } from "@bhemu/shared";
+import { canPerformChatAction, type ChatMessage, type ReportReason } from "@bhemu/shared";
 import PinnedMessagesBar from "./PinnedMessagesBar";
 import PollComposer from "./PollComposer";
 import ModerationModal, { type ModerationAction } from "./ModerationModal";
-
-const ROLE_LEVEL: Record<AppRole, number> = { STUDENT: 0, MODERATOR: 1, ADMIN: 2 };
-
-function canPerform(role: AppRole | null, requiredRole: AppRole | undefined): boolean {
-	return Boolean(role && requiredRole && ROLE_LEVEL[role] >= ROLE_LEVEL[requiredRole]);
-}
 
 export default function ChatView() {
 	const {
@@ -84,9 +77,9 @@ export default function ChatView() {
 	const uniCount = lastKnownCounts["university"] || 0;
 	const batchCount = lastKnownCounts["batchmate"] || 0;
 	const pinnedMessageIds = React.useMemo(() => new Set(pinnedMessages.map(pin => pin.messageId)), [pinnedMessages]);
-	const canCreatePoll = canPerform(chatRole, currentRoom?.policy.createPollRole);
-	const canAnnounce = canPerform(chatRole, currentRoom?.policy.createAnnouncementRole);
-	const canPin = canPerform(chatRole, currentRoom?.policy.pinMessageRole);
+	const canCreatePoll = canPerformChatAction(chatRole, currentRoom?.policy.createPollRole);
+	const canAnnounce = canPerformChatAction(chatRole, currentRoom?.policy.createAnnouncementRole);
+	const canPin = canPerformChatAction(chatRole, currentRoom?.policy.pinMessageRole);
 	const canModerate = chatRole === "MODERATOR" || chatRole === "ADMIN";
 	const canClosePoll = canCreatePoll;
 

@@ -8,13 +8,19 @@ import {
 	startsChatAuthorGroup,
 	type ChatDisplayMessage,
 	type ChatMessage,
+	type PinDuration,
+	type RoomPin,
 } from "@bhemu/shared";
 import { Colors, FontSize, FontWeight, Radius, Spacing } from "@/constants/Theme";
 import ChatMessageActionSheet from "./ChatMessageActionSheet";
 import ChatMessageBubble from "./ChatMessageBubble";
+import ChatPinnedMessagesBar from "./ChatPinnedMessagesBar";
 
 interface Props {
 	messages: ChatDisplayMessage[];
+	pinnedMessages: RoomPin[];
+	canPin: boolean;
+	canClosePoll: boolean;
 	currentUserId: string | null;
 	hasMore: boolean;
 	loadingMessages: boolean;
@@ -26,10 +32,16 @@ interface Props {
 	onReact: (messageId: string, emoji: string) => void;
 	onUnreact: (messageId: string) => void;
 	onReport: (messageId: string) => void;
+	onTogglePin: (messageId: string, duration?: PinDuration) => Promise<void>;
+	onVotePoll: (pollId: string, optionIds: string[]) => Promise<void>;
+	onClosePoll: (pollId: string) => Promise<void>;
 }
 
 export default function ChatMessageList({
 	messages,
+	pinnedMessages,
+	canPin,
+	canClosePoll,
 	currentUserId,
 	hasMore,
 	loadingMessages,
@@ -41,10 +53,15 @@ export default function ChatMessageList({
 	onReact,
 	onUnreact,
 	onReport,
+	onTogglePin,
+	onVotePoll,
+	onClosePoll,
 }: Props) {
 	const data = useMemo(() => [...messages].reverse(), [messages]);
+	const listRef = useRef<FlatList<ChatDisplayMessage>>(null);
 	const messageMap = useMemo(() => new Map(messages.map((message) => [message.id, message])), [messages]);
 	const messageMapRef = useRef(messageMap);
+	const pendingScrollMessageIdRef = useRef<string | null>(null);
 	useEffect(() => {
 		messageMapRef.current = messageMap;
 	}, [messageMap]);
@@ -53,6 +70,33 @@ export default function ChatMessageList({
 		const message = messageMapRef.current.get(messageId);
 		if (message) onReply(message);
 	}, [onReply]);
+	const scrollToMessage = useCallback((messageId: string) => {
+		const index = data.findIndex((message) => message.id === messageId);
+		if (index >= 0) {
+			listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+			return;
+		}
+		if (hasMore) {
+			pendingScrollMessageIdRef.current = messageId;
+			if (!loadingMessages) void onLoadOlder();
+		}
+	}, [data, hasMore, loadingMessages, onLoadOlder]);
+
+	useEffect(() => {
+		const messageId = pendingScrollMessageIdRef.current;
+		if (!messageId || loadingMessages) return;
+		const index = data.findIndex((message) => message.id === messageId);
+		if (index >= 0) {
+			pendingScrollMessageIdRef.current = null;
+			listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+			return;
+		}
+		if (hasMore) {
+			void onLoadOlder();
+			return;
+		}
+		pendingScrollMessageIdRef.current = null;
+	}, [data, hasMore, loadingMessages, onLoadOlder]);
 
 	const renderItem = useCallback<ListRenderItem<ChatDisplayMessage>>(
 		({ item, index }) => {
@@ -74,11 +118,14 @@ export default function ChatMessageList({
 						onRetry={onRetry}
 						onReact={onReact}
 						onUnreact={onUnreact}
+						canClosePoll={canClosePoll}
+						onVotePoll={onVotePoll}
+						onClosePoll={onClosePoll}
 					/>
 				</View>
 			);
 		},
-		[currentUserId, data, handleSwipeReply, messageMap, onReact, onRetry, onUnreact],
+		[currentUserId, data, handleSwipeReply, messageMap, onClosePoll, onReact, onRetry, onUnreact, onVotePoll, canClosePoll],
 	);
 
 	const empty = useMemo(
@@ -114,10 +161,19 @@ export default function ChatMessageList({
 	}, [data.length, hasMore, loadOlder, loadingMessages]);
 
 	const selectedMessage = actionsMessage ? messageMap.get(actionsMessage.id) ?? null : null;
+	const selectedMessageIsPinned = selectedMessage ? pinnedMessages.some((pin) => pin.messageId === selectedMessage.id) : false;
 
 	return (
 		<>
+			<ChatPinnedMessagesBar
+				pins={pinnedMessages}
+				messages={messages}
+				canManage={canPin}
+				onSelect={scrollToMessage}
+				onUnpin={onTogglePin}
+			/>
 			<FlatList
+				ref={listRef}
 				style={local.list}
 				data={data}
 				inverted
@@ -131,6 +187,9 @@ export default function ChatMessageList({
 				showsVerticalScrollIndicator={false}
 				keyboardShouldPersistTaps="handled"
 				keyboardDismissMode={"on-drag"}
+				onScrollToIndexFailed={({ index }) => {
+					setTimeout(() => listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 }), 100);
+				}}
 				initialNumToRender={20}
 				maxToRenderPerBatch={12}
 				windowSize={7}
@@ -148,6 +207,9 @@ export default function ChatMessageList({
 					onReact={onReact}
 					onUnreact={onUnreact}
 					onReport={onReport}
+					canPin={canPin}
+					isPinned={selectedMessageIsPinned}
+					onTogglePin={onTogglePin}
 				/>
 			) : null}
 		</>

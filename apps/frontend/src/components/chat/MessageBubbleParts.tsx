@@ -150,7 +150,7 @@ const URL_ONLY = /^https?:\/\//;
 
 export const MessageText = memo(function MessageText({ content, isPoll, isOwn }: MessageTextProps) {
 	return (
-		<span className={isPoll ? "whitespace-pre-wrap text-[16px] font-semibold leading-5 tracking-[-0.01em]" : "whitespace-pre-wrap"}>
+		<span className={isPoll ? "mb-1 block whitespace-pre-wrap text-[15px] font-semibold leading-5 tracking-[-0.01em]" : "whitespace-pre-wrap"}>
 			{content.split(URL_PARTS).map((part, index) =>
 				URL_ONLY.test(part) ? (
 					<a

@@ -24,7 +24,7 @@ const PinnedMessagesBar = memo(function PinnedMessagesBar({
 	const messageMap = new Map(messages.map((message) => [message.id, message]));
 	const visiblePins = pins.filter((pin) => {
 		const message = messageMap.get(pin.messageId);
-		return !(message?.type === "ANNOUNCEMENT" && message.visibility === "DELETED");
+		return message?.visibility !== "DELETED";
 	});
 
 	if (visiblePins.length === 0) return null;
