@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { initializeAuth, getAuth, GoogleAuthProvider, browserLocalPersistence, browserPopupRedirectResolver } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -15,8 +15,20 @@ const firebaseConfig = {
 // Initialize Firebase (safeguard for SSR re-initialization in Next.js)
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize Firebase Authentication and get a reference to the service
-export const auth = getAuth(app);
+// Initialize Firebase Authentication with localStorage persistence
+// (default IndexedDB persistence is blocked by some ad blockers, causing "Database is closing/hidden" errors)
+function getFirebaseAuth() {
+	try {
+		return initializeAuth(app, {
+			persistence: browserLocalPersistence,
+			popupRedirectResolver: browserPopupRedirectResolver,
+		});
+	} catch {
+		// Auth already initialized (Next.js HMR / SSR re-evaluation)
+		return getAuth(app);
+	}
+}
+export const auth = getFirebaseAuth();
 
 // Initialize Firestore and get a reference to the service
 export const db = getFirestore(app);

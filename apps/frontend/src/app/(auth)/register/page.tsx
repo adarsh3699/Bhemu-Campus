@@ -66,6 +66,7 @@ export default function RegisterPage() {
 		try {
 			setLoading(true);
 			await signInWithGoogle();
+			// If popup succeeded, redirect to gpa-calculator
 			showMessage("Successfully authenticated with Google. Welcome!", "success");
 			router.push("/gpa-calculator");
 		} catch (err: unknown) {

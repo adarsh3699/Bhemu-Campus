@@ -52,6 +52,7 @@ export default function LoginPage() {
 		try {
 			setLoading(true);
 			await signInWithGoogle();
+			// If popup succeeded, redirect to dashboard
 			showMessage("Successfully authenticated with Google. Welcome back!", "success");
 			router.push("/dashboard");
 		} catch (err: unknown) {
