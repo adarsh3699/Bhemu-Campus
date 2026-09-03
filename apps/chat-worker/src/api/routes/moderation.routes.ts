@@ -108,7 +108,7 @@ router.post("/pin/:roomId/:messageId", async (c) => {
 	try {
 		const body = validateBody(PinMessageSchema, await c.req.json().catch(() => ({})));
 		const db = createDb(c.env.DATABASE_URL);
-		const service = new ModerationService(db);
+		const service = new ModerationService(db, c.env, c.executionCtx.waitUntil.bind(c.executionCtx));
 
 		const broadcast = (roomId: string, payload: { event: string; data: unknown }) =>
 			broadcastToRoom(c.env, roomId, payload);

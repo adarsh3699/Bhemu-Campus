@@ -22,6 +22,8 @@ export interface AuthUser {
 export interface Env {
 	DATABASE_URL: string;
 	FIREBASE_PROJECT_ID: string;
+	/** JSON string of the service account key for FCM push auth. */
+	FIREBASE_SERVICE_ACCOUNT_KEY: string;
 	/** HMAC secret used for short-lived chat session tokens. */
 	CHAT_SESSION_SECRET: string;
 	CHAT_ROOM: DurableObjectNamespace;

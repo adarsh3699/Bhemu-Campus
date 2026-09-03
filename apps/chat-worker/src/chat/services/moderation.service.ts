@@ -14,6 +14,9 @@ import type { AuthUser } from "../../types";
 import type { ModerationAction } from "../../db/schema";
 import type { BroadcastFn } from "./message.service";
 import { PIN_DURATION_MS, type PinDuration } from "@bhemu/shared";
+import type { Env } from "../../types";
+import { sendFcmToTokens } from "../../lib/fcm";
+import { getFcmTokensForRoom } from "../../lib/firestoreTokens";
 
 export interface ModerationActionInput {
 	targetUserUid: string;
@@ -28,7 +31,11 @@ export class ModerationService {
 	private readonly pinRepo: PinRepository;
 	private readonly roomService: RoomService;
 
-	constructor(db: Database) {
+	constructor(
+		db: Database,
+		private readonly env?: Env,
+		private readonly bgTask?: (p: Promise<void>) => void
+	) {
 		this.modRepo = new ModerationRepository(db);
 		this.msgRepo = new MessageRepository(db);
 		this.pinRepo = new PinRepository(db);
@@ -154,6 +161,26 @@ export class ModerationService {
 				expiresAt: pin.expiresAt,
 			},
 		});
+
+		// Trigger Push Notifications (fire and forget)
+		if (this.env && msg) {
+			const dispatchPush = async () => {
+				const isText = msg.type === "TEXT" || msg.type === "ANNOUNCEMENT";
+				const bodyPreview = isText ? msg.content.substring(0, 50) : "Pinned an attachment";
+				const tokens = await getFcmTokensForRoom(
+					room ? room.type : "UNIVERSITY",
+					room ? room.groupKey : null,
+					this.env!
+				);
+				await sendFcmToTokens(tokens, {
+					title: `📌 Pinned in ${room.name}`,
+					body: bodyPreview,
+					data: { source: "bcampus-chat" }
+				}, this.env!);
+			};
+			if (this.bgTask) this.bgTask(dispatchPush());
+			else void dispatchPush();
+		}
 	}
 
 	async unpinMessage(

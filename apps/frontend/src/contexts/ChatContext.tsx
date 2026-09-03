@@ -15,6 +15,8 @@ import React, {
 } from "react";
 import { useAuth } from "@/firebase/AuthContext";
 import { useGpaData } from "@/contexts/GpaDataContext";
+import { doc, updateDoc } from "firebase/firestore";
+import { db } from "@/firebase/config";
 import {
 	apiGetUniversityRoom,
 	apiGetBatchmateRoom,
@@ -258,6 +260,19 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 		() => (currentProfile as (GPAProfile & { groupKey?: string | null }) | undefined)?.groupKey ?? null,
 		[currentProfile],
 	);
+	
+	// Keep the user's currentGroupKey updated in Firestore so the chat-worker
+	// knows which batchmate room to target for push notifications (even if 
+	// they are actively using the mobile app while changing profiles on web).
+	useEffect(() => {
+		if (currentUser) {
+			const userRef = doc(db, "users", currentUser.uid);
+			updateDoc(userRef, { currentGroupKey: groupKey }).catch(err => {
+				console.warn("Failed to sync currentGroupKey to user doc", err);
+			});
+		}
+	}, [currentUser, groupKey]);
+
 	const hasBatchmateRoom = !!groupKey;
 	const currentRoom = activeRoom === "university" ? universityRoom : batchmateRoom;
 	const currentUserId = currentUser?.uid ?? null;

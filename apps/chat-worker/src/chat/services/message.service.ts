@@ -29,6 +29,9 @@ import { decodeCursor, buildPaginatedResult, type PaginatedResult } from "../../
 import type { AuthUser } from "../../types";
 import { MAX_MESSAGE_LENGTH, MAX_ATTACHMENTS_PER_MESSAGE, MESSAGE_PAGE_SIZE } from "../../constants";
 import type { Message, Room, RoomPolicy } from "../../db/schema";
+import type { Env } from "../../types";
+import { sendFcmToTokens } from "../../lib/fcm";
+import { getFcmTokensForRoom, getFcmTokensForUser } from "../../lib/firestoreTokens";
 
 export interface AttachmentInput {
 	type: "IMAGE" | "DOCUMENT" | "GIF";
@@ -116,7 +119,11 @@ export class MessageService {
 	private readonly pinRepo: PinRepository;
 	private readonly roomService: RoomService;
 
-	constructor(db: Database) {
+	constructor(
+		db: Database,
+		private readonly env?: Env,
+		private readonly bgTask?: (p: Promise<void>) => void
+	) {
 		this.msgRepo = new MessageRepository(db);
 		this.roomRepo = new RoomRepository(db);
 		this.pinRepo = new PinRepository(db);
@@ -185,11 +192,13 @@ export class MessageService {
 		}
 
 		// Step 5 — Reply validation
+		let parentAuthorUid: string | null = null;
 		if (input.replyToMessageId) {
 			const parent = await this.msgRepo.findById(input.replyToMessageId);
 			if (!parent) throw Errors.messageNotFound();
 			if (parent.visibility === "DELETED") throw Errors.cannotReplyToDeleted();
 			if (parent.roomId !== input.roomId) throw Errors.replyAcrossRooms();
+			parentAuthorUid = parent.authorUid;
 		}
 
 		// Step 5 — Persist message, attachments, counter, and immutable room event
@@ -301,6 +310,39 @@ export class MessageService {
 				...(eventId && input.roomSeq ? { eventId, roomSeq: input.roomSeq } : {}),
 			},
 		});
+
+		// Trigger Push Notifications (fire and forget)
+		if (this.env) {
+			const dispatchPush = async () => {
+				const isText = msg.type === "TEXT" || msg.type === "ANNOUNCEMENT";
+				const bodyPreview = isText ? msg.content.substring(0, 50) : "Sent an attachment";
+				
+				if (msg.type === "ANNOUNCEMENT") {
+					const room = await this.roomRepo.findById(msg.roomId);
+					const roomName = room ? room.name : "the room";
+					const tokens = await getFcmTokensForRoom(
+						room ? room.type : "UNIVERSITY",
+						room ? room.groupKey : null,
+						this.env!
+					);
+					await sendFcmToTokens(tokens, {
+						title: `📢 Announcement in ${roomName}`,
+						body: `${msg.authorName}: ${bodyPreview}`,
+						data: { source: "bcampus-chat" }
+					}, this.env!);
+				} else if (parentAuthorUid && parentAuthorUid !== msg.authorUid) {
+					// It's a reply to someone else
+					const tokens = await getFcmTokensForUser(parentAuthorUid, this.env!);
+					await sendFcmToTokens(tokens, {
+						title: `${msg.authorName} replied to you`,
+						body: bodyPreview,
+						data: { source: "bcampus-chat" }
+					}, this.env!);
+				}
+			};
+			if (this.bgTask) this.bgTask(dispatchPush());
+			else void dispatchPush();
+		}
 
 		return { message: msg, created: true };
 	}

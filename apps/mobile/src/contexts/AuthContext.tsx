@@ -27,6 +27,7 @@ import { clearLocalSessionData } from "@/features/session/clearLocalSessionData"
 import { enableGpaCacheWrites } from "@/features/gpa-data/cache";
 import { enableChatCacheWrites } from "@/features/chat/cache";
 import { provisionNewUserProfile } from "@bhemu/firebase";
+import { registerFcmToken, unregisterFcmToken } from "@/features/notifications/fcmTokenService";
 
 const ACCOUNT_DELETING_KEY = STORAGE_KEYS.accountDeleting;
 
@@ -134,6 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		return createUserWithEmailAndPassword(auth, email, password).then(async (result) => {
 			if (displayName) await updateProfile(result.user, { displayName });
 			await saveUserData(result.user, true);
+			void registerFcmToken(result.user.uid);
 			return result;
 		});
 	}
@@ -141,6 +143,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	function login(email: string, password: string): Promise<UserCredential> {
 		return signInWithEmailAndPassword(auth, email, password).then(async (result) => {
 			await saveUserData(result.user);
+			// Fire-and-forget — never block login on token registration
+			void registerFcmToken(result.user.uid);
 			return result;
 		});
 	}
@@ -154,18 +158,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		const credential = GoogleAuthProvider.credential(idToken);
 		const result = await signInWithCredential(auth, credential);
 		await saveUserData(result.user, getAdditionalUserInfo(result)?.isNewUser ?? false);
+		void registerFcmToken(result.user.uid);
 		return result;
 	}
 
 	async function logout(): Promise<void> {
+		const uid = auth.currentUser?.uid;
 		const clearNotifications = import("@/features/notifications/notificationService")
 			.then(({ clearManagedNotifications }) => clearManagedNotifications())
 			.catch(() => {});
+		// Unregister FCM token before session is cleared
+		const clearFcmToken = uid ? unregisterFcmToken(uid).catch(() => {}) : Promise.resolve();
 
 		try {
 			// Complete local cleanup before changing auth state so no account-scoped
 			// cache can leak into the next signed-in session.
-			await Promise.all([clearLocalSessionData(), clearNotifications]);
+			await Promise.all([clearLocalSessionData(), clearNotifications, clearFcmToken]);
 			await signOut(auth);
 		} catch (error) {
 			// Keep the current session usable if Firebase rejects the sign-out.

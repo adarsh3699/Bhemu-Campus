@@ -2,6 +2,7 @@ import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { type TimetableEntry, type UMSLocalData, type UMSSeatingPlan, parseTimeMinutes, formatTimeToAmPm } from "@bhemu/shared";
 import type { NotificationSettings } from "./notificationSettings";
+import { isChatOpenRef } from "@/contexts/ChatContext";
 
 const CHANNEL_ID = "academic-reminders";
 const MANAGED_SOURCE = "bcampus-academic-reminder";
@@ -45,21 +46,28 @@ export function configureNotifications(): void {
 	configured = true;
 
 	Notifications.setNotificationHandler({
-		handleNotification: async () => ({
-			shouldShowBanner: true,
-			shouldShowList: true,
-			shouldPlaySound: true,
-			shouldSetBadge: false,
-		}),
+		handleNotification: async (notification) => {
+			const isChatPush = notification.request.content.data?.source === "bcampus-chat";
+			const chatIsOpen = isChatOpenRef.current;
+			const shouldSuppress = isChatPush && chatIsOpen;
+
+			return {
+				shouldShowBanner: !shouldSuppress,
+				shouldShowList: true,
+				shouldPlaySound: !shouldSuppress,
+				shouldSetBadge: false,
+			};
+		},
 	});
 }
 
-export type NotificationDestination = "/timetable" | "/seating-plan";
+export type NotificationDestination = "/timetable" | "/seating-plan" | "/(app)/(tabs)/chat";
 
 function getNotificationDestination(response: Notifications.NotificationResponse): NotificationDestination | null {
 	if (response.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) return null;
 
 	const content = response.notification.request.content;
+	if (content.data?.source === "bcampus-chat") return "/(app)/(tabs)/chat";
 	if (content.data?.source !== MANAGED_SOURCE) return null;
 
 	if (content.data.type === "timetable") return "/timetable";
@@ -208,6 +216,11 @@ async function ensureNotificationPermission(allowPrompt = true): Promise<boolean
 	if (Platform.OS === "android") {
 		await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
 			name: "Academic reminders",
+			importance: Notifications.AndroidImportance.HIGH,
+			vibrationPattern: [0, 250, 250, 250],
+		});
+		await Notifications.setNotificationChannelAsync("chat-messages", {
+			name: "Chat Notifications",
 			importance: Notifications.AndroidImportance.HIGH,
 			vibrationPattern: [0, 250, 250, 250],
 		});

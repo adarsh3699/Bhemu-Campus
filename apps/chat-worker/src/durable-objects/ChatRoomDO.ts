@@ -399,7 +399,11 @@ export class ChatRoomDO extends DurableObject<Env> {
 		};
 
 		try {
-			const service = new MessageService(createDb(this.workerEnv.DATABASE_URL));
+			const service = new MessageService(
+				createDb(this.workerEnv.DATABASE_URL),
+				this.workerEnv,
+				this.ctx.waitUntil.bind(this.ctx)
+			);
 			let result: Awaited<ReturnType<MessageService["createMessage"]>> | null = null;
 			const serviceStartedAt = Date.now();
 			for (let attempt = 0; attempt < 2; attempt += 1) {

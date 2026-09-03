@@ -247,13 +247,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	// Handle Google re-authentication fallback
 	async function _handleGoogleReAuthFallback(originalUserId: string, originalUserEmail: string, primaryError: unknown) {
 		const err = primaryError as FirebaseError;
-		const fallbackCodes = [
-			"auth/operation-not-supported-in-this-environment",
-			"auth/invalid-credential",
-			"auth/operation-not-allowed",
+		
+		// Don't fallback if the user explicitly cancelled or if the popup was blocked
+		const userCancelledCodes = [
+			"auth/popup-closed-by-user",
+			"auth/cancelled-popup-request",
+			"auth/popup-blocked"
 		];
 
-		if (!err.code || !fallbackCodes.includes(err.code)) {
+		if (err.code && userCancelledCodes.includes(err.code)) {
 			throw primaryError;
 		}
 

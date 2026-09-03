@@ -19,15 +19,30 @@ export const config: PlasmoCSConfig = {
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type !== 'GET_FIREBASE_TOKEN') return;
 
-  // Firebase v9+ stores auth state in IndexedDB, NOT localStorage.
-  // DB: "firebaseLocalStorageDb", store: "firebaseLocalStorage"
-  // Each record: { fbase_key: "firebase:authUser:{apiKey}:[DEFAULT]", value: {...} }
-  readFirebaseAuthFromIDB()
+  readFirebaseAuth()
     .then((authStateJson) => sendResponse({ authStateJson }))
     .catch(() => sendResponse({ authStateJson: null }));
 
   return true; // keep channel open for async response
 });
+
+async function readFirebaseAuth(): Promise<string | null> {
+  // First try localStorage (used to bypass ad blockers)
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('firebase:authUser:')) {
+        const value = localStorage.getItem(key);
+        if (value) return value;
+      }
+    }
+  } catch (e) {
+    console.error('authBridge: Error reading localStorage', e);
+  }
+
+  // Fallback to IndexedDB (for older sessions)
+  return readFirebaseAuthFromIDB();
+}
 
 function readFirebaseAuthFromIDB(): Promise<string | null> {
   return new Promise((resolve, reject) => {

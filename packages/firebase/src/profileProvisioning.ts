@@ -50,7 +50,6 @@ export async function provisionNewUserProfile(
 			photoURL: input.photoURL,
 			createdAt: serverTimestamp(),
 			lastLoginAt: serverTimestamp(),
-			initialProfileId: profileId,
 		});
 		transaction.set(profileRef, {
 			name,

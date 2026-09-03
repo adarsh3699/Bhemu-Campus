@@ -41,6 +41,7 @@ import {
 	writeChatRoomSequence,
 	writeChatRoomCache,
 } from "@/features/chat/cache";
+import { updateFcmTokenGroupKey } from "@/features/notifications/fcmTokenService";
 
 export type ActiveRoom = "university" | "batchmate";
 
@@ -77,6 +78,9 @@ interface ChatContextValue {
 }
 
 const ChatContext = createContext<ChatContextValue | undefined>(undefined);
+
+// Global ref exposed for the background notification handler to check if chat is currently focused.
+export const isChatOpenRef = { current: false };
 
 export function useChat(): ChatContextValue {
 	const context = useContext(ChatContext);
@@ -158,6 +162,16 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 	const syncRoomEventsRef = useRef<((roomId: string, after?: number) => Promise<void>) | null>(null);
 	const syncLatestMessagesRef = useRef<((roomId: string) => Promise<void>) | null>(null);
 	const syncingRoomRef = useRef<string | null>(null);
+
+	// Sync local open state to the exported global ref
+	useEffect(() => {
+		isChatOpenRef.current = isFocused;
+	}, [isFocused]);
+
+	// Keep the FCM token's groupKey up to date with the current profile
+	useEffect(() => {
+		if (currentUser) void updateFcmTokenGroupKey(currentUser.uid, groupKey);
+	}, [currentUser, groupKey]);
 
 	const getFirebaseToken = useCallback(
 		async (forceRefresh = false): Promise<string | null> => {
