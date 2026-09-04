@@ -1,11 +1,10 @@
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { Colors, FontSize, FontWeight, Radius, Shadow, Spacing } from "@/constants/Theme";
-import type { AppUpdateManifest, DownloadProgress } from "./types";
+import type { AppUpdateManifest } from "./types";
 
 interface AppUpdateDialogProps {
 	visible: boolean;
 	manifest: AppUpdateManifest | null;
-	progress: DownloadProgress | null;
 	status: "available" | "downloading" | "error";
 	errorMessage: string | null;
 	onUpdate: () => void;
@@ -18,7 +17,6 @@ interface AppUpdateDialogProps {
 export default function AppUpdateDialog({
 	visible,
 	manifest,
-	progress,
 	status,
 	errorMessage,
 	onUpdate,
@@ -31,7 +29,6 @@ export default function AppUpdateDialog({
 
 	const isDownloading = status === "downloading";
 	const isError = status === "error";
-	const percent = progress?.progress == null ? null : Math.min(100, Math.max(0, Math.round(progress.progress * 100)));
 
 	return (
 		<Modal visible={visible} transparent animationType="fade" onRequestClose={manifest.mandatory ? undefined : onLater}>
@@ -50,19 +47,14 @@ export default function AppUpdateDialog({
 					) : null}
 
 					{isDownloading ? (
-						<View style={local.progressSection} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: percent ?? undefined }}>
+						<View style={local.progressSection}>
 							<View style={local.progressHeader}>
-								<Text style={local.progressLabel}>{percent == null ? "Preparing download…" : "Downloading update…"}</Text>
-								{percent == null ? <ActivityIndicator size="small" color={Colors.secondary} /> : <Text style={local.progressPercent}>{`${percent}%`}</Text>}
+								<Text style={local.progressLabel}>Download started in background...</Text>
+								<ActivityIndicator size="small" color={Colors.secondary} />
 							</View>
-							{percent == null ? (
-								<Text style={local.helper}>Connecting to the release server…</Text>
-							) : (
-								<>
-									<View style={local.progressTrack}><View style={[local.progressFill, { width: `${percent}%` }]} /></View>
-									<Text style={local.helper}>Keep bCampus open while the APK downloads.</Text>
-								</>
-							)}
+							{manifest.mandatory ? (
+								<Text style={local.helper}>You can minimize the app or turn off your screen. Tap the notification when it completes to install.</Text>
+							) : null}
 						</View>
 					) : null}
 

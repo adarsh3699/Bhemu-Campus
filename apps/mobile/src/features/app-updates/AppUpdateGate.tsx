@@ -3,7 +3,7 @@ import { InteractionManager, Platform } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import AppUpdateDialog from "./AppUpdateDialog";
 import { checkForAppUpdate, deferAppUpdate, downloadAndLaunchApk, openInstallPermissionSettings, openUpdateWebsite } from "./service";
-import type { AvailableAppUpdate, DownloadProgress } from "./types";
+import type { AvailableAppUpdate } from "./types";
 
 type UpdateStatus = "available" | "downloading" | "error";
 
@@ -11,7 +11,6 @@ export default function AppUpdateGate() {
 	const { authLoading, launchReady, launchUser } = useAuth();
 	const [availableUpdate, setAvailableUpdate] = useState<AvailableAppUpdate | null>(null);
 	const [status, setStatus] = useState<UpdateStatus | null>(null);
-	const [progress, setProgress] = useState<DownloadProgress | null>(null);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	const mountedRef = useRef(true);
 
@@ -43,19 +42,19 @@ export default function AppUpdateGate() {
 	const handleUpdate = useCallback(async () => {
 		if (!availableUpdate) return;
 		setStatus("downloading");
-		setProgress(null);
 		setErrorMessage(null);
 		try {
-			await downloadAndLaunchApk(availableUpdate.manifest, setProgress);
+			await downloadAndLaunchApk(availableUpdate.manifest);
 			if (mountedRef.current) {
-				// The installer owns the next step. Re-check on the next app launch rather
-				// than trapping the user behind a completed download dialog.
-				setAvailableUpdate(null);
-				setStatus(null);
+				if (!availableUpdate.manifest.mandatory) {
+					// Hide the dialog for optional updates, allowing the user to use the app
+					setAvailableUpdate(null);
+					setStatus(null);
+				}
 			}
 		} catch (error) {
 			if (!mountedRef.current) return;
-			setErrorMessage(error instanceof Error ? error.message : "The update could not be installed.");
+			setErrorMessage(error instanceof Error ? error.message : "The update could not be started.");
 			setStatus("error");
 		}
 	}, [availableUpdate]);
@@ -82,7 +81,6 @@ export default function AppUpdateGate() {
 		<AppUpdateDialog
 			visible={availableUpdate !== null && status !== null}
 			manifest={availableUpdate?.manifest ?? null}
-			progress={progress}
 			status={status ?? "available"}
 			errorMessage={errorMessage}
 			onUpdate={() => void handleUpdate()}
