@@ -1,7 +1,7 @@
 "use client";
 
 import React, { memo, useCallback, useEffect, useRef, useState } from "react";
-import { BarChart3, Megaphone, Plus, Send, X } from "lucide-react";
+import { BarChart3, Megaphone, Plus, Send, X, Reply } from "lucide-react";
 import { MAX_CHAT_MESSAGE_LENGTH } from "@bhemu/shared";
 import type { ChatMessage } from "@bhemu/shared";
 
@@ -47,10 +47,10 @@ const MessageInput = memo(function MessageInput({
 	}, [toolsOpen]);
 
 	useEffect(() => {
-		if (announcementMode && !disabled) {
+		if ((announcementMode || replyTo) && !disabled) {
 			taRef.current?.focus();
 		}
-	}, [announcementMode, disabled]);
+	}, [announcementMode, replyTo, disabled]);
 
 	const autoResize = useCallback(() => {
 		const ta = taRef.current;
@@ -77,8 +77,11 @@ const MessageInput = memo(function MessageInput({
 		if (e.key === "Enter" && !e.shiftKey) {
 			e.preventDefault();
 			void submit();
+		} else if (e.key === "Escape") {
+			e.preventDefault();
+			onCancelReply();
 		}
-	}, [submit]);
+	}, [submit, onCancelReply]);
 
 	const handleCreatePoll = useCallback(() => {
 		setToolsOpen(false);
@@ -92,22 +95,6 @@ const MessageInput = memo(function MessageInput({
 
 	return (
 		<div className="sticky bottom-0 z-20 border-t border-white/10 bg-[#0b0d0f]/95 px-3 py-2 sm:px-5">
-			{replyTo && (
-				<div className="mb-2 flex items-center gap-2 border-l-2 border-primary bg-white/5 px-3 py-2 shadow-sm animate-in slide-in-from-bottom-2 duration-200">
-					<div className="min-w-0 flex-1 pl-2">
-						<p className="text-[11px] font-semibold text-primary uppercase tracking-wide mb-0.5">Replying to</p>
-						<p className="text-sm text-foreground/90 truncate">{replyTo.content}</p>
-					</div>
-					<button
-						type="button"
-						onClick={onCancelReply}
-						className="flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-						aria-label="Cancel reply"
-					>
-						<X className="w-3.5 h-3.5" />
-					</button>
-				</div>
-			)}
 			<div className="flex items-end gap-1.5">
 				{(canCreatePoll || canAnnounce) && (
 					<div ref={toolsRef} className="relative shrink-0">
@@ -141,17 +128,39 @@ const MessageInput = memo(function MessageInput({
 						)}
 					</div>
 				)}
-				<textarea
-					ref={taRef}
-					rows={1}
-					value={value}
-					maxLength={MAX_CHAT_MESSAGE_LENGTH}
-					onChange={e => { setValue(e.target.value); autoResize(); }}
-					onKeyDown={onKeyDown}
-					placeholder={disabled ? "Connecting…" : announcementMode ? "Write an announcement…" : placeholder}
-					disabled={disabled}
-					className="min-h-10 max-h-[120px] flex-1 resize-none rounded-xl border border-white/10 bg-[#15171a] px-3 py-2 text-[14px] leading-5 text-foreground placeholder:text-muted-foreground shadow-inner transition-[border-color,background-color,box-shadow] focus:border-primary/60 focus:bg-[#191c1f] focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
-				/>
+				
+				<div className="flex-1 flex flex-col overflow-hidden rounded-xl border border-white/10 bg-[#15171a] shadow-inner transition-[border-color,background-color,box-shadow] focus-within:border-primary/60 focus-within:bg-[#191c1f] focus-within:ring-2 focus-within:ring-primary/30">
+					{replyTo && (
+						<div className="flex items-center justify-between gap-2 px-3 pt-2 pb-0.5 animate-in slide-in-from-bottom-2 duration-200">
+							<div className="flex items-center gap-2 overflow-hidden">
+								<Reply className="size-4 shrink-0 text-primary" />
+								<div className="min-w-0 flex-1 border-l-[2px] border-primary pl-2">
+									<p className="text-[12px] font-semibold text-primary tracking-tight leading-tight mb-0.5">{replyTo.authorName || "User"}</p>
+									<p className="truncate text-[13px] text-white/70 leading-tight">{replyTo.content}</p>
+								</div>
+							</div>
+							<button
+								type="button"
+								onClick={onCancelReply}
+								className="flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+								aria-label="Cancel reply"
+							>
+								<X className="size-4" />
+							</button>
+						</div>
+					)}
+					<textarea
+						ref={taRef}
+						rows={1}
+						value={value}
+						maxLength={MAX_CHAT_MESSAGE_LENGTH}
+						onChange={e => { setValue(e.target.value); autoResize(); }}
+						onKeyDown={onKeyDown}
+						placeholder={disabled ? "Connecting…" : announcementMode ? "Write an announcement…" : placeholder}
+						disabled={disabled}
+						className="min-h-10 max-h-[120px] w-full resize-none bg-transparent px-3 py-2 text-[14px] leading-5 text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-50"
+					/>
+				</div>
 				<button
 					onClick={() => void submit()}
 					disabled={!value.trim() || disabled}

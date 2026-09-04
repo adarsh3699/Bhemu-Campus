@@ -248,6 +248,7 @@ export default function ChatView() {
 						onVotePoll={votePoll}
 						onClosePoll={closePoll}
 						highlightedMessageId={highlightedMessageId}
+						replyToId={replyTo?.id}
 					/>
 
 					{/* Input — allow typing while connecting; disable only if no room */}

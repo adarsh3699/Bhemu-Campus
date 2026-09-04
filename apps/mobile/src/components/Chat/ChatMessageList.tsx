@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View, Keyboard } from "react-native";
 import type { ListRenderItem } from "react-native";
 import {
 	formatChatDate,
@@ -113,7 +113,10 @@ export default function ChatMessageList({
 						repliedMessage={item.replyToMessageId ? messageMap.get(item.replyToMessageId) : undefined}
 						currentUserId={currentUserId}
 						showIdentity={!item.authorUid || item.authorUid !== currentUserId ? startsChatAuthorGroup(item, olderMessage) : false}
-						onLongPress={setActionsMessage}
+						onLongPress={(msg) => {
+							Keyboard.dismiss();
+							setActionsMessage(msg);
+						}}
 						onSwipeReply={handleSwipeReply}
 						onRetry={onRetry}
 						onReact={onReact}

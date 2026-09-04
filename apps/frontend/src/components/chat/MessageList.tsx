@@ -28,13 +28,14 @@ interface MessageListProps {
 	onVotePoll: (pollId: string, optionIds: string[]) => Promise<void>;
 	onClosePoll: (pollId: string) => Promise<void>;
 	highlightedMessageId?: string | null;
+	replyToId?: string | null;
 }
 
 const MessageList = memo(function MessageList({
 	messages, currentUserId, hasMore, loadingMessages,
 	onLoadOlder, onReply, onEdit, onDelete, onRetry, onReact, onUnreact, onReport,
 	pinnedMessageIds, canPin, canModerate, canClosePoll, onTogglePin, onModerationDelete, onModerate, onVotePoll, onClosePoll,
-	highlightedMessageId,
+	highlightedMessageId, replyToId,
 }: MessageListProps) {
 	const bottomRef = useRef<HTMLDivElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -79,6 +80,16 @@ const MessageList = memo(function MessageList({
 			if (scrollRafRef.current) cancelAnimationFrame(scrollRafRef.current);
 		};
 	}, []);
+
+	// Maintain scroll position when the reply box opens/closes
+	useEffect(() => {
+		if (isAtBottomRef.current) {
+			// Small timeout allows the DOM to render the new input height before we scroll
+			setTimeout(() => {
+				bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+			}, 50);
+		}
+	}, [replyToId]);
 
 	const oldFirstMsgRef = useRef<{ id: string; offsetTop: number } | null>(null);
 

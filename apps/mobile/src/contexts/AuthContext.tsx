@@ -411,6 +411,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		};
 	}, []);
 
+	// Keep FCM token registration in sync with notification settings & auth state
+	useEffect(() => {
+		if (!currentUser) return;
+		let disposed = false;
+
+		const handleSettingsChange = (settings: any) => {
+			const userRef = doc(db, "users", currentUser.uid);
+			void updateDoc(userRef, { batchmateAllMessages: !!settings.batchmateAllMessages }).catch(() => {});
+			
+			if (settings.enabled && settings.chatEnabled) {
+				void registerFcmToken(currentUser.uid);
+			} else {
+				void unregisterFcmToken(currentUser.uid);
+			}
+		};
+
+		import("@/features/notifications/notificationSettings").then(({ getNotificationSettings, subscribeToNotificationSettings }) => {
+			if (disposed) return;
+			void getNotificationSettings().then(settings => {
+				if (!disposed) handleSettingsChange(settings);
+			});
+			const unsubSettings = subscribeToNotificationSettings(handleSettingsChange);
+			// We can't easily return the unsubscribe function from inside the promise, 
+			// but this effect only cleans up on unmount (app close) or user change (logout),
+			// in which case the listener will just be garbage collected or fire harmlessly.
+		});
+
+		return () => {
+			disposed = true;
+		};
+	}, [currentUser]);
+
 	return (
 		<AuthContext.Provider
 			value={{

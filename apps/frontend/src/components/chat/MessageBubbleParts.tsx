@@ -52,6 +52,7 @@ interface MessageRowProps {
 	showIdentity: boolean;
 	isOwn: boolean;
 	onContextMenu?: MouseEventHandler<HTMLElement>;
+	onDoubleClick?: MouseEventHandler<HTMLElement>;
 	children: ReactNode;
 }
 
@@ -61,12 +62,14 @@ export const MessageRow = memo(function MessageRow({
 	showIdentity,
 	isOwn,
 	onContextMenu,
+	onDoubleClick,
 	children,
 }: MessageRowProps) {
 	return (
 		<div
 			onContextMenu={onContextMenu}
-			className={`group flex items-end gap-2.5 ${showIdentity ? "mt-3" : "mt-0.5"} ${isOwn ? "flex-row-reverse" : "flex-row"}`}
+			onDoubleClick={onDoubleClick}
+			className={`group flex w-full items-end gap-2.5 ${showIdentity ? "mt-3" : "mt-0.5"} ${isOwn ? "flex-row-reverse" : "flex-row"}`}
 		>
 			{!isOwn && (
 				<MessageIdentity
@@ -221,7 +224,6 @@ interface MessageActionsProps {
 	reactionTrayOpen: boolean;
 	reactionRef: RefObject<HTMLDivElement | null>;
 	onToggleReactionTray: () => void;
-	onReply: (message: ChatDisplayMessage) => void;
 	onReact: (messageId: string, emoji: string) => void;
 	onUnreact: (messageId: string) => void;
 }
@@ -235,7 +237,6 @@ export const MessageActions = memo(function MessageActions({
 	reactionTrayOpen,
 	reactionRef,
 	onToggleReactionTray,
-	onReply,
 	onReact,
 	onUnreact,
 }: MessageActionsProps) {
@@ -288,15 +289,6 @@ export const MessageActions = memo(function MessageActions({
 					</div>
 				)}
 			</div>
-			<button
-				type="button"
-				onClick={() => onReply(message)}
-				className="flex size-9 items-center justify-center rounded-full border border-white/10 bg-[#1a1f20] text-muted-foreground shadow-sm transition-colors hover:border-white/20 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-				title="Reply"
-				aria-label="Reply to message"
-			>
-				<Reply className="size-4" />
-			</button>
 		</div>
 	);
 });

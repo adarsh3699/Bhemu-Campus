@@ -2,11 +2,11 @@
 
 This project has two update systems. Use this rule every time:
 
-| You changed... | Publish with... | User installs a new APK? |
-| --- | --- | --- |
-| React/TypeScript code, screens, text, styles, or bundled images | EAS Update (OTA) | No |
-| A native package, Expo SDK, permission, Firebase native file, `app.json`, or Android/iOS config | EAS Build (APK) | Yes |
-| A change that must be installed by everyone | APK + `mandatory: true` | Yes |
+| You changed...                                                                                  | Publish with...         | User installs a new APK? |
+| ----------------------------------------------------------------------------------------------- | ----------------------- | ------------------------ |
+| React/TypeScript code, screens, text, styles, or bundled images                                 | EAS Update (OTA)        | No                       |
+| A native package, Expo SDK, permission, Firebase native file, `app.json`, or Android/iOS config | EAS Build (APK)         | Yes                      |
+| A change that must be installed by everyone                                                     | APK + `mandatory: true` | Yes                      |
 
 OTA cannot add native code. If you are unsure, ship an APK.
 
@@ -116,16 +116,16 @@ Use this for JavaScript-only work.
 2. Confirm it does not require a new native dependency, permission, or config plugin.
 3. Run checks:
 
-   ```bash
-   pnpm typecheck
-   pnpm lint
-   ```
+    ```bash
+    pnpm typecheck
+    pnpm lint
+    ```
 
 4. Publish to the channel used by the installed APK:
 
-   ```bash
-   eas update --channel production --message "Fix attendance totals"
-   ```
+    ```bash
+    eas update --channel production --message "Fix attendance totals"
+    ```
 
 5. Open the app, wait for the update check, force-close it, and reopen it.
 
@@ -158,9 +158,9 @@ Change this field for a new APK release:
 ```jsonc
 // apps/mobile/app.json
 {
-  "expo": {
-    "version": "1.1.2"
-  }
+	"expo": {
+		"version": "1.1.2",
+	},
 }
 ```
 
@@ -195,7 +195,7 @@ gh release create mobile-v1.1.2 /path/to/bcampus-mobile-v1.1.2.apk \
   --repo adarsh3699/Bhemu-Campus \
   --title "[Mobile] bCampus v1.1.2" \
   --notes "Mobile APK release for bCampus v1.1.2" \
-  --latest=false
+  --latest=true
 ```
 
 Copy the asset's public HTTPS download URL after upload. Do not use a private, expiring, or `latest.apk` URL. `--latest=false` keeps this mobile release from replacing the extension release shown as the repository's latest release. Existing extension releases such as `ext-v1.2.1` remain unchanged.
@@ -208,9 +208,9 @@ After the APK is uploaded and tested, edit `apps/frontend/src/lib/mobileRelease.
 
 - the update endpoint:
 
-  ```text
-  https://campus.bhemu.in/mobile/update.json
-  ```
+    ```text
+    https://campus.bhemu.in/mobile/update.json
+    ```
 
 - all mobile download CTAs on the landing page.
 
@@ -221,14 +221,11 @@ Example source for a normal optional update:
 ```ts
 // apps/frontend/src/lib/mobileRelease.ts
 export const MOBILE_RELEASE = {
-  version: "1.1.2",
-  apkUrl: "https://github.com/adarsh3699/Bhemu-Campus/releases/download/mobile-v1.1.2/bcampus-mobile-v1.1.2.apk",
-  websiteUrl: "https://campus.bhemu.in/",
-  releaseNotes: [
-    "Faster GPA calculations",
-    "Improved attendance sync",
-  ],
-  mandatory: false,
+	version: "1.1.2",
+	apkUrl: "https://github.com/adarsh3699/Bhemu-Campus/releases/download/mobile-v1.1.2/bcampus-mobile-v1.1.2.apk",
+	websiteUrl: "https://campus.bhemu.in/",
+	releaseNotes: ["Faster GPA calculations", "Improved attendance sync"],
+	mandatory: false,
 } as const;
 ```
 
@@ -252,11 +249,11 @@ Set `mandatory` to `true` only when users must install the APK before continuing
 
 ```json
 {
-  "version": "2.0.0",
-  "apkUrl": "https://example.com/bcampus-2.0.0.apk",
-  "websiteUrl": "https://campus.bhemu.in/",
-  "releaseNotes": ["Required security update"],
-  "mandatory": true
+	"version": "2.0.0",
+	"apkUrl": "https://example.com/bcampus-2.0.0.apk",
+	"websiteUrl": "https://campus.bhemu.in/",
+	"releaseNotes": ["Required security update"],
+	"mandatory": true
 }
 ```
 
@@ -264,16 +261,16 @@ For optional updates, users can choose **Later**. The app asks again after the d
 
 ## Version examples
 
-| Release | Change `expo.version`? | Build APK? | Publish OTA? |
-| --- | ---: | ---: | ---: |
-| Fix a typo in a screen | No | No | Yes |
-| Add a new React screen | No | No | Yes |
-| Large UI redesign with no native changes | No | No | Yes |
-| Want the installed app to display a new version | Yes | Yes | Optional follow-up only |
-| Add `expo-camera` | Yes | Yes | Optional follow-up only |
-| Add an Android permission | Yes | Yes | Optional follow-up only |
-| Upgrade Expo SDK | Yes | Yes | Optional follow-up only |
-| Security fix requiring native code | Yes | Yes | Usually mandatory |
+| Release                                         | Change `expo.version`? | Build APK? |            Publish OTA? |
+| ----------------------------------------------- | ---------------------: | ---------: | ----------------------: |
+| Fix a typo in a screen                          |                     No |         No |                     Yes |
+| Add a new React screen                          |                     No |         No |                     Yes |
+| Large UI redesign with no native changes        |                     No |         No |                     Yes |
+| Want the installed app to display a new version |                    Yes |        Yes | Optional follow-up only |
+| Add `expo-camera`                               |                    Yes |        Yes | Optional follow-up only |
+| Add an Android permission                       |                    Yes |        Yes | Optional follow-up only |
+| Upgrade Expo SDK                                |                    Yes |        Yes | Optional follow-up only |
+| Security fix requiring native code              |                    Yes |        Yes |       Usually mandatory |
 
 ## Rollback and safety
 
@@ -283,15 +280,15 @@ For optional updates, users can choose **Later**. The app asks again after the d
 - Keep the manifest endpoint stable. If the host changes, keep the old URL working with a redirect or proxy.
 - Leave `MOBILE_RELEASE.apkUrl` empty when no APK release is available:
 
-  ```ts
-  export const MOBILE_RELEASE = {
-    version: "1.0.0",
-    apkUrl: "",
-    websiteUrl: "https://campus.bhemu.in/",
-    releaseNotes: [],
-    mandatory: false,
-  } as const;
-  ```
+    ```ts
+    export const MOBILE_RELEASE = {
+    	version: "1.0.0",
+    	apkUrl: "",
+    	websiteUrl: "https://campus.bhemu.in/",
+    	releaseNotes: [],
+    	mandatory: false,
+    } as const;
+    ```
 
 ## Release checklist
 

@@ -20,6 +20,8 @@ Last updated: 2026-07-22 (leaderboard: switched `name` to profile display name, 
 | updatedAt         | Timestamp                             | Updated whenever profile fields change                                       |
 | hasPassword       | boolean                               | `true` if email/password is linked                                           |
 | passwordUpdatedAt | Timestamp?                            | Set when password changes                                                    |
+| currentGroupKey   | string?                               | Used by chat-worker to route batchmate pushes. Re-synced when profile changes.               |
+| batchmateAllMessages | boolean?                           | If true, the user receives push notifications for *all* messages in their batchmate room.    |
 
 ### `Moderation`
 

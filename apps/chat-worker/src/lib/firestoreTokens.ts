@@ -92,7 +92,12 @@ export async function getFcmTokensForUser(uid: string, env: Env): Promise<string
  * Returns all FCM tokens in a given room (University or Batchmate).
  * Queries the "users" collection for matching currentGroupKey.
  */
-export async function getFcmTokensForRoom(roomType: string, groupKey: string | null, env: Env): Promise<string[]> {
+export async function getFcmTokensForRoom(
+	roomType: string, 
+	groupKey: string | null, 
+	env: Env,
+	onlyAllMessages: boolean = false
+): Promise<string[]> {
 	const projectId = env.FIREBASE_PROJECT_ID;
 	const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:runQuery`;
 	
@@ -129,23 +134,32 @@ export async function getFcmTokensForRoom(roomType: string, groupKey: string | n
 		});
 
 		if (!res.ok) {
-			const text = await res.text();
-			throw new Error(`Firestore query failed: ${res.status} ${text}`);
+			console.error(`[FCM] Datastore query failed: ${res.status}`);
+			return [];
 		}
 
-		const results = await res.json() as RunQueryResponse[];
-		const tokens: string[] = [];
+		const resData = await res.json() as RunQueryResponse[];
 		
-		for (const result of results) {
-			if (result.document) {
-				const data = parseFirestoreDocument(result.document);
-				if (Array.isArray(data.fcmTokens)) {
-					tokens.push(...(data.fcmTokens as string[]));
+		const allTokens = new Set<string>();
+		
+		for (const d of resData) {
+			if (!d.document) continue;
+			const data = parseFirestoreDocument(d.document);
+			
+			if (onlyAllMessages && data.batchmateAllMessages !== true) {
+				continue;
+			}
+
+			if (Array.isArray(data.fcmTokens)) {
+				for (const t of data.fcmTokens) {
+					if (typeof t === "string" && t.length > 0) {
+						allTokens.add(t);
+					}
 				}
 			}
 		}
 		
-		return tokens;
+		return Array.from(allTokens);
 	} catch (error) {
 		logger.error("firestore.room_read_failed", { roomType, groupKey, error: String(error) });
 		return [];

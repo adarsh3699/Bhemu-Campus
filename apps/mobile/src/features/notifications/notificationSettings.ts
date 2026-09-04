@@ -9,6 +9,8 @@ export const EXAM_REMINDER_HOURS = [6, 8, 10, 12, 18] as const;
 
 export type NotificationSettings = {
 	enabled: boolean;
+	chatEnabled: boolean;
+	batchmateAllMessages: boolean;
 	timetableEnabled: boolean;
 	examEnabled: boolean;
 	firstClassMinutes: (typeof REMINDER_MINUTES)[number];
@@ -19,6 +21,8 @@ export type NotificationSettings = {
 
 export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
 	enabled: true,
+	chatEnabled: true,
+	batchmateAllMessages: false,
 	timetableEnabled: true,
 	examEnabled: true,
 	firstClassMinutes: 15,
@@ -41,6 +45,8 @@ function parseSettings(raw: string | null): NotificationSettings {
 		const parsed = JSON.parse(raw) as Partial<NotificationSettings>;
 		return {
 			enabled: typeof parsed.enabled === "boolean" ? parsed.enabled : DEFAULT_NOTIFICATION_SETTINGS.enabled,
+			chatEnabled: typeof parsed.chatEnabled === "boolean" ? parsed.chatEnabled : DEFAULT_NOTIFICATION_SETTINGS.chatEnabled,
+			batchmateAllMessages: typeof parsed.batchmateAllMessages === "boolean" ? parsed.batchmateAllMessages : DEFAULT_NOTIFICATION_SETTINGS.batchmateAllMessages,
 			timetableEnabled:
 				typeof parsed.timetableEnabled === "boolean"
 					? parsed.timetableEnabled

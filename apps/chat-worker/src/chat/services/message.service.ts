@@ -317,13 +317,16 @@ export class MessageService {
 				const isText = msg.type === "TEXT" || msg.type === "ANNOUNCEMENT";
 				const bodyPreview = isText ? msg.content.substring(0, 50) : "Sent an attachment";
 				
+				const room = await this.roomRepo.findById(msg.roomId);
+				const roomName = room ? room.name : "the room";
+				const roomType = room ? room.type : "UNIVERSITY";
+
 				if (msg.type === "ANNOUNCEMENT") {
-					const room = await this.roomRepo.findById(msg.roomId);
-					const roomName = room ? room.name : "the room";
 					const tokens = await getFcmTokensForRoom(
-						room ? room.type : "UNIVERSITY",
+						roomType,
 						room ? room.groupKey : null,
-						this.env!
+						this.env!,
+						false // All users get announcements
 					);
 					await sendFcmToTokens(tokens, {
 						title: `📢 Announcement in ${roomName}`,
@@ -336,6 +339,24 @@ export class MessageService {
 					await sendFcmToTokens(tokens, {
 						title: `${msg.authorName} replied to you`,
 						body: bodyPreview,
+						data: { source: "bcampus-chat" }
+					}, this.env!);
+				} else if (roomType === "BATCHMATE") {
+					// Standard message in batchmate room, target users who opted in to ALL messages
+					const tokens = await getFcmTokensForRoom(
+						roomType,
+						room ? room.groupKey : null,
+						this.env!,
+						true // onlyAllMessages = true
+					);
+					// Filter out the sender's own tokens to avoid sending push to the person who sent the message
+					const senderTokens = await getFcmTokensForUser(msg.authorUid, this.env!);
+					const senderTokenSet = new Set(senderTokens);
+					const recipientTokens = tokens.filter(t => !senderTokenSet.has(t));
+					
+					await sendFcmToTokens(recipientTokens, {
+						title: `New message in ${roomName}`,
+						body: `${msg.authorName}: ${bodyPreview}`,
 						data: { source: "bcampus-chat" }
 					}, this.env!);
 				}

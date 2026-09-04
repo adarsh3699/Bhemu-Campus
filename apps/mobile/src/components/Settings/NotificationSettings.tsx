@@ -281,6 +281,58 @@ export default function NotificationSettings() {
 						) : null}
 					</View>
 
+					<View style={local.preferenceGroup}>
+						<Pressable
+							style={({ pressed }) => [local.sectionHeader, pressed && local.pressed]}
+							onPress={() => void updateSettings({ chatEnabled: !settings.chatEnabled })}
+							accessibilityRole="switch"
+							accessibilityLabel="Chat notifications"
+							accessibilityState={{ checked: settings.chatEnabled }}
+						>
+							<View style={local.rowIcon}>
+								<Send size={17} color={settings.chatEnabled ? Colors.primary : Colors.textSubtle} />
+							</View>
+							<View style={local.rowContent}>
+								<Text style={local.rowTitle}>Chat notifications</Text>
+								<Text style={local.rowSub}>
+									{settings.chatEnabled
+										? "Receive chat messages and announcements"
+										: "Chat notifications are paused"}
+								</Text>
+							</View>
+							<SwitchControl
+								value={settings.chatEnabled}
+								onValueChange={(chatEnabled) => void updateSettings({ chatEnabled })}
+							/>
+							{settings.chatEnabled ? (
+								<ChevronDown size={17} color={Colors.textSubtle} />
+							) : null}
+						</Pressable>
+						
+						{settings.chatEnabled ? (
+							<View style={local.optionsGroup}>
+								<Pressable
+									style={({ pressed }) => [local.optionRow, pressed && local.pressed]}
+									onPress={() => void updateSettings({ batchmateAllMessages: !settings.batchmateAllMessages })}
+									accessibilityRole="switch"
+								>
+									<View style={local.rowContent}>
+										<Text style={local.optionTitle}>Batchmate room</Text>
+										<Text style={local.rowSub}>
+											{settings.batchmateAllMessages 
+												? "Alerts for all standard messages" 
+												: "Only alerts for announcements & replies"}
+										</Text>
+									</View>
+									<SwitchControl
+										value={settings.batchmateAllMessages}
+										onValueChange={(batchmateAllMessages) => void updateSettings({ batchmateAllMessages })}
+									/>
+								</Pressable>
+							</View>
+						) : null}
+					</View>
+
 					<Text style={local.helperText}>Changes automatically replace the reminders already scheduled.</Text>
 				</>
 			)}

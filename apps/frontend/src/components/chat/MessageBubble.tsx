@@ -195,6 +195,10 @@ const MessageBubble = memo(function MessageBubble({
 			onModerationDelete={(messageId) => void onModerationDelete(messageId)}
 			onTogglePin={(messageId, duration) => void onTogglePin(messageId, duration)}
 			onModerate={onModerate}
+			onReply={() => onReply(message)}
+			onReact={onReact}
+			onUnreact={onUnreact}
+			currentUserId={currentUserId}
 		/>
 	) : null;
 
@@ -254,6 +258,7 @@ const MessageBubble = memo(function MessageBubble({
 			showIdentity={showIdentity}
 			isOwn={isOwn}
 			onContextMenu={handleContextMenu}
+			onDoubleClick={() => onReply(message)}
 		>
 			<div
 				className={`relative flow-root min-w-[72px] rounded-xl border px-2 py-0.5 text-[14px] font-normal leading-5 break-words select-text shadow-[0_4px_12px_rgba(0,0,0,0.16)] transition-[border-color,background-color,box-shadow] ${
@@ -330,7 +335,6 @@ const MessageBubble = memo(function MessageBubble({
 				reactionTrayOpen={reactionTrayOpen}
 				reactionRef={reactionRef}
 				onToggleReactionTray={toggleReactionTray}
-				onReply={onReply}
 				onReact={onReact}
 				onUnreact={onUnreact}
 			/>

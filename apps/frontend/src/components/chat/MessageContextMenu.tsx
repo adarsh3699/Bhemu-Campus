@@ -2,8 +2,8 @@
 
 import { createPortal } from "react-dom";
 import { useState, type RefObject } from "react";
-import { ChevronLeft, Flag, Pencil, Pin, PinOff, ShieldAlert, Trash2, type LucideIcon } from "lucide-react";
-import { PIN_DURATION_OPTIONS, type ChatDisplayMessage, type PinDuration } from "@bhemu/shared";
+import { ChevronLeft, Flag, Pencil, Pin, PinOff, ShieldAlert, Trash2, Reply, type LucideIcon } from "lucide-react";
+import { PIN_DURATION_OPTIONS, type ChatDisplayMessage, type PinDuration, QUICK_CHAT_REACTIONS } from "@bhemu/shared";
 
 export interface MenuPosition {
 	top: number;
@@ -25,6 +25,10 @@ interface MessageContextMenuProps {
 	onModerationDelete: (messageId: string) => void;
 	onTogglePin: (messageId: string, duration?: PinDuration) => void;
 	onModerate: (message: ChatDisplayMessage) => void;
+	onReply: () => void;
+	onReact: (messageId: string, emoji: string) => void;
+	onUnreact: (messageId: string) => void;
+	currentUserId: string | null;
 }
 
 interface MenuItemProps {
@@ -77,6 +81,10 @@ export default function MessageContextMenu({
 	onModerationDelete,
 	onTogglePin,
 	onModerate,
+	onReply,
+	onReact,
+	onUnreact,
+	currentUserId,
 }: MessageContextMenuProps) {
 	const [showPinDurations, setShowPinDurations] = useState(false);
 
@@ -92,6 +100,9 @@ export default function MessageContextMenu({
 	};
 
 	const items: MenuItemProps[] = [];
+	
+	items.push({ icon: Reply, label: "Reply", onSelect: () => { onClose(); onReply(); } });
+
 	if (isOwn) {
 		items.push(
 			{ icon: Pencil, label: "Edit", onSelect: () => { onClose(); onEdit(message); } },
@@ -157,7 +168,29 @@ export default function MessageContextMenu({
 					</div>
 				</>
 			) : (
-				items.map((item) => <MenuItem key={item.label} {...item} />)
+				<>
+					<div className="flex items-center justify-between px-2 pb-1.5 pt-0.5 border-b border-white/10 mb-1.5" role="group" aria-label="Reactions">
+						{QUICK_CHAT_REACTIONS.map((emoji) => {
+							const hasReacted = message.reactions?.some((r) => r.userUid === currentUserId && r.emoji === emoji);
+							return (
+								<button
+									key={emoji}
+									type="button"
+									onClick={() => {
+										onClose();
+										if (hasReacted) onUnreact(message.id);
+										else onReact(message.id, emoji);
+									}}
+									className={`flex size-7 items-center justify-center rounded-full text-[16px] transition-transform hover:scale-110 active:scale-95 ${hasReacted ? "bg-white/15" : "hover:bg-white/10"}`}
+									title={emoji}
+								>
+									{emoji}
+								</button>
+							);
+						})}
+					</div>
+					{items.map((item) => <MenuItem key={item.label} {...item} />)}
+				</>
 			)}
 		</div>,
 		document.body,
