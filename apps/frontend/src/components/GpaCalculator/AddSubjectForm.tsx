@@ -54,11 +54,17 @@ export default function AddSubjectForm({
 	const [showForm, setShowForm] = useState(false);
 	const [extensionModalOpen, setExtensionModalOpen] = useState(false);
 
-	const toN = (v: string) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
-	const runningTotal = toN(formState.ca) + toN(formState.midTerm) + toN(formState.endTerm) + toN(formState.attendanceMarks);
+	const toN = (v: string) => {
+		const n = parseFloat(v);
+		return isNaN(n) ? 0 : n;
+	};
+	const runningTotal =
+		toN(formState.ca) + toN(formState.midTerm) + toN(formState.endTerm) + toN(formState.attendanceMarks);
 	const totalOver = runningTotal > 100;
 
-	const selectedGrade = SELECTABLE_GRADES.find((g) => String(g.gradePoint) === formState.grade && formState.grade !== "");
+	const selectedGrade = SELECTABLE_GRADES.find(
+		(g) => String(g.gradePoint) === formState.grade && formState.grade !== ""
+	);
 	const selectedGradeEntry = SELECTABLE_GRADES.find((g) => g.grade === selectedGrade?.grade);
 
 	const handleGradePick = (gradePoint: string) => {
@@ -86,7 +92,7 @@ export default function AddSubjectForm({
 					className="flex items-center gap-1.5 py-1.5 px-3 text-xs font-semibold text-violet-400 border border-violet-400/30 rounded-xl bg-violet-400/5 hover:bg-violet-400/15 transition-all duration-200"
 				>
 					<Puzzle className="w-3.5 h-3.5" />
-					UMS Extension
+					Sync With UMS
 				</button>
 				<button
 					onClick={() => (!isReadOnly && semesterName ? setShowForm((v) => !v) : undefined)}
@@ -133,17 +139,26 @@ export default function AddSubjectForm({
 					{mode === "grades" && (
 						<div className="flex flex-col gap-2">
 							<div className="flex items-center gap-1.5">
-								<span className="text-xs font-bold text-neutral-300 uppercase tracking-wider">Grade</span>
+								<span className="text-xs font-bold text-neutral-300 uppercase tracking-wider">
+									Grade
+								</span>
 								{onInfoClick && (
-									<button type="button" onClick={(e) => onInfoClick("grade", e)} className="text-neutral-400 hover:text-white transition-colors">
+									<button
+										type="button"
+										onClick={(e) => onInfoClick("grade", e)}
+										className="text-neutral-400 hover:text-white transition-colors"
+									>
 										<Info className="w-3.5 h-3.5" />
 									</button>
 								)}
 								{selectedGradeEntry && (
 									<span className="ml-auto text-xs text-neutral-400">
-										<span className={`font-black bg-gradient-to-r ${GRADE_COLOR[selectedGradeEntry.grade] ?? "from-white to-white"} bg-clip-text text-transparent`}>
+										<span
+											className={`font-black bg-gradient-to-r ${GRADE_COLOR[selectedGradeEntry.grade] ?? "from-white to-white"} bg-clip-text text-transparent`}
+										>
 											{selectedGradeEntry.grade}
-										</span>{" "}— {selectedGradeEntry.performance}
+										</span>{" "}
+										— {selectedGradeEntry.performance}
 									</span>
 								)}
 							</div>
@@ -162,10 +177,18 @@ export default function AddSubjectForm({
 													: "bg-white/5 border-white/10 text-neutral-300 hover:bg-white/10"
 											}`}
 										>
-											<span className={isSelected ? "text-white" : `bg-gradient-to-r ${colorClass} bg-clip-text text-transparent`}>
+											<span
+												className={
+													isSelected
+														? "text-white"
+														: `bg-gradient-to-r ${colorClass} bg-clip-text text-transparent`
+												}
+											>
 												{grade}
 											</span>
-											<span className={`ml-1.5 text-[10px] ${isSelected ? "text-white/70" : "text-neutral-500"}`}>
+											<span
+												className={`ml-1.5 text-[10px] ${isSelected ? "text-white/70" : "text-neutral-500"}`}
+											>
 												{gradePoint}
 											</span>
 										</button>
@@ -190,15 +213,21 @@ export default function AddSubjectForm({
 										onChange={onChange}
 										placeholder={["CA", "Mid", "End", "Att."][i]}
 										className={`px-3 py-2 border rounded-lg bg-white/5 text-sm text-white placeholder:text-neutral-500 focus:outline-none transition-all ${
-											totalOver ? "border-red-500/50 focus:border-red-500" : "border-white/10 focus:border-indigo-500"
+											totalOver
+												? "border-red-500/50 focus:border-red-500"
+												: "border-white/10 focus:border-indigo-500"
 										}`}
 									/>
 								))}
 							</div>
 							{totalOver ? (
-								<p className="text-xs text-red-400 font-medium">Total marks ({runningTotal}) exceed 100.</p>
+								<p className="text-xs text-red-400 font-medium">
+									Total marks ({runningTotal}) exceed 100.
+								</p>
 							) : runningTotal > 0 ? (
-								<p className="text-xs text-neutral-400">Total: <span className="text-white font-semibold">{runningTotal}</span> / 100</p>
+								<p className="text-xs text-neutral-400">
+									Total: <span className="text-white font-semibold">{runningTotal}</span> / 100
+								</p>
 							) : null}
 						</>
 					)}
@@ -208,7 +237,9 @@ export default function AddSubjectForm({
 						disabled={submitDisabled}
 						className="w-full flex items-center justify-center gap-2 py-2 text-sm font-bold rounded-lg bg-teal-500/20 border border-teal-500/30 text-teal-400 hover:bg-teal-500/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
 					>
-						{saving && <div className="w-3.5 h-3.5 border-2 border-teal-400/30 border-t-teal-400 rounded-full animate-spin" />}
+						{saving && (
+							<div className="w-3.5 h-3.5 border-2 border-teal-400/30 border-t-teal-400 rounded-full animate-spin" />
+						)}
 						{saving ? "Saving..." : "Add Subject"}
 					</button>
 				</form>

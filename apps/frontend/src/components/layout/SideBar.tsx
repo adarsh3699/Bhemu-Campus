@@ -202,7 +202,7 @@ export default function SideBar({ isOpen, onClose }: SideBarProps) {
 						className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group text-violet-400 hover:text-violet-300 hover:bg-violet-500/10 border-l-4 border-transparent rounded-l-none pl-2 w-full text-left"
 					>
 						<Puzzle className="w-4 h-4 shrink-0" />
-						UMS Extension
+						Sync With UMS
 					</button>
 
 					<a
@@ -218,7 +218,9 @@ export default function SideBar({ isOpen, onClose }: SideBarProps) {
 						</span>
 						<span className="min-w-0 flex-1">
 							<span className="block text-xs font-semibold text-white">Get the bCampus app</span>
-							<span className="mt-0.5 block text-[10px] text-white/50">Android · v{MOBILE_RELEASE.version}</span>
+							<span className="mt-0.5 block text-[10px] text-white/50">
+								Android · v{MOBILE_RELEASE.version}
+							</span>
 						</span>
 						<Download className="h-4 w-4 shrink-0 text-white/50" aria-hidden="true" />
 					</a>
