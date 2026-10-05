@@ -400,7 +400,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 				if (!result || requestId !== messageRequestRef.current || currentRoomIdRef.current !== roomId) return;
 
 				const ordered = [...result.items].reverse();
-				setMessages((current) => mergeChatMessages(current, ordered));
+				setMessages(reset ? ordered : (current) => mergeChatMessages(current, ordered));
+				if (reset && currentUser) void writeChatMessagesCache(currentUser.uid, roomId, ordered);
 				setHasMore(result.hasMore);
 				cursorRef.current = result.nextCursor;
 			} catch (loadError) {
@@ -409,7 +410,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 				if (requestId === messageRequestRef.current) setLoadingMessages(false);
 			}
 		},
-		[requestWithChatAuth],
+		[currentUser, requestWithChatAuth],
 	);
 
 	const loadPins = useCallback(async (roomId: string) => {

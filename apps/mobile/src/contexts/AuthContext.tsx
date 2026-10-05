@@ -28,6 +28,7 @@ import { enableGpaCacheWrites } from "@/features/gpa-data/cache";
 import { enableChatCacheWrites } from "@/features/chat/cache";
 import { provisionNewUserProfile } from "@bhemu/firebase";
 import { registerFcmToken, unregisterFcmToken } from "@/features/notifications/fcmTokenService";
+import type { NotificationSettings } from "@/features/notifications/notificationSettings";
 
 const ACCOUNT_DELETING_KEY = STORAGE_KEYS.accountDeleting;
 
@@ -416,7 +417,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		if (!currentUser) return;
 		let disposed = false;
 
-		const handleSettingsChange = (settings: any) => {
+		const handleSettingsChange = (settings: NotificationSettings) => {
 			const userRef = doc(db, "users", currentUser.uid);
 			void updateDoc(userRef, { batchmateAllMessages: !!settings.batchmateAllMessages }).catch(() => {});
 			
@@ -427,19 +428,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			}
 		};
 
+		let unsubscribeSettings: (() => void) | null = null;
 		import("@/features/notifications/notificationSettings").then(({ getNotificationSettings, subscribeToNotificationSettings }) => {
 			if (disposed) return;
 			void getNotificationSettings().then(settings => {
 				if (!disposed) handleSettingsChange(settings);
 			});
-			const unsubSettings = subscribeToNotificationSettings(handleSettingsChange);
-			// We can't easily return the unsubscribe function from inside the promise, 
-			// but this effect only cleans up on unmount (app close) or user change (logout),
-			// in which case the listener will just be garbage collected or fire harmlessly.
+			unsubscribeSettings = subscribeToNotificationSettings(handleSettingsChange);
 		});
 
 		return () => {
 			disposed = true;
+			unsubscribeSettings?.();
 		};
 	}, [currentUser]);
 

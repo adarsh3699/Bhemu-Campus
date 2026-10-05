@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, type MouseEventHandler, type ReactNode, type RefObject } from "react";
-import { AlertCircle, Check, Clock, Reply, SmilePlus, Trash2 } from "lucide-react";
+import { AlertCircle, Check, Clock, SmilePlus, Trash2 } from "lucide-react";
 import {
 	formatChatTime,
 	getChatAuthorInitials,

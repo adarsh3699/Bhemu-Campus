@@ -874,7 +874,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 			if (!result) return;
 			if (currentRoomIdRef.current !== roomId || requestId !== messageRequestRef.current) return;
 			const ordered = [...result.items].reverse();
-			setMessages(prev => mergeChatMessages(prev, ordered));
+			setMessages(reset ? ordered : prev => mergeChatMessages(prev, ordered));
+			if (reset) writeCachedMessages(roomId, ordered);
 			setHasMore(result.hasMore);
 			cursorRef.current = result.nextCursor;
 		} catch (e) {
