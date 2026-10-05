@@ -270,9 +270,6 @@ NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=
 
 # Optional local chat Worker override
 NEXT_PUBLIC_CHAT_API_BASE=
-
-# Optional
-NEXT_PUBLIC_GA_MEASUREMENT_ID=
 ```
 
 ---
