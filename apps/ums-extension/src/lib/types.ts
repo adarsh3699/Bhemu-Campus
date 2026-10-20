@@ -95,14 +95,16 @@ export interface UMSStudentCourse {
 }
 
 
-// Parsed from HTML <tr> rows (StudentAttendanceSummary returns HTML, not JSON)
+// Parsed from HTML <tr> rows (StudentAttendanceSummary returns HTML, not JSON).
+// Current UMS column order: Course, Total Delivered, Total Attended,
+// Duty Leave, First Week Bonus, Total Percentage.
 export interface UMSAttendanceSummary {
   CourseCode: string;
   CourseName: string;
-  LastAttended: string;
-  DutyLeave: number;
   TotalDelivered: number;
   TotalAttended: number;
+  DutyLeave: number;
+  FirstWeekBonus: number;
   Percentage: number;
 }
 

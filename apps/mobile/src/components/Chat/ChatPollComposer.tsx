@@ -59,9 +59,12 @@ export default function ChatPollComposer({ visible, onClose, onSubmit }: Props) 
 
 	return (
 		<Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
-			<View style={local.overlay}>
+			<KeyboardAvoidingView
+				behavior={Platform.OS === "ios" ? "padding" : "height"}
+				style={local.overlay}
+			>
 				<Pressable accessibilityRole="button" accessibilityLabel="Close poll composer" style={StyleSheet.absoluteFill} onPress={onClose} />
-				<KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={local.modalWrap}>
+				<View style={local.modalWrap}>
 					<View style={local.card}>
 						<View style={local.header}>
 							<View style={local.headerCopy}>
@@ -74,7 +77,12 @@ export default function ChatPollComposer({ visible, onClose, onSubmit }: Props) 
 							</Pressable>
 						</View>
 
-						<ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={local.scrollContent}>
+						<ScrollView
+							style={local.scroll}
+							keyboardShouldPersistTaps="handled"
+							showsVerticalScrollIndicator={false}
+							contentContainerStyle={local.scrollContent}
+						>
 							<Text style={local.label}>Question</Text>
 							<TextInput
 								value={question}
@@ -94,7 +102,9 @@ export default function ChatPollComposer({ visible, onClose, onSubmit }: Props) 
 							</View>
 							{options.map((option, index) => (
 								<View key={index} style={local.optionRow}>
-									<Text style={local.optionNumber}>{index + 1}</Text>
+									<View style={local.optionNumber}>
+										<Text style={local.optionNumberText}>{index + 1}</Text>
+									</View>
 									<TextInput
 										ref={(element) => { optionRefs.current[index] = element; }}
 										value={option}
@@ -138,15 +148,15 @@ export default function ChatPollComposer({ visible, onClose, onSubmit }: Props) 
 							</Pressable>
 						</View>
 					</View>
-				</KeyboardAvoidingView>
-			</View>
+				</View>
+			</KeyboardAvoidingView>
 		</Modal>
 	);
 }
 
 const local = StyleSheet.create({
 	overlay: { flex: 1, justifyContent: "center", paddingHorizontal: Spacing.lg, backgroundColor: "rgba(0,0,0,0.72)" },
-	modalWrap: { width: "100%", maxHeight: "92%" },
+	modalWrap: { width: "100%", maxHeight: "92%", flexShrink: 1 },
 	card: { overflow: "hidden", borderWidth: 1, borderColor: Colors.borderLight, borderRadius: Radius.xl, backgroundColor: Colors.surface },
 	header: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: Spacing.md, padding: Spacing.lg, borderBottomWidth: 1, borderBottomColor: Colors.border },
 	headerCopy: { flex: 1, gap: 3 },
@@ -154,6 +164,7 @@ const local = StyleSheet.create({
 	title: { fontSize: FontSize.xl, fontWeight: FontWeight.bold, color: Colors.textPrimary },
 	subtitle: { fontSize: FontSize.sm, color: Colors.textMuted },
 	closeButton: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: Radius.full },
+	scroll: { flexShrink: 1 },
 	scrollContent: { padding: Spacing.lg, paddingBottom: Spacing.md },
 	label: { marginBottom: Spacing.sm, fontSize: FontSize.sm, fontWeight: FontWeight.medium, color: Colors.textBody },
 	input: { borderWidth: 1, borderColor: Colors.borderLight, borderRadius: Radius.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, fontSize: FontSize.base, color: Colors.textPrimary, backgroundColor: Colors.surfaceElevated },
@@ -161,7 +172,8 @@ const local = StyleSheet.create({
 	counter: { fontSize: FontSize.xs, color: Colors.textSubtle },
 	optionsHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: Spacing.lg },
 	optionRow: { flexDirection: "row", alignItems: "center", gap: Spacing.sm, marginBottom: Spacing.sm },
-	optionNumber: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: Radius.md, fontSize: FontSize.sm, fontWeight: FontWeight.bold, color: Colors.textMuted, backgroundColor: Colors.surfaceElevated },
+	optionNumber: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: Radius.md, backgroundColor: Colors.surfaceElevated },
+	optionNumberText: { fontSize: FontSize.sm, fontWeight: FontWeight.bold, color: Colors.textMuted },
 	optionInput: { flex: 1, minHeight: 46 },
 	removeButton: { width: 32, height: 40, alignItems: "center", justifyContent: "center" },
 	addOption: { minHeight: 40, flexDirection: "row", alignItems: "center", gap: Spacing.xs, alignSelf: "flex-start", paddingHorizontal: Spacing.xs, borderRadius: Radius.md },

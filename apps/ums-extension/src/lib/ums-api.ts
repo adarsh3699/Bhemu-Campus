@@ -47,6 +47,11 @@ function htmlDoc(html: string): Document {
   return document as unknown as Document;
 }
 
+function parseAttendanceNumber(value: string): number {
+  const match = value.replace(/,/g, '').match(/-?\d+(?:\.\d+)?/);
+  return match ? Number(match[0]) : 0;
+}
+
 // ─── Attendance parser ────────────────────────────────────────────────────────
 
 function parseAttendanceHtml(html: string): UMSAttendanceSummary[] {
@@ -62,11 +67,11 @@ function parseAttendanceHtml(html: string): UMSAttendanceSummary[] {
     results.push({
       CourseCode: firstText.slice(0, colonIdx).trim(),
       CourseName: firstText.slice(colonIdx + 1).trim(),
-      LastAttended: tds[1].textContent?.trim() ?? '',
-      DutyLeave: parseInt(tds[2].textContent?.trim() ?? '0') || 0,
-      TotalDelivered: parseInt(tds[3].textContent?.trim() ?? '0') || 0,
-      TotalAttended: parseInt(tds[4].textContent?.trim() ?? '0') || 0,
-      Percentage: parseFloat(tds[5].textContent?.trim() ?? '0') || 0,
+      TotalDelivered: parseAttendanceNumber(tds[1].textContent?.trim() ?? ''),
+      TotalAttended: parseAttendanceNumber(tds[2].textContent?.trim() ?? ''),
+      DutyLeave: parseAttendanceNumber(tds[3].textContent?.trim() ?? ''),
+      FirstWeekBonus: parseAttendanceNumber(tds[4].textContent?.trim() ?? ''),
+      Percentage: parseAttendanceNumber(tds[5].textContent?.trim() ?? ''),
     });
   });
   return results;

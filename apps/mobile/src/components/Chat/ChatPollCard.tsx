@@ -161,7 +161,7 @@ export default function ChatPollCard({ poll, isOwn, canClose, onVote, onClose }:
 const local = StyleSheet.create({
 	card: {
 		width: "100%",
-		maxWidth: 320,
+		alignSelf: "stretch",
 		marginTop: Spacing.xs,
 		padding: Spacing.sm,
 		borderWidth: 1,

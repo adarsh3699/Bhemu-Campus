@@ -7,6 +7,7 @@ import { Colors, FontSize, FontWeight, Radius, Spacing } from "@/constants/Theme
 import { Layout } from "@/styles";
 import { ChatProvider, useChat } from "@/contexts/ChatContext";
 import ChatComposer from "./ChatComposer";
+import ChatAnnouncementComposer from "./ChatAnnouncementComposer";
 import ChatConversationBackground from "./ChatConversationBackground";
 import ChatMessageEditModal from "./ChatMessageEditModal";
 import ChatMessageList from "./ChatMessageList";
@@ -57,6 +58,7 @@ function ChatScreenContent() {
 	const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
 	const [reportingId, setReportingId] = useState<string | null>(null);
 	const [pollComposerOpen, setPollComposerOpen] = useState(false);
+	const [announcementComposerOpen, setAnnouncementComposerOpen] = useState(false);
 	const [onlineCounts, setOnlineCounts] = useState<Record<typeof activeRoom, number>>({
 		university: 0,
 		batchmate: 0,
@@ -191,7 +193,7 @@ function ChatScreenContent() {
 						canCreatePoll={canCreatePoll}
 						canAnnounce={canAnnounce}
 						onCreatePoll={() => setPollComposerOpen(true)}
-						onSendAnnouncement={sendAnnouncement}
+						onCreateAnnouncement={() => setAnnouncementComposerOpen(true)}
 					/>
 				</KeyboardAvoidingView>
 			</SafeAreaView>
@@ -213,6 +215,12 @@ function ChatScreenContent() {
 				visible={pollComposerOpen}
 				onClose={() => setPollComposerOpen(false)}
 				onSubmit={createPoll}
+			/>
+			<ChatAnnouncementComposer
+				key={announcementComposerOpen ? "announcement-open" : "announcement-closed"}
+				visible={announcementComposerOpen}
+				onClose={() => setAnnouncementComposerOpen(false)}
+				onSubmit={sendAnnouncement}
 			/>
 		</>
 	);

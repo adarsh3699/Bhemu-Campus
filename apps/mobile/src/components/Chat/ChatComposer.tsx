@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Keyboard, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import type { ReactNode } from "react";
-import { BarChart3, Megaphone, Plus, Send, X } from "lucide-react-native";
+import { BarChart3, ChevronRight, Megaphone, Plus, Send, X } from "lucide-react-native";
 import type { ChatMessage } from "@bhemu/shared";
 import { MAX_CHAT_MESSAGE_LENGTH } from "@bhemu/shared";
 import { Colors, FontSize, FontWeight, Radius, Spacing } from "@/constants/Theme";
@@ -14,12 +15,11 @@ interface Props {
 	canCreatePoll: boolean;
 	canAnnounce: boolean;
 	onCreatePoll: () => void;
-	onSendAnnouncement: (content: string) => Promise<void>;
+	onCreateAnnouncement: () => void;
 }
 
-export default function ChatComposer({ disabled, replyTo, onCancelReply, onSend, canCreatePoll, canAnnounce, onCreatePoll, onSendAnnouncement }: Props) {
+export default function ChatComposer({ disabled, replyTo, onCancelReply, onSend, canCreatePoll, canAnnounce, onCreatePoll, onCreateAnnouncement }: Props) {
 	const [value, setValue] = useState("");
-	const [announcementMode, setAnnouncementMode] = useState(false);
 	const [toolsOpen, setToolsOpen] = useState(false);
 	const inputRef = useRef<TextInput | null>(null);
 	const selectedReplyId = replyTo?.id;
@@ -30,12 +30,6 @@ export default function ChatComposer({ disabled, replyTo, onCancelReply, onSend,
 		return () => cancelAnimationFrame(frame);
 	}, [selectedReplyId]);
 
-	useEffect(() => {
-		if (!announcementMode || disabled) return;
-		const frame = requestAnimationFrame(() => inputRef.current?.focus());
-		return () => cancelAnimationFrame(frame);
-	}, [announcementMode, disabled]);
-
 	const send = useCallback(() => {
 		const content = value.trim();
 		if (!content || disabled) return;
@@ -45,9 +39,8 @@ export default function ChatComposer({ disabled, replyTo, onCancelReply, onSend,
 		onCancelReply();
 		// Keep the composer available while this message is being acknowledged.
 		// Each send gets its own optimistic message and delivery state below.
-		const sendMessage = announcementMode && canAnnounce ? onSendAnnouncement(content) : onSend(content, replyToId);
-		void sendMessage.catch(() => undefined);
-	}, [announcementMode, canAnnounce, disabled, onCancelReply, onSend, onSendAnnouncement, replyTo, value]);
+		void onSend(content, replyToId).catch(() => undefined);
+	}, [disabled, onCancelReply, onSend, replyTo, value]);
 
 	const handleCreatePoll = useCallback(() => {
 		setToolsOpen(false);
@@ -55,21 +48,53 @@ export default function ChatComposer({ disabled, replyTo, onCancelReply, onSend,
 		onCreatePoll();
 	}, [onCreatePoll]);
 
-	const toggleAnnouncementMode = useCallback(() => {
-		setAnnouncementMode((current) => !current);
+	const handleCreateAnnouncement = useCallback(() => {
 		setToolsOpen(false);
-	}, []);
+		Keyboard.dismiss();
+		onCreateAnnouncement();
+	}, [onCreateAnnouncement]);
 
 	return (
 		<View style={local.container}>
 			{toolsOpen ? (
-				<Modal transparent visible animationType="fade" onRequestClose={() => setToolsOpen(false)}>
+				<Modal transparent visible animationType="slide" onRequestClose={() => setToolsOpen(false)}>
 					<View style={local.toolsOverlay}>
 						<Pressable accessibilityRole="button" accessibilityLabel="Close chat tools" style={StyleSheet.absoluteFill} onPress={() => setToolsOpen(false)} />
-						<View style={local.toolsMenu}>
-							{canCreatePoll ? <ToolRow icon={<BarChart3 size={18} color={Colors.primary} />} label="Poll" onPress={handleCreatePoll} /> : null}
-							{canAnnounce ? <ToolRow icon={<Megaphone size={18} color={Colors.primary} />} label="Announcement" active={announcementMode} onPress={toggleAnnouncementMode} /> : null}
-						</View>
+						<SafeAreaView edges={["bottom"]} style={local.toolsMenu}>
+							<View style={local.handle} />
+							<View style={local.toolsHeader}>
+								<View style={local.toolsHeaderCopy}>
+									<Text style={local.toolsTitle}>Create something</Text>
+									<Text style={local.toolsSubtitle}>Choose what you want to share with the room</Text>
+								</View>
+								<Pressable
+									accessibilityRole="button"
+									accessibilityLabel="Close chat tools"
+									onPress={() => setToolsOpen(false)}
+									style={({ pressed }) => [local.closeTools, pressed && local.pressed]}
+								>
+									<X size={20} color={Colors.textMuted} />
+								</Pressable>
+							</View>
+							<View style={local.toolList}>
+								{canCreatePoll ? (
+									<ToolRow
+										icon={<BarChart3 size={22} color={Colors.primary} />}
+										label="Poll"
+										description="Ask a question and collect votes"
+										onPress={handleCreatePoll}
+									/>
+								) : null}
+								{canAnnounce ? (
+									<ToolRow
+										icon={<Megaphone size={22} color={Colors.secondary} />}
+										label="Announcement"
+										description="Share an important update with everyone"
+										onPress={handleCreateAnnouncement}
+									/>
+								) : null}
+							</View>
+						</SafeAreaView>
 					</View>
 				</Modal>
 			) : null}
@@ -100,9 +125,9 @@ export default function ChatComposer({ disabled, replyTo, onCancelReply, onSend,
 						accessibilityState={{ expanded: toolsOpen, disabled }}
 						disabled={disabled}
 						onPress={() => setToolsOpen((current) => !current)}
-						style={({ pressed }) => [local.toolButton, announcementMode && local.toolButtonActive, pressed && local.pressed]}
+						style={({ pressed }) => [local.toolButton, pressed && local.pressed]}
 					>
-						<Plus size={20} color={announcementMode ? Colors.primary : Colors.textMuted} />
+						<Plus size={20} color={Colors.textMuted} />
 					</Pressable>
 				) : null}
 				<View style={local.inputWrap}>
@@ -110,7 +135,7 @@ export default function ChatComposer({ disabled, replyTo, onCancelReply, onSend,
 						ref={inputRef}
 						value={value}
 						onChangeText={setValue}
-						placeholder={disabled ? "Connecting…" : announcementMode ? "Write an announcement…" : "Message…"}
+						placeholder={disabled ? "Connecting…" : "Message…"}
 						placeholderTextColor={Colors.textSubtle}
 						accessibilityLabel="Message"
 						multiline
@@ -141,11 +166,21 @@ export default function ChatComposer({ disabled, replyTo, onCancelReply, onSend,
 	);
 }
 
-function ToolRow({ icon, label, active = false, onPress }: { icon: ReactNode; label: string; active?: boolean; onPress: () => void }) {
+function ToolRow({ icon, label, description, onPress }: { icon: ReactNode; label: string; description: string; onPress: () => void }) {
 	return (
-		<Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={({ pressed }) => [local.toolRow, active && local.toolRowActive, pressed && local.pressed]}>
-			{icon}
-			<Text style={[local.toolLabel, active && local.toolLabelActive]}>{label}</Text>
+		<Pressable
+			accessibilityRole="button"
+			accessibilityLabel={label}
+			accessibilityHint={description}
+			onPress={onPress}
+			style={({ pressed }) => [local.toolRow, pressed && local.toolRowPressed]}
+		>
+			<View style={local.toolIcon}>{icon}</View>
+			<View style={local.toolCopy}>
+				<Text style={local.toolLabel}>{label}</Text>
+				<Text style={local.toolDescription}>{description}</Text>
+			</View>
+			<ChevronRight size={20} color={Colors.textSubtle} />
 		</Pressable>
 	);
 }
@@ -160,12 +195,21 @@ const local = StyleSheet.create({
 		borderTopColor: Colors.border,
 		backgroundColor: Colors.surface,
 	},
-	toolsOverlay: { flex: 1, backgroundColor: "transparent" },
-	toolsMenu: { position: "absolute", left: Spacing.lg, right: Spacing.lg, bottom: 78, gap: Spacing.xs, padding: Spacing.xs, borderWidth: 1, borderColor: Colors.borderLight, borderRadius: Radius.lg, backgroundColor: Colors.surface, shadowColor: "#000000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 12, elevation: 8 },
-	toolRow: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: Spacing.md, paddingHorizontal: Spacing.md, borderRadius: Radius.md },
-	toolRowActive: { backgroundColor: Colors.surfaceElevated },
-	toolLabel: { fontSize: FontSize.base, color: Colors.textBody },
-	toolLabelActive: { color: Colors.primary, fontWeight: FontWeight.medium },
+	toolsOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: Colors.scrim },
+	toolsMenu: { gap: Spacing.lg, paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, paddingBottom: Spacing.lg, borderTopWidth: 1, borderColor: Colors.borderLight, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, backgroundColor: Colors.surface },
+	handle: { alignSelf: "center", width: 40, height: 4, marginBottom: Spacing.xs, borderRadius: Radius.full, backgroundColor: Colors.textSubtle },
+	toolsHeader: { flexDirection: "row", alignItems: "center", gap: Spacing.md },
+	toolsHeaderCopy: { flex: 1, minWidth: 0, gap: Spacing.xs },
+	toolsTitle: { fontSize: FontSize.lg, fontWeight: FontWeight.semibold, color: Colors.textPrimary },
+	toolsSubtitle: { fontSize: FontSize.sm, lineHeight: 18, color: Colors.textMuted },
+	closeTools: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: Radius.full, backgroundColor: Colors.surfaceElevated },
+	toolList: { gap: Spacing.sm },
+	toolRow: { minHeight: 72, flexDirection: "row", alignItems: "center", gap: Spacing.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderWidth: 1, borderColor: Colors.borderLight, borderRadius: Radius.lg, backgroundColor: Colors.surfaceElevated },
+	toolRowPressed: { borderColor: Colors.primary, backgroundColor: Colors.surfaceGlass, opacity: 0.9 },
+	toolIcon: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: Radius.md, backgroundColor: Colors.primaryTint },
+	toolCopy: { flex: 1, minWidth: 0, gap: 2 },
+	toolLabel: { fontSize: FontSize.md, fontWeight: FontWeight.semibold, color: Colors.textPrimary },
+	toolDescription: { fontSize: FontSize.sm, lineHeight: 18, color: Colors.textMuted },
 	replyBanner: {
 		flexDirection: "row",
 		alignItems: "center",
@@ -191,7 +235,6 @@ const local = StyleSheet.create({
 	closeReply: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: Radius.md },
 	inputRow: { flexDirection: "row", alignItems: "flex-end", gap: Spacing.sm },
 	toolButton: { width: 40, height: 48, alignItems: "center", justifyContent: "center", borderRadius: Radius.full, backgroundColor: Colors.surfaceElevated },
-	toolButtonActive: { backgroundColor: Colors.surfaceGlass },
 	inputWrap: {
 		flex: 1,
 		minHeight: 48,

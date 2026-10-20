@@ -69,6 +69,7 @@ const ChatMessageBubble = memo(function ChatMessageBubbleView({
 	const isOwn = currentUserId === message.authorUid;
 	const isDeleted = message.visibility === "DELETED";
 	const isAnnouncement = message.type === "ANNOUNCEMENT";
+	const isPoll = message.type === "POLL";
 	const isPending = message.id.startsWith(CHAT_OPTIMISTIC_PREFIX);
 	const canReply = !isPending && !message.failed && !isDeleted && !isAnnouncement;
 	const authorName = normalizeChatDisplayName(message.authorName);
@@ -215,7 +216,7 @@ const ChatMessageBubble = memo(function ChatMessageBubbleView({
 						</View>
 					) : null}
 
-					<View style={[local.messageColumn, isOwn && local.ownMessageColumn]}>
+					<View style={[local.messageColumn, isOwn && local.ownMessageColumn, isPoll && local.pollMessageColumn]}>
 						{!isOwn && showIdentity ? <Text style={local.author}>{authorName}</Text> : null}
 						<Pressable
 							accessibilityRole="text"
@@ -225,6 +226,7 @@ const ChatMessageBubble = memo(function ChatMessageBubbleView({
 							style={[
 								local.bubble,
 								isOwn ? local.ownBubble : local.otherBubble,
+							message.type === "POLL" && local.pollBubble,
 								reactions.length > 0 && local.bubbleWithReactions,
 								isPending && local.pendingBubble,
 							]}
@@ -351,6 +353,7 @@ const local = StyleSheet.create({
 	avatarText: { fontSize: FontSize.md, fontWeight: FontWeight.bold, color: Colors.textPrimary },
 	messageColumn: { maxWidth: "86%", alignItems: "flex-start" },
 	ownMessageColumn: { alignItems: "flex-end" },
+	pollMessageColumn: { width: "86%" },
 	replyAction: { position: "absolute", top: 0, bottom: 0, width: 44, alignItems: "center", justifyContent: "center" },
 	leftReplyAction: { left: 0 },
 	rightReplyAction: { right: 0 },
@@ -382,6 +385,7 @@ const local = StyleSheet.create({
 		backgroundColor: Colors.surfaceElevated,
 	},
 	ownBubble: { borderColor: Colors.primary, borderBottomRightRadius: Radius.sm, backgroundColor: Colors.primary },
+	pollBubble: { alignSelf: "stretch" },
 	pendingBubble: { opacity: 0.8 },
 	content: { fontSize: FontSize.md, lineHeight: 22, color: Colors.textPrimary },
 	pollContent: { fontWeight: FontWeight.semibold, lineHeight: 21 },

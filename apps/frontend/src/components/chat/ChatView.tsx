@@ -10,6 +10,7 @@ import ReportModal from "./ReportModal";
 import { canPerformChatAction, type ChatMessage, type ReportReason } from "@bhemu/shared";
 import PinnedMessagesBar from "./PinnedMessagesBar";
 import PollComposer from "./PollComposer";
+import AnnouncementComposer from "./AnnouncementComposer";
 import ModerationModal, { type ModerationAction } from "./ModerationModal";
 
 export default function ChatView() {
@@ -50,6 +51,7 @@ export default function ChatView() {
 	const [editingMsg, setEditingMsg] = useState<ChatMessage | null>(null);
 	const [reportingId, setReportingId] = useState<string | null>(null);
 	const [pollComposerOpen, setPollComposerOpen] = useState(false);
+	const [announcementComposerOpen, setAnnouncementComposerOpen] = useState(false);
 	const [moderationMessage, setModerationMessage] = useState<ChatMessage | null>(null);
 	const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
 	const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -260,7 +262,7 @@ export default function ChatView() {
 						canCreatePoll={canCreatePoll}
 						canAnnounce={canAnnounce}
 						onCreatePoll={() => setPollComposerOpen(true)}
-						onSendAnnouncement={sendAnnouncement}
+						onCreateAnnouncement={() => setAnnouncementComposerOpen(true)}
 					/>
 				</div>
 			</div>
@@ -274,6 +276,7 @@ export default function ChatView() {
 			/>
 			<ReportModal isOpen={!!reportingId} onConfirm={handleReport} onClose={handleCloseReport} />
 			<PollComposer isOpen={pollComposerOpen} onClose={() => setPollComposerOpen(false)} onSubmit={createPoll} />
+			<AnnouncementComposer isOpen={announcementComposerOpen} onClose={() => setAnnouncementComposerOpen(false)} onSubmit={sendAnnouncement} />
 			<ModerationModal message={moderationMessage} role={chatRole} onClose={() => setModerationMessage(null)} onConfirm={handleModeration} />
 		</>
 	);

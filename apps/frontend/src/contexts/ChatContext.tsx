@@ -1232,15 +1232,21 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
 	const sendAnnouncement = useCallback(async (content: string) => {
 		const roomId = currentRoomIdRef.current;
-		if (!currentUser || !roomId) return;
+		if (!currentUser || !roomId) {
+			const message = "Chat is unavailable. Please try again.";
+			setError(message);
+			throw new Error(message);
+		}
 		const trimmedContent = content.trim();
 		if (!trimmedContent) {
-			setError("Announcement cannot be empty.");
-			return;
+			const message = "Announcement cannot be empty.";
+			setError(message);
+			throw new Error(message);
 		}
 		if (trimmedContent.length > MAX_CHAT_MESSAGE_LENGTH) {
-			setError(`Announcement exceeds ${MAX_CHAT_MESSAGE_LENGTH} characters.`);
-			return;
+			const message = `Announcement exceeds ${MAX_CHAT_MESSAGE_LENGTH} characters.`;
+			setError(message);
+			throw new Error(message);
 		}
 
 		const idempotencyKey = createChatClientMessageId();
@@ -1268,7 +1274,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 			upsertMessage({ ...confirmed, idempotencyKey });
 		} catch (error) {
 			setMessages(prev => prev.filter(message => message.id !== idempotencyKey));
-			if (error instanceof ChatApiError) setError(error.message);
+			const message = error instanceof ChatApiError ? error.message : "Announcement could not be sent.";
+			setError(message);
+			throw error instanceof Error ? error : new Error(message);
 		}
 	}, [currentUser, sendMessageOverSocket, upsertMessage, waitForMessageSocket]);
 

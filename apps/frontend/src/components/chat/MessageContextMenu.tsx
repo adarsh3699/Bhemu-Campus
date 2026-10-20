@@ -105,7 +105,9 @@ export default function MessageContextMenu({
 
 	if (isOwn) {
 		items.push(
-			{ icon: Pencil, label: "Edit", onSelect: () => { onClose(); onEdit(message); } },
+			...(message.type === "TEXT"
+				? [{ icon: Pencil, label: "Edit", onSelect: () => { onClose(); onEdit(message); } }]
+				: []),
 			{ icon: Trash2, label: "Delete", tone: "danger", onSelect: () => { onClose(); onDelete(message.id); } },
 		);
 	} else {

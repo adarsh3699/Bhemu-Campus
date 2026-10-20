@@ -18,6 +18,11 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 // Initialize Firebase Authentication with localStorage persistence
 // (default IndexedDB persistence is blocked by some ad blockers, causing "Database is closing/hidden" errors)
 function getFirebaseAuth() {
+	// Next.js evaluates client modules during the server build. Keep browser-only
+	// persistence and popup resolver out of that environment to avoid Firebase's
+	// internal browser assertion during static generation.
+	if (typeof window === "undefined") return getAuth(app);
+
 	try {
 		return initializeAuth(app, {
 			persistence: browserLocalPersistence,

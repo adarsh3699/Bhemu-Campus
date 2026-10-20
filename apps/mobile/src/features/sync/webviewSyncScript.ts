@@ -180,6 +180,10 @@ export const WEBVIEW_SYNC_SCRIPT = `
   function parseAttendance(html) {
     var doc = htmlDoc('<html><body><table><tbody>'+html+'</tbody></table></body></html>');
     var results=[];
+    function attendanceNumber(value) {
+      var match = String(value || '').replace(/,/g, '').match(/-?[0-9]+(?:[.][0-9]+)?/);
+      return match ? Number(match[0]) : 0;
+    }
     doc.querySelectorAll('tr').forEach(function(tr){
       var tds=tr.querySelectorAll('td');
       if(tds.length<6) return;
@@ -189,9 +193,9 @@ export const WEBVIEW_SYNC_SCRIPT = `
       results.push({
         courseCode:first.slice(0,ci).trim(),
         courseName:first.slice(ci+1).trim(),
-        totalLectures:parseInt((tds[3].textContent||'0'))||0,
-        attendedLectures:(parseInt((tds[4].textContent||'0'))||0) + (parseInt((tds[2].textContent||'0'))||0),
-        percentage:parseFloat((tds[5].textContent||'0'))||0
+        totalLectures:attendanceNumber(tds[1].textContent),
+        attendedLectures:attendanceNumber(tds[2].textContent) + attendanceNumber(tds[3].textContent) + attendanceNumber(tds[4].textContent),
+        percentage:attendanceNumber(tds[5].textContent)
       });
     });
     return results;

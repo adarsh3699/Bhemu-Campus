@@ -14,14 +14,13 @@ interface MessageInputProps {
 	canCreatePoll?: boolean;
 	canAnnounce?: boolean;
 	onCreatePoll: () => void;
-	onSendAnnouncement: (content: string) => Promise<void>;
+	onCreateAnnouncement: () => void;
 }
 
 const MessageInput = memo(function MessageInput({
-	onSend, replyTo, onCancelReply, disabled = false, placeholder = "Message…", canCreatePoll = false, canAnnounce = false, onCreatePoll, onSendAnnouncement,
+	onSend, replyTo, onCancelReply, disabled = false, placeholder = "Message…", canCreatePoll = false, canAnnounce = false, onCreatePoll, onCreateAnnouncement,
 }: MessageInputProps) {
 	const [value, setValue] = useState("");
-	const [announcementMode, setAnnouncementMode] = useState(false);
 	const [toolsOpen, setToolsOpen] = useState(false);
 	const taRef = useRef<HTMLTextAreaElement>(null);
 	const toolsRef = useRef<HTMLDivElement>(null);
@@ -47,10 +46,10 @@ const MessageInput = memo(function MessageInput({
 	}, [toolsOpen]);
 
 	useEffect(() => {
-		if ((announcementMode || replyTo) && !disabled) {
+		if (replyTo && !disabled) {
 			taRef.current?.focus();
 		}
-	}, [announcementMode, replyTo, disabled]);
+	}, [replyTo, disabled]);
 
 	const autoResize = useCallback(() => {
 		const ta = taRef.current;
@@ -69,9 +68,8 @@ const MessageInput = memo(function MessageInput({
 		if (taRef.current) taRef.current.style.height = "auto";
 		// Keep the composer available while this message is being acknowledged.
 		// Each send has its own optimistic message and delivery state.
-		const send = announcementMode && canAnnounce ? onSendAnnouncement(trimmed) : onSend(trimmed, replyTo?.id);
-		void send.catch(() => undefined);
-	}, [value, disabled, onSend, replyTo, onCancelReply, announcementMode, canAnnounce, onSendAnnouncement]);
+		void onSend(trimmed, replyTo?.id).catch(() => undefined);
+	}, [value, disabled, onSend, replyTo, onCancelReply]);
 
 	const onKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
 		if (e.key === "Enter" && !e.shiftKey) {
@@ -88,10 +86,10 @@ const MessageInput = memo(function MessageInput({
 		onCreatePoll();
 	}, [onCreatePoll]);
 
-	const toggleAnnouncementMode = useCallback(() => {
-		setAnnouncementMode((current) => !current);
+	const handleCreateAnnouncement = useCallback(() => {
 		setToolsOpen(false);
-	}, []);
+		onCreateAnnouncement();
+	}, [onCreateAnnouncement]);
 
 	return (
 		<div className="sticky bottom-0 z-20 border-t border-white/10 bg-[#0b0d0f]/95 px-3 py-2 sm:px-5">
@@ -105,9 +103,7 @@ const MessageInput = memo(function MessageInput({
 							aria-label="Open chat tools"
 							aria-expanded={toolsOpen}
 							className={`flex size-10 items-center justify-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-								announcementMode
-									? "border-primary/50 bg-primary/15 text-primary"
-									: "border-white/10 bg-[#15171a] text-muted-foreground hover:border-white/20 hover:bg-white/10 hover:text-white"
+								"border-white/10 bg-[#15171a] text-muted-foreground hover:border-white/20 hover:bg-white/10 hover:text-white"
 							}`}
 						>
 							<Plus className={`size-5 transition-transform duration-150 ${toolsOpen ? "rotate-45" : ""}`} />
@@ -120,7 +116,7 @@ const MessageInput = memo(function MessageInput({
 									</button>
 								)}
 								{canAnnounce && (
-									<button type="button" role="menuitem" onClick={toggleAnnouncementMode} className={`flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-xs transition-colors hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none ${announcementMode ? "text-primary" : "text-white/75 hover:text-white"}`}>
+									<button type="button" role="menuitem" onClick={handleCreateAnnouncement} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-xs text-white/75 transition-colors hover:bg-white/10 hover:text-white focus-visible:bg-white/10 focus-visible:outline-none">
 										<Megaphone className="size-4 text-primary" /> Announcement
 									</button>
 								)}
@@ -156,7 +152,7 @@ const MessageInput = memo(function MessageInput({
 						maxLength={MAX_CHAT_MESSAGE_LENGTH}
 						onChange={e => { setValue(e.target.value); autoResize(); }}
 						onKeyDown={onKeyDown}
-						placeholder={disabled ? "Connecting…" : announcementMode ? "Write an announcement…" : placeholder}
+						placeholder={disabled ? "Connecting…" : placeholder}
 						disabled={disabled}
 						className="min-h-10 max-h-[120px] w-full resize-none bg-transparent px-3 py-2 text-[14px] leading-5 text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-50"
 					/>

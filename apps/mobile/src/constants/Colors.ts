@@ -6,6 +6,7 @@ export const Colors = {
 	// ── Brand ──────────────────────────────────────────────────────────────
 	primary:         "#0398AC",   // Teal — main brand, buttons, focus rings
 	primaryDark:     "#027A8C",   // Pressed / active state for primary
+	primaryTint:     "rgba(3,152,172,0.14)", // Soft brand tint for icon containers
 	accent:          "#004EEB",   // Blue — CTAs, highlights, gradients
 	accentLight:     "#2563EB",   // Lighter blue for hover accents
 	secondary:       "#00C2FF",   // Cyan — links, secondary highlights
@@ -13,6 +14,7 @@ export const Colors = {
 
 	// ── Backgrounds ────────────────────────────────────────────────────────
 	background:      "#0E0E0E",               // Main screen background
+	scrim:           "rgba(0,0,0,0.58)",       // Modal and bottom-sheet backdrop
 	chatCanvas:      "#08070A",               // Chat conversation canvas
 	chatPattern:     "#752587",               // Chat canvas pattern strokes
 	surface:         "#121212",               // Cards, panels

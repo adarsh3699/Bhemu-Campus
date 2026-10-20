@@ -14,9 +14,9 @@ function mapAttendance(apiData: Awaited<ReturnType<typeof fetchSyncData>>): Sync
     courseCode: a.CourseCode,
     courseName: a.CourseName,
     totalLectures: a.TotalDelivered,
-    // UMS calculates percentage as (TotalAttended + DutyLeave) / TotalDelivered.
-    // We add DutyLeave here so Bhemu Calculator's pure attended/total math correctly matches UMS's 98% etc.
-    attendedLectures: a.TotalAttended + (a.DutyLeave || 0),
+    // UMS calculates percentage from attended lectures plus attendance benefits.
+    // Store the effective attended count so the calculator matches UMS's percentage.
+    attendedLectures: a.TotalAttended + (a.DutyLeave || 0) + (a.FirstWeekBonus || 0),
     percentage: a.Percentage,
   }));
 }

@@ -40,6 +40,7 @@ export default function ChatMessageActionSheet({
 	const isOwn = message.authorUid === currentUserId;
 	const isFailed = Boolean(message.failed);
 	const isAnnouncement = message.type === "ANNOUNCEMENT";
+	const isEditableText = message.type === "TEXT";
 	const [showPinDurations, setShowPinDurations] = useState(false);
 
 	const chooseReaction = (emoji: string) => {
@@ -99,7 +100,7 @@ export default function ChatMessageActionSheet({
 
 					{!showPinDurations && isOwn && !isFailed ? (
 						<>
-							<ActionRow icon={<Pencil size={18} color={Colors.textMuted} />} label="Edit message" onPress={() => { onClose(); onEdit(message); }} />
+							{isEditableText ? <ActionRow icon={<Pencil size={18} color={Colors.textMuted} />} label="Edit message" onPress={() => { onClose(); onEdit(message); }} /> : null}
 							<ActionRow destructive icon={<Trash2 size={18} color={Colors.destructive} />} label="Delete message" onPress={confirmDelete} />
 						</>
 					) : null}

@@ -44,7 +44,7 @@ const PollCard = memo(function PollCard({ poll, isOwn, canClose, onVote, onClose
 	};
 
 	return (
-		<div className={`mt-1.5 w-full min-w-[220px] max-w-[300px] rounded-xl border p-2.5 ${cardClass}`}>
+		<div className={`mt-1.5 w-full rounded-xl border p-2.5 ${cardClass}`}>
 			<div className="mb-2.5 flex items-center justify-between gap-2">
 				<p className="text-[11px] font-medium text-white/65">
 					{poll.multipleChoice ? "Choose all that apply" : "Choose one option"}
