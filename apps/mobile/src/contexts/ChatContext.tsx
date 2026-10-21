@@ -123,15 +123,17 @@ function chatErrorMessage(error: unknown, fallback: string): string {
 	return error instanceof ChatApiError ? error.message : fallback;
 }
 
-export function ChatProvider({ children }: { children: React.ReactNode }) {
+export function ChatProvider({ children, initialRoom = "university" }: { children: React.ReactNode; initialRoom?: ActiveRoom }) {
 	const { currentUser } = useAuth();
-	const { currentProfile } = useGpaProfiles();
+	const { currentProfile, loading: profilesLoading } = useGpaProfiles();
 	const isFocused = useIsFocused();
-	const groupKey = (currentProfile as (typeof currentProfile & { groupKey?: string | null }) | undefined)?.groupKey ?? null;
+	const currentGroupKey = (currentProfile as (typeof currentProfile & { groupKey?: string | null }) | undefined)?.groupKey ?? null;
+	const groupKey = currentGroupKey;
 
 	const [universityRoom, setUniversityRoom] = useState<ChatRoom | null>(null);
 	const [batchmateRoom, setBatchmateRoom] = useState<ChatRoom | null>(null);
-	const [activeRoom, setActiveRoomState] = useState<ActiveRoom>("university");
+	const [activeRoom, setActiveRoomState] = useState<ActiveRoom>(initialRoom);
+	const preserveInitialRoomRef = useRef(initialRoom === "batchmate");
 	const [messages, setMessages] = useState<ChatDisplayMessage[]>([]);
 	const [pinnedMessages, setPinnedMessages] = useState<RoomPin[]>([]);
 	const [chatRole, setChatRole] = useState<AppRole | null>(null);
@@ -672,7 +674,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 	}, [connectWs]);
 
 	useEffect(() => {
-		if (!isFocused || !currentUser) return;
+		if (!isFocused || !currentUser || profilesLoading) return;
 		let cancelled = false;
 
 		void (async () => {
@@ -699,10 +701,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 				if (batchmate && groupKey) {
 					setBatchmateRoom(batchmate);
 					void writeChatRoomCache(currentUser.uid, `batchmate:${groupKey}`, batchmate);
-				} else if (!cachedBatchmate) {
+				} else if (!groupKey) {
 					setBatchmateRoom(null);
 				}
-				if (!batchmate && !cachedBatchmate) setActiveRoomState((current) => current === "batchmate" ? "university" : current);
+				if (!groupKey && !profilesLoading && !preserveInitialRoomRef.current) {
+					setActiveRoomState((current) => current === "batchmate" ? "university" : current);
+				}
 			} catch (loadError) {
 				if (!cancelled) setError(chatErrorMessage(loadError, "Chat rooms could not be loaded."));
 			}
@@ -711,7 +715,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 		return () => {
 			cancelled = true;
 		};
-	}, [currentUser, groupKey, isFocused, requestWithChatAuth]);
+	}, [currentUser, groupKey, isFocused, profilesLoading, requestWithChatAuth]);
 
 	const currentRoom = activeRoom === "university" ? universityRoom : batchmateRoom;
 	const currentRoomId = currentRoom?.id ?? null;

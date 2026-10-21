@@ -51,7 +51,11 @@ function RootContent() {
 				if (!initialRouteReady || !canNavigateToApp) return;
 
 				const navigate = (destination: NotificationDestination) => {
-					router.push(destination as never);
+					if (typeof destination === "string") {
+						router.push(destination as never);
+						return;
+					}
+					router.push({ pathname: destination.pathname, params: destination.params } as never);
 				};
 				unsubscribeNavigation = notificationService.subscribeToNotificationNavigation(navigate);
 				const destination = notificationService.consumeLastNotificationNavigation();

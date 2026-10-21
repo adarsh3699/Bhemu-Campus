@@ -61,13 +61,43 @@ export function configureNotifications(): void {
 	});
 }
 
-export type NotificationDestination = "/timetable" | "/seating-plan" | "/(app)/(tabs)/chat";
+export type NotificationChatTarget = {
+	roomId: string;
+	messageId: string;
+	roomType?: "UNIVERSITY" | "BATCHMATE";
+};
+
+export type NotificationDestination =
+	| "/timetable"
+	| "/seating-plan"
+	| {
+			pathname: "/(app)/(tabs)/chat";
+			params?: Partial<NotificationChatTarget>;
+		};
+
+function getDataString(data: Record<string, unknown>, key: string): string | null {
+	const value = data[key];
+	return typeof value === "string" && value.length > 0 ? value : null;
+}
 
 function getNotificationDestination(response: Notifications.NotificationResponse): NotificationDestination | null {
 	if (response.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) return null;
 
 	const content = response.notification.request.content;
-	if (content.data?.source === "bcampus-chat") return "/(app)/(tabs)/chat";
+	if (content.data?.source === "bcampus-chat") {
+		const roomId = getDataString(content.data, "roomId");
+		const messageId = getDataString(content.data, "messageId");
+		const roomType = getDataString(content.data, "roomType");
+		const params: Partial<NotificationChatTarget> = {
+			...(roomId ? { roomId } : {}),
+			...(messageId ? { messageId } : {}),
+		};
+		if (roomType === "UNIVERSITY" || roomType === "BATCHMATE") params.roomType = roomType;
+		return {
+			pathname: "/(app)/(tabs)/chat",
+			params,
+		};
+	}
 	if (content.data?.source !== MANAGED_SOURCE) return null;
 
 	if (content.data.type === "timetable") return "/timetable";

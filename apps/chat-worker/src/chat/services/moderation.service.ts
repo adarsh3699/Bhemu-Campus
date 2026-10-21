@@ -13,7 +13,7 @@ import { Errors } from "../../lib/errors";
 import type { AuthUser } from "../../types";
 import type { ModerationAction } from "../../db/schema";
 import type { BroadcastFn } from "./message.service";
-import { PIN_DURATION_MS, type PinDuration } from "@bhemu/shared";
+import { PIN_DURATION_MS, type PinDuration, whatsappNotificationPreview } from "@bhemu/shared";
 import type { Env } from "../../types";
 import { sendFcmToTokens } from "../../lib/fcm";
 import { getFcmTokensForRoom } from "../../lib/firestoreTokens";
@@ -166,7 +166,7 @@ export class ModerationService {
 		if (this.env && msg) {
 			const dispatchPush = async () => {
 				const isText = msg.type === "TEXT" || msg.type === "ANNOUNCEMENT";
-				const bodyPreview = isText ? msg.content.substring(0, 50) : "Pinned an attachment";
+				const bodyPreview = isText ? whatsappNotificationPreview(msg.content, 240) : "Pinned an attachment";
 				const tokens = await getFcmTokensForRoom(
 					room ? room.type : "UNIVERSITY",
 					room ? room.groupKey : null,
@@ -175,7 +175,13 @@ export class ModerationService {
 				await sendFcmToTokens(tokens, {
 					title: `📌 Pinned in ${room.name}`,
 					body: bodyPreview,
-					data: { source: "bcampus-chat" }
+					data: {
+						source: "bcampus-chat",
+						roomId: msg.roomId,
+						messageId: msg.id,
+						messageType: msg.type,
+						roomType: room.type,
+					}
 				}, this.env!);
 			};
 			if (this.bgTask) this.bgTask(dispatchPush());

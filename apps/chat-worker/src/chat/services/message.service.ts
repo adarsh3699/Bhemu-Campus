@@ -30,6 +30,7 @@ import type { AuthUser } from "../../types";
 import { MAX_MESSAGE_LENGTH, MAX_ATTACHMENTS_PER_MESSAGE, MESSAGE_PAGE_SIZE } from "../../constants";
 import type { Message, Room, RoomPolicy } from "../../db/schema";
 import type { Env } from "../../types";
+import { whatsappNotificationPreview } from "@bhemu/shared";
 import { sendFcmToTokens } from "../../lib/fcm";
 import { getFcmTokensForRoom, getFcmTokensForUser } from "../../lib/firestoreTokens";
 
@@ -315,11 +316,18 @@ export class MessageService {
 		if (this.env) {
 			const dispatchPush = async () => {
 				const isText = msg.type === "TEXT" || msg.type === "ANNOUNCEMENT";
-				const bodyPreview = isText ? msg.content.substring(0, 50) : "Sent an attachment";
+				const bodyPreview = isText ? whatsappNotificationPreview(msg.content, 240) : "Sent an attachment";
 				
 				const room = await this.roomRepo.findById(msg.roomId);
 				const roomName = room ? room.name : "the room";
 				const roomType = room ? room.type : "UNIVERSITY";
+				const notificationData = {
+					source: "bcampus-chat",
+					roomId: msg.roomId,
+					messageId: msg.id,
+					messageType: msg.type,
+					roomType,
+				};
 
 				if (msg.type === "ANNOUNCEMENT") {
 					const tokens = await getFcmTokensForRoom(
@@ -331,7 +339,7 @@ export class MessageService {
 					await sendFcmToTokens(tokens, {
 						title: `📢 Announcement in ${roomName}`,
 						body: `${msg.authorName}: ${bodyPreview}`,
-						data: { source: "bcampus-chat" }
+						data: notificationData
 					}, this.env!);
 				} else if (parentAuthorUid && parentAuthorUid !== msg.authorUid) {
 					// It's a reply to someone else
@@ -339,7 +347,7 @@ export class MessageService {
 					await sendFcmToTokens(tokens, {
 						title: `${msg.authorName} replied to you`,
 						body: bodyPreview,
-						data: { source: "bcampus-chat" }
+						data: notificationData
 					}, this.env!);
 				} else if (roomType === "BATCHMATE") {
 					// Standard message in batchmate room, target users who opted in to ALL messages
@@ -357,7 +365,7 @@ export class MessageService {
 					await sendFcmToTokens(recipientTokens, {
 						title: `New message in ${roomName}`,
 						body: `${msg.authorName}: ${bodyPreview}`,
-						data: { source: "bcampus-chat" }
+						data: notificationData
 					}, this.env!);
 				}
 			};

@@ -24,6 +24,7 @@ interface Props {
 	currentUserId: string | null;
 	hasMore: boolean;
 	loadingMessages: boolean;
+	notificationMessageId?: string;
 	onLoadOlder: () => Promise<void>;
 	onReply: (message: ChatMessage) => void;
 	onEdit: (message: ChatMessage) => void;
@@ -45,6 +46,7 @@ export default function ChatMessageList({
 	currentUserId,
 	hasMore,
 	loadingMessages,
+	notificationMessageId,
 	onLoadOlder,
 	onReply,
 	onEdit,
@@ -62,6 +64,8 @@ export default function ChatMessageList({
 	const messageMap = useMemo(() => new Map(messages.map((message) => [message.id, message])), [messages]);
 	const messageMapRef = useRef(messageMap);
 	const pendingScrollMessageIdRef = useRef<string | null>(null);
+	const notificationHandledRef = useRef<string | null>(null);
+	const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
 	useEffect(() => {
 		messageMapRef.current = messageMap;
 	}, [messageMap]);
@@ -81,6 +85,29 @@ export default function ChatMessageList({
 			if (!loadingMessages) void onLoadOlder();
 		}
 	}, [data, hasMore, loadingMessages, onLoadOlder]);
+
+	useEffect(() => {
+		if (!notificationMessageId) {
+			const timer = setTimeout(() => setHighlightedMessageId(null), 0);
+			return () => clearTimeout(timer);
+		}
+		if (notificationHandledRef.current === notificationMessageId) return;
+
+		const index = data.findIndex((message) => message.id === notificationMessageId);
+		if (index >= 0) {
+			notificationHandledRef.current = notificationMessageId;
+			listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+			const highlightTimer = setTimeout(() => setHighlightedMessageId(notificationMessageId), 0);
+			const clearTimer = setTimeout(() => setHighlightedMessageId(null), 3_000);
+			return () => {
+				clearTimeout(highlightTimer);
+				clearTimeout(clearTimer);
+			};
+		}
+
+		pendingScrollMessageIdRef.current = notificationMessageId;
+		if (hasMore && !loadingMessages) void onLoadOlder();
+	}, [data, hasMore, loadingMessages, notificationMessageId, onLoadOlder]);
 
 	useEffect(() => {
 		const messageId = pendingScrollMessageIdRef.current;
@@ -110,6 +137,7 @@ export default function ChatMessageList({
 					) : null}
 					<ChatMessageBubble
 						message={item}
+						isHighlighted={highlightedMessageId === item.id}
 						repliedMessage={item.replyToMessageId ? messageMap.get(item.replyToMessageId) : undefined}
 						currentUserId={currentUserId}
 						showIdentity={!item.authorUid || item.authorUid !== currentUserId ? startsChatAuthorGroup(item, olderMessage) : false}
@@ -128,7 +156,7 @@ export default function ChatMessageList({
 				</View>
 			);
 		},
-		[currentUserId, data, handleSwipeReply, messageMap, onClosePoll, onReact, onRetry, onUnreact, onVotePoll, canClosePoll],
+		[currentUserId, data, handleSwipeReply, highlightedMessageId, messageMap, onClosePoll, onReact, onRetry, onUnreact, onVotePoll, canClosePoll],
 	);
 
 	const empty = useMemo(

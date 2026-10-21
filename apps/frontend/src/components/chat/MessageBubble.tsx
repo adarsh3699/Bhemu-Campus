@@ -139,11 +139,7 @@ const MessageBubble = memo(function MessageBubble({
 
 		const handleOutsideClick = (event: MouseEvent) => {
 			const target = event.target as Node;
-			if (
-				menuPanelRef.current?.contains(target) ||
-				reactionRef.current?.contains(target)
-			)
-				return;
+			if (menuPanelRef.current?.contains(target) || reactionRef.current?.contains(target)) return;
 			closeMenu();
 		};
 
@@ -206,7 +202,7 @@ const MessageBubble = memo(function MessageBubble({
 		return (
 			<div onContextMenu={handleContextMenu} className="group my-3 flex justify-center px-2">
 				<div
-					className={`relative w-full max-w-[min(100%,420px)] overflow-hidden rounded-xl border bg-[#11191b]/95 shadow-[0_8px_24px_rgba(0,0,0,0.22)] transition-[box-shadow,border-color] duration-200 sm:w-fit sm:min-w-[280px] ${
+					className={`relative w-full max-w-150 overflow-hidden rounded-xl border bg-[#11191b]/95 shadow-[0_8px_24px_rgba(0,0,0,0.22)] transition-[box-shadow,border-color] duration-200 ${
 						isHighlighted
 							? "border-primary/75 ring-2 ring-primary/60 ring-offset-2 ring-offset-[#09070b] shadow-[0_0_24px_rgba(0,190,210,0.16)]"
 							: "border-primary/30"
@@ -232,9 +228,9 @@ const MessageBubble = memo(function MessageBubble({
 									{formatChatTime(messageTimestamp(message))}
 								</time>
 							</div>
-							<p className="mt-1.5 whitespace-pre-wrap text-[13px] leading-5 text-white/95">
-								{message.content}
-							</p>
+							<div className="mt-1.5 text-[13px] leading-5 text-white/95">
+								<MessageText content={message.content} isPoll={false} isOwn={isOwn} />
+							</div>
 						</div>
 					</div>
 				</div>

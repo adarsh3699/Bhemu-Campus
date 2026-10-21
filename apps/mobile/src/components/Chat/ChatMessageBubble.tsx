@@ -1,5 +1,5 @@
-import { memo, useMemo } from "react";
-import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { memo, useMemo, type ReactNode } from "react";
+import { Linking, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { AlertCircle, Check, Clock3, Megaphone, Reply } from "lucide-react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
@@ -11,8 +11,10 @@ import {
 	isDeletedChatAnnouncement,
 	messageTimestamp,
 	normalizeChatDisplayName,
+	parseWhatsAppText,
 	summarizeChatReactions,
 	type ChatDisplayMessage,
+	type WhatsAppInlinePart,
 } from "@bhemu/shared";
 import { Colors, FontSize, FontWeight, Radius, Spacing } from "@/constants/Theme";
 import ChatPollCard from "./ChatPollCard";
@@ -26,6 +28,7 @@ interface Props {
 	repliedMessage?: ChatDisplayMessage;
 	currentUserId: string | null;
 	showIdentity: boolean;
+	isHighlighted?: boolean;
 	onLongPress: (message: ChatDisplayMessage) => void;
 	onSwipeReply: (messageId: string) => void;
 	onRetry: (messageId: string) => void;
@@ -36,20 +39,50 @@ interface Props {
 	onClosePoll: (pollId: string) => Promise<void>;
 }
 
-function renderMessageContent(content: string, isOwn: boolean) {
-	return content.split(/(https?:\/\/[^\s]+)/g).map((part, index) =>
-		part.match(/^https?:\/\//) ? (
-			<Text
-				key={`${part}-${index}`}
-				style={isOwn ? local.ownLink : local.link}
-				onPress={() => void Linking.openURL(part)}
-			>
-				{part}
-			</Text>
-		) : (
-			part
-		)
-	);
+function renderWhatsAppInline(parts: WhatsAppInlinePart[], isOwn: boolean, keyPrefix: string): ReactNode[] {
+	return parts.map((part, index) => {
+		const key = `${keyPrefix}-${index}`;
+		switch (part.type) {
+			case "bold":
+				return <Text key={key} style={local.bold}>{renderWhatsAppInline(part.children, isOwn, key)}</Text>;
+			case "italic":
+				return <Text key={key} style={local.italic}>{renderWhatsAppInline(part.children, isOwn, key)}</Text>;
+			case "strikethrough":
+				return <Text key={key} style={local.strikethrough}>{renderWhatsAppInline(part.children, isOwn, key)}</Text>;
+			case "monospace":
+				return <Text key={key} style={local.monospace}>{renderWhatsAppInline(part.children, isOwn, key)}</Text>;
+			case "link":
+				return (
+					<Text key={key} style={isOwn ? local.ownLink : local.link} onPress={() => void Linking.openURL(part.url)}>
+						{part.url}
+					</Text>
+				);
+			default:
+				return part.text;
+		}
+	});
+}
+
+function renderMessageContent(content: string, isOwn: boolean): ReactNode[] {
+	return parseWhatsAppText(content).flatMap((block, index) => {
+		const lineBreak = index > 0 ? "\n" : "";
+		const key = `whatsapp-block-${index}`;
+		if (block.type === "code") {
+			return [lineBreak, <Text key={key} style={local.codeBlock}>{block.text || "\u00a0"}</Text>];
+		}
+
+		const children = renderWhatsAppInline(block.children, isOwn, key);
+		if (block.type === "bullet") {
+			return [lineBreak, <Text key={key} style={local.bulletLine}>• {children}</Text>];
+		}
+		if (block.type === "numbered") {
+			return [lineBreak, <Text key={key} style={local.numberedLine}>{block.number}. {children}</Text>];
+		}
+		if (block.type === "quote") {
+			return [lineBreak, <Text key={key} style={local.quoteLine}>│ {children.length > 0 ? children : "\u00a0"}</Text>];
+		}
+		return [lineBreak, <Text key={key}>{children.length > 0 ? children : "\u00a0"}</Text>];
+	});
 }
 
 const ChatMessageBubble = memo(function ChatMessageBubbleView({
@@ -57,6 +90,7 @@ const ChatMessageBubble = memo(function ChatMessageBubbleView({
 	repliedMessage,
 	currentUserId,
 	showIdentity,
+	isHighlighted = false,
 	onLongPress,
 	onSwipeReply,
 	onRetry,
@@ -76,6 +110,10 @@ const ChatMessageBubble = memo(function ChatMessageBubbleView({
 	const reactions = useMemo(
 		() => summarizeChatReactions(message.reactions, currentUserId),
 		[currentUserId, message.reactions]
+	);
+	const renderedContent = useMemo(
+		() => renderMessageContent(message.content, isOwn),
+		[isOwn, message.content]
 	);
 	const swipeX = useSharedValue(0);
 	const swipeStyle = useAnimatedStyle(() => ({ transform: [{ translateX: swipeX.value }] }));
@@ -123,7 +161,7 @@ const ChatMessageBubble = memo(function ChatMessageBubbleView({
 					accessibilityLabel={`Announcement from ${authorName}: ${message.content}`}
 					delayLongPress={250}
 					onLongPress={!isPending ? () => onLongPress(message) : undefined}
-					style={({ pressed }) => [local.announcement, pressed && local.pressed]}
+					style={({ pressed }) => [local.announcement, isHighlighted && local.highlightedBubble, pressed && local.pressed]}
 				>
 					<View style={local.announcementHeader}>
 						<View style={local.announcementIcon}>
@@ -135,7 +173,7 @@ const ChatMessageBubble = memo(function ChatMessageBubbleView({
 						</View>
 						<Text style={local.announcementTime}>{formatChatTime(messageTimestamp(message))}</Text>
 					</View>
-					<Text style={local.announcementText}>{message.content}</Text>
+					<Text style={local.announcementText}>{renderedContent}</Text>
 				</Pressable>
 			</View>
 		);
@@ -226,7 +264,8 @@ const ChatMessageBubble = memo(function ChatMessageBubbleView({
 							style={[
 								local.bubble,
 								isOwn ? local.ownBubble : local.otherBubble,
-							message.type === "POLL" && local.pollBubble,
+								isHighlighted && local.highlightedBubble,
+								message.type === "POLL" && local.pollBubble,
 								reactions.length > 0 && local.bubbleWithReactions,
 								isPending && local.pendingBubble,
 							]}
@@ -258,7 +297,7 @@ const ChatMessageBubble = memo(function ChatMessageBubbleView({
 									isOwn && local.ownContent,
 								]}
 							>
-								{renderMessageContent(message.content, isOwn)}
+								{renderedContent}
 							</Text>
 
 							{message.type === "POLL" && message.poll ? (
@@ -392,6 +431,14 @@ const local = StyleSheet.create({
 	ownContent: { color: Colors.textPrimary },
 	link: { color: Colors.secondary, textDecorationLine: "underline" },
 	ownLink: { color: Colors.textPrimary, textDecorationLine: "underline" },
+	bold: { fontWeight: FontWeight.bold },
+	italic: { fontStyle: "italic" },
+	strikethrough: { textDecorationLine: "line-through" },
+	monospace: { fontFamily: Platform.select({ ios: "Menlo", android: "monospace", default: "monospace" }) },
+	codeBlock: { fontFamily: Platform.select({ ios: "Menlo", android: "monospace", default: "monospace" }), color: Colors.textPrimary },
+	bulletLine: { paddingLeft: Spacing.xs },
+	numberedLine: { paddingLeft: Spacing.xs },
+	quoteLine: { color: Colors.textMuted, fontStyle: "italic" },
 	replyPreview: {
 		marginBottom: Spacing.xs,
 		minWidth: 120,
@@ -467,6 +514,13 @@ const local = StyleSheet.create({
 		borderRadius: Radius.lg,
 		padding: Spacing.md,
 		backgroundColor: Colors.surface,
+	},
+	highlightedBubble: {
+		borderColor: Colors.secondary,
+		shadowColor: Colors.secondary,
+		shadowOpacity: 0.75,
+		shadowRadius: 12,
+		elevation: 8,
 	},
 	announcementHeader: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
 	announcementIcon: {

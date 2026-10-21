@@ -7,9 +7,12 @@ import {
 	getChatAuthorInitials,
 	getChatAvatarIndex,
 	messageTimestamp,
+	parseWhatsAppText,
 	QUICK_CHAT_REACTIONS,
 	type ChatDisplayMessage,
 	type ChatReactionSummary,
+	type WhatsAppInlinePart,
+	type WhatsAppTextBlock,
 } from "@bhemu/shared";
 
 export const AVATAR_COLORS = [
@@ -148,27 +151,70 @@ interface MessageTextProps {
 	isOwn: boolean;
 }
 
-const URL_PARTS = /(https?:\/\/[^\s]+)/g;
-const URL_ONLY = /^https?:\/\//;
-
-export const MessageText = memo(function MessageText({ content, isPoll, isOwn }: MessageTextProps) {
-	return (
-		<span className={isPoll ? "mb-1 block whitespace-pre-wrap text-[15px] font-semibold leading-5 tracking-[-0.01em]" : "whitespace-pre-wrap"}>
-			{content.split(URL_PARTS).map((part, index) =>
-				URL_ONLY.test(part) ? (
+function renderWhatsAppInline(parts: WhatsAppInlinePart[], isOwn: boolean, keyPrefix: string): ReactNode[] {
+	return parts.map((part, index) => {
+		const key = `${keyPrefix}-${index}`;
+		switch (part.type) {
+			case "bold":
+				return <strong key={key}>{renderWhatsAppInline(part.children, isOwn, key)}</strong>;
+			case "italic":
+				return <em key={key}>{renderWhatsAppInline(part.children, isOwn, key)}</em>;
+			case "strikethrough":
+				return <del key={key}>{renderWhatsAppInline(part.children, isOwn, key)}</del>;
+			case "monospace":
+				return <code key={key} className="rounded bg-black/15 px-1 font-mono text-[0.92em]">{renderWhatsAppInline(part.children, isOwn, key)}</code>;
+			case "link":
+				return (
 					<a
-						key={`${part}-${index}`}
-						href={part}
+						key={key}
+						href={part.url}
 						target="_blank"
 						rel="noreferrer"
 						className={`underline transition-colors ${isOwn ? "text-white" : "text-sky-400 hover:text-sky-300"}`}
 					>
-						{part}
+						{part.url}
 					</a>
-				) : (
-					part
-				),
-			)}
+				);
+			default:
+				return part.text;
+		}
+	});
+}
+
+function renderWhatsAppBlock(block: WhatsAppTextBlock, isOwn: boolean, index: number): ReactNode {
+	const key = `whatsapp-block-${index}`;
+	if (block.type === "code") {
+		return <span key={key} className="block font-mono text-[0.92em] leading-5">{block.text || "\u00a0"}</span>;
+	}
+
+	const children = renderWhatsAppInline(block.children, isOwn, key);
+	if (block.type === "bullet") {
+		return (
+			<span key={key} className="flex w-full gap-2">
+				<span className="shrink-0" aria-hidden="true">•</span>
+				<span className="min-w-0">{children}</span>
+			</span>
+		);
+	}
+	if (block.type === "numbered") {
+		return (
+			<span key={key} className="flex w-full gap-2">
+				<span className="shrink-0 tabular-nums" aria-hidden="true">{block.number}.</span>
+				<span className="min-w-0">{children}</span>
+			</span>
+		);
+	}
+	if (block.type === "quote") {
+		return <span key={key} className="block border-l-2 border-current/40 pl-2 italic opacity-90">{children.length > 0 ? children : "\u00a0"}</span>;
+	}
+	return <span key={key} className="block min-h-[1.25em]">{children.length > 0 ? children : "\u00a0"}</span>;
+}
+
+export const MessageText = memo(function MessageText({ content, isPoll, isOwn }: MessageTextProps) {
+	const blocks = parseWhatsAppText(content);
+	return (
+		<span className={isPoll ? "mb-1 block whitespace-pre-wrap text-[15px] font-semibold leading-5 tracking-[-0.01em]" : "whitespace-pre-wrap"}>
+			{blocks.map((block, index) => renderWhatsAppBlock(block, isOwn, index))}
 		</span>
 	);
 });

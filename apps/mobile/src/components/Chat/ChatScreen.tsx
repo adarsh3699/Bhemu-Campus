@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { AlertCircle, CheckCircle2, X } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -15,18 +15,26 @@ import ChatMessageReportModal from "./ChatMessageReportModal";
 import ChatPollComposer from "./ChatPollComposer";
 import ChatRoomTabs from "./ChatRoomTabs";
 
-export default function ChatScreen() {
+export type ChatNotificationTarget = {
+	roomId: string;
+	messageId: string;
+	roomType?: "UNIVERSITY" | "BATCHMATE";
+};
+
+export default function ChatScreen({ notificationTarget }: { notificationTarget?: ChatNotificationTarget }) {
+	const initialRoom = notificationTarget?.roomType === "BATCHMATE" ? "batchmate" : "university";
 	return (
-		<ChatProvider>
-			<ChatScreenContent />
+		<ChatProvider initialRoom={initialRoom}>
+			<ChatScreenContent notificationTarget={notificationTarget} />
 		</ChatProvider>
 	);
 }
 
-function ChatScreenContent() {
+function ChatScreenContent({ notificationTarget }: { notificationTarget?: ChatNotificationTarget }) {
 	const {
 		activeRoom,
 		batchmateRoom,
+		universityRoom,
 		connected,
 		currentRoom,
 		dismissError,
@@ -94,6 +102,38 @@ function ChatScreenContent() {
 	const canAnnounce = canPerformChatAction(chatRole, currentRoom?.policy.createAnnouncementRole);
 	const canPin = canPerformChatAction(chatRole, currentRoom?.policy.pinMessageRole);
 	const canClosePoll = canCreatePoll;
+	const notificationTargetRoom = notificationTarget
+		? notificationTarget.roomId === batchmateRoom?.id
+			? "batchmate"
+			: notificationTarget.roomId === universityRoom?.id
+				? "university"
+				: notificationTarget.roomType === "BATCHMATE"
+					? "batchmate"
+					: notificationTarget.roomType === "UNIVERSITY"
+						? "university"
+						: null
+		: null;
+	const notificationNavigationKey = notificationTarget
+		? `${notificationTarget.roomId}:${notificationTarget.messageId}`
+		: null;
+	const appliedNotificationNavigationRef = useRef<string | null>(null);
+
+	useEffect(() => {
+		if (!notificationNavigationKey) {
+			appliedNotificationNavigationRef.current = null;
+			return;
+		}
+		if (!notificationTargetRoom || appliedNotificationNavigationRef.current === notificationNavigationKey) return;
+		if (activeRoom === notificationTargetRoom) {
+			appliedNotificationNavigationRef.current = notificationNavigationKey;
+			return;
+		}
+
+		const targetRoomLoaded = notificationTargetRoom === "university" ? Boolean(universityRoom) : Boolean(batchmateRoom);
+		if (!targetRoomLoaded) return;
+		if (activeRoom !== notificationTargetRoom) setActiveRoom(notificationTargetRoom);
+		appliedNotificationNavigationRef.current = notificationNavigationKey;
+	}, [activeRoom, batchmateRoom, notificationNavigationKey, notificationTargetRoom, setActiveRoom, universityRoom]);
 
 	useEffect(() => {
 		if (onlineUsers.length === 0) return;
@@ -171,6 +211,9 @@ function ChatScreenContent() {
 							hasMore={hasMore}
 							loadingMessages={loadingMessages}
 							messages={messages}
+							notificationMessageId={
+								notificationTargetRoom === activeRoom ? notificationTarget?.messageId : undefined
+							}
 							onLoadOlder={loadOlderMessages}
 							onReply={handleReply}
 							onEdit={handleEdit}
