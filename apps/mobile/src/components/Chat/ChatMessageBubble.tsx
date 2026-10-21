@@ -8,6 +8,7 @@ import {
 	formatChatTime,
 	getChatAuthorInitials,
 	getChatAvatarIndex,
+	extractWhatsAppLinks,
 	isDeletedChatAnnouncement,
 	messageTimestamp,
 	normalizeChatDisplayName,
@@ -37,33 +38,63 @@ interface Props {
 	canClosePoll: boolean;
 	onVotePoll: (pollId: string, optionIds: string[]) => Promise<void>;
 	onClosePoll: (pollId: string) => Promise<void>;
+	onJumpToMessage?: (messageId: string) => void;
+	searchQuery?: string;
 }
 
-function renderWhatsAppInline(parts: WhatsAppInlinePart[], isOwn: boolean, keyPrefix: string): ReactNode[] {
+function renderHighlightedText(value: string, searchQuery: string | undefined, keyPrefix: string): ReactNode[] | string {
+	const query = searchQuery?.trim();
+	if (!query) return value;
+
+	const normalizedValue = value.toLocaleLowerCase();
+	const normalizedQuery = query.toLocaleLowerCase();
+	const result: ReactNode[] = [];
+	let cursor = 0;
+	let matchIndex = normalizedValue.indexOf(normalizedQuery, cursor);
+	let matchNumber = 0;
+
+	while (matchIndex >= 0) {
+		if (matchIndex > cursor) result.push(value.slice(cursor, matchIndex));
+		result.push(
+			<Text key={`${keyPrefix}-match-${matchNumber}`} style={local.searchMatch}>
+				{value.slice(matchIndex, matchIndex + query.length)}
+			</Text>,
+		);
+		cursor = matchIndex + query.length;
+		matchNumber += 1;
+		matchIndex = normalizedValue.indexOf(normalizedQuery, cursor);
+	}
+
+	if (cursor === 0) return value;
+	if (cursor < value.length) result.push(value.slice(cursor));
+	return result;
+}
+
+function renderWhatsAppInline(parts: WhatsAppInlinePart[], isOwn: boolean, keyPrefix: string, searchQuery?: string): ReactNode[] {
 	return parts.map((part, index) => {
 		const key = `${keyPrefix}-${index}`;
 		switch (part.type) {
 			case "bold":
-				return <Text key={key} style={local.bold}>{renderWhatsAppInline(part.children, isOwn, key)}</Text>;
+				return <Text key={key} style={local.bold}>{renderWhatsAppInline(part.children, isOwn, key, searchQuery)}</Text>;
 			case "italic":
-				return <Text key={key} style={local.italic}>{renderWhatsAppInline(part.children, isOwn, key)}</Text>;
+				return <Text key={key} style={local.italic}>{renderWhatsAppInline(part.children, isOwn, key, searchQuery)}</Text>;
 			case "strikethrough":
-				return <Text key={key} style={local.strikethrough}>{renderWhatsAppInline(part.children, isOwn, key)}</Text>;
+				return <Text key={key} style={local.strikethrough}>{renderWhatsAppInline(part.children, isOwn, key, searchQuery)}</Text>;
 			case "monospace":
-				return <Text key={key} style={local.monospace}>{renderWhatsAppInline(part.children, isOwn, key)}</Text>;
+				return <Text key={key} style={local.monospace}>{renderWhatsAppInline(part.children, isOwn, key, searchQuery)}</Text>;
 			case "link":
 				return (
 					<Text key={key} style={isOwn ? local.ownLink : local.link} onPress={() => void Linking.openURL(part.url)}>
-						{part.url}
+						{renderHighlightedText(part.url, searchQuery, key)}
 					</Text>
 				);
 			default:
-				return part.text;
+				return renderHighlightedText(part.text, searchQuery, key);
 		}
 	});
 }
 
-function renderMessageContent(content: string, isOwn: boolean): ReactNode[] {
+function renderMessageContent(content: string, isOwn: boolean, searchQuery?: string): ReactNode[] {
 	return parseWhatsAppText(content).flatMap((block, index) => {
 		const lineBreak = index > 0 ? "\n" : "";
 		const key = `whatsapp-block-${index}`;
@@ -71,7 +102,7 @@ function renderMessageContent(content: string, isOwn: boolean): ReactNode[] {
 			return [lineBreak, <Text key={key} style={local.codeBlock}>{block.text || "\u00a0"}</Text>];
 		}
 
-		const children = renderWhatsAppInline(block.children, isOwn, key);
+		const children = renderWhatsAppInline(block.children, isOwn, key, searchQuery);
 		if (block.type === "bullet") {
 			return [lineBreak, <Text key={key} style={local.bulletLine}>• {children}</Text>];
 		}
@@ -99,22 +130,25 @@ const ChatMessageBubble = memo(function ChatMessageBubbleView({
 	canClosePoll,
 	onVotePoll,
 	onClosePoll,
+	onJumpToMessage,
+	searchQuery,
 }: Props) {
 	const isOwn = currentUserId === message.authorUid;
 	const isDeleted = message.visibility === "DELETED";
 	const isAnnouncement = message.type === "ANNOUNCEMENT";
 	const isPoll = message.type === "POLL";
 	const isPending = message.id.startsWith(CHAT_OPTIMISTIC_PREFIX);
-	const canReply = !isPending && !message.failed && !isDeleted && !isAnnouncement;
+	const canReply = !isPending && !message.failed && !isDeleted;
 	const authorName = normalizeChatDisplayName(message.authorName);
 	const reactions = useMemo(
 		() => summarizeChatReactions(message.reactions, currentUserId),
 		[currentUserId, message.reactions]
 	);
 	const renderedContent = useMemo(
-		() => renderMessageContent(message.content, isOwn),
-		[isOwn, message.content]
+		() => renderMessageContent(message.content, isOwn, searchQuery),
+		[isOwn, message.content, searchQuery]
 	);
+	const previewLink = useMemo(() => extractWhatsAppLinks(message.content)[0] ?? null, [message.content]);
 	const swipeX = useSharedValue(0);
 	const swipeStyle = useAnimatedStyle(() => ({ transform: [{ translateX: swipeX.value }] }));
 	const leftReplyActionStyle = useAnimatedStyle(() => {
@@ -138,14 +172,18 @@ const ChatMessageBubble = memo(function ChatMessageBubbleView({
 				.activeOffsetX([-10, 10])
 				.failOffsetY([-12, 12])
 				.onUpdate((event) => {
+					// Reanimated shared values are intentionally mutated inside worklets.
+					// eslint-disable-next-line react-hooks/immutability
 					swipeX.value = Math.min(Math.max(event.translationX, -SWIPE_REPLY_DISTANCE), SWIPE_REPLY_DISTANCE);
 				})
 				.onEnd(() => {
 					const shouldReply = Math.abs(swipeX.value) >= SWIPE_REPLY_TRIGGER;
+					// eslint-disable-next-line react-hooks/immutability
 					swipeX.value = withSpring(0);
 					if (shouldReply) runOnJS(onSwipeReply)(message.id);
 				})
 				.onFinalize(() => {
+					// eslint-disable-next-line react-hooks/immutability
 					swipeX.value = withSpring(0);
 				}),
 		[canReply, message.id, onSwipeReply, swipeX]
@@ -174,6 +212,13 @@ const ChatMessageBubble = memo(function ChatMessageBubbleView({
 						<Text style={local.announcementTime}>{formatChatTime(messageTimestamp(message))}</Text>
 					</View>
 					<Text style={local.announcementText}>{renderedContent}</Text>
+					{previewLink ? (
+						<LinkPreviewCard
+							url={previewLink}
+							isOwn={false}
+							onLongPress={!isPending ? () => onLongPress(message) : undefined}
+						/>
+					) : null}
 				</Pressable>
 			</View>
 		);
@@ -202,7 +247,7 @@ const ChatMessageBubble = memo(function ChatMessageBubbleView({
 				<View style={[local.messageColumn, isOwn && local.ownMessageColumn]}>
 					{!isOwn && showIdentity ? <Text style={local.author}>{authorName}</Text> : null}
 					<View style={local.deleted}>
-						<Text style={local.deletedText}>Message deleted</Text>
+						<Text style={local.deletedText}>Message deleted{"\u00a0"}</Text>
 					</View>
 				</View>
 			</View>
@@ -271,11 +316,15 @@ const ChatMessageBubble = memo(function ChatMessageBubbleView({
 							]}
 						>
 							{message.replyToMessageId ? (
-								<View
+								<Pressable
 									style={[
 										local.replyPreview,
 										isOwn ? local.ownReplyPreview : local.otherReplyPreview,
 									]}
+									onPress={repliedMessage && onJumpToMessage ? () => onJumpToMessage(repliedMessage.id) : undefined}
+									onLongPress={canReply ? () => onLongPress(message) : undefined}
+									delayLongPress={200}
+									accessibilityRole={repliedMessage && onJumpToMessage ? "button" : "text"}
 								>
 									<Text style={[local.replyAuthor, isOwn && local.ownReplyText]}>
 										{repliedMessage
@@ -287,7 +336,7 @@ const ChatMessageBubble = memo(function ChatMessageBubbleView({
 									<Text style={[local.replyContent, isOwn && local.ownReplyText]} numberOfLines={1}>
 										{repliedMessage?.content ?? "Message content not loaded"}
 									</Text>
-								</View>
+								</Pressable>
 							) : null}
 
 							<Text
@@ -299,6 +348,13 @@ const ChatMessageBubble = memo(function ChatMessageBubbleView({
 							>
 								{renderedContent}
 							</Text>
+							{previewLink ? (
+								<LinkPreviewCard
+									url={previewLink}
+									isOwn={isOwn}
+									onLongPress={canReply ? () => onLongPress(message) : undefined}
+								/>
+							) : null}
 
 							{message.type === "POLL" && message.poll ? (
 								<ChatPollCard
@@ -379,6 +435,31 @@ const ChatMessageBubble = memo(function ChatMessageBubbleView({
 	);
 });
 
+function LinkPreviewCard({ url, isOwn, onLongPress }: { url: string; isOwn: boolean; onLongPress?: () => void }) {
+		const hostname = useMemo(() => {
+			try {
+				return new URL(url).hostname.replace(/^www\./, "");
+			} catch {
+				return url;
+			}
+		}, [url]);
+
+	return (
+		<Pressable
+			accessibilityRole="link"
+			accessibilityLabel={`Open link preview for ${hostname}`}
+			delayLongPress={200}
+			onLongPress={onLongPress}
+			onPress={() => void Linking.openURL(url)}
+			style={[local.linkPreview, isOwn ? local.ownLinkPreview : local.otherLinkPreview]}
+		>
+			<Text style={local.linkPreviewLabel}>LINK PREVIEW</Text>
+			<Text style={[local.linkPreviewHost, isOwn && local.ownLinkPreviewText]} numberOfLines={1}>{hostname}</Text>
+			<Text style={[local.linkPreviewUrl, isOwn && local.ownLinkPreviewText]} numberOfLines={1}>{url}</Text>
+		</Pressable>
+	);
+}
+
 export default ChatMessageBubble;
 
 const local = StyleSheet.create({
@@ -427,6 +508,7 @@ const local = StyleSheet.create({
 	pollBubble: { alignSelf: "stretch" },
 	pendingBubble: { opacity: 0.8 },
 	content: { fontSize: FontSize.md, lineHeight: 22, color: Colors.textPrimary },
+	searchMatch: { borderRadius: 3, backgroundColor: "#f2c94c", color: "#171717" },
 	pollContent: { fontWeight: FontWeight.semibold, lineHeight: 21 },
 	ownContent: { color: Colors.textPrimary },
 	link: { color: Colors.secondary, textDecorationLine: "underline" },
@@ -439,6 +521,13 @@ const local = StyleSheet.create({
 	bulletLine: { paddingLeft: Spacing.xs },
 	numberedLine: { paddingLeft: Spacing.xs },
 	quoteLine: { color: Colors.textMuted, fontStyle: "italic" },
+	linkPreview: { marginTop: Spacing.sm, borderWidth: 1, borderRadius: Radius.md, padding: Spacing.sm },
+	otherLinkPreview: { borderColor: Colors.borderLight, backgroundColor: Colors.surface },
+	ownLinkPreview: { borderColor: "rgba(255,255,255,0.25)", backgroundColor: Colors.primaryDark },
+	linkPreviewLabel: { fontSize: FontSize.xs, fontWeight: FontWeight.bold, letterSpacing: 1, color: Colors.secondary },
+	linkPreviewHost: { marginTop: 2, fontSize: FontSize.sm, fontWeight: FontWeight.semibold, color: Colors.textPrimary },
+	linkPreviewUrl: { marginTop: 2, fontSize: FontSize.xs, color: Colors.textMuted },
+	ownLinkPreviewText: { color: Colors.textPrimary },
 	replyPreview: {
 		marginBottom: Spacing.xs,
 		minWidth: 120,
@@ -550,5 +639,5 @@ const local = StyleSheet.create({
 		paddingVertical: Spacing.sm,
 		backgroundColor: Colors.surface,
 	},
-	deletedText: { fontSize: FontSize.sm, fontStyle: "italic", color: Colors.textSubtle },
+	deletedText: { flexShrink: 0, fontSize: FontSize.sm, fontStyle: "italic", color: Colors.textSubtle },
 });

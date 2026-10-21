@@ -198,3 +198,26 @@ export function whatsappNotificationPreview(content: string, maxLength = 240): s
 	if (plainText.length <= maxLength) return plainText;
 	return `${plainText.slice(0, Math.max(1, maxLength - 1)).trimEnd()}…`;
 }
+
+/** Return unique HTTP(S) links in a message, in the order they appear. */
+export function extractWhatsAppLinks(content: string): string[] {
+	const links: string[] = [];
+	const seen = new Set<string>();
+	const visit = (parts: WhatsAppInlinePart[]) => {
+		for (const part of parts) {
+			if (part.type === "link") {
+				if (!seen.has(part.url)) {
+					seen.add(part.url);
+					links.push(part.url);
+				}
+			} else if (part.type !== "text") {
+				visit(part.children);
+			}
+		}
+	};
+
+	for (const block of parseWhatsAppText(content)) {
+		if (block.type !== "code") visit(block.children);
+	}
+	return links;
+}

@@ -63,6 +63,7 @@ interface QuickAction {
 	tab?: string;
 	color: string;
 	badge?: number;
+	disabled?: boolean;
 }
 
 const QuickActionCard = memo(function QuickActionCardView({
@@ -74,10 +75,12 @@ const QuickActionCard = memo(function QuickActionCardView({
 }) {
 	return (
 		<Pressable
-			style={local.actionCard}
+			style={[local.actionCard, action.disabled && local.actionCardDisabled]}
 			onPress={() => onPress(action)}
+			disabled={action.disabled}
 			accessibilityRole="button"
 			accessibilityLabel={`${action.title}: ${action.subtitle}`}
+			accessibilityState={{ disabled: action.disabled }}
 		>
 			<View style={local.actionIconWrap}>
 				<View style={[local.actionIcon, { borderColor: action.color + "40" }]}>{action.icon}</View>
@@ -110,7 +113,6 @@ function HomeTabContent() {
 	const announcementCount = isSharedProfile
 		? 0
 		: (umsData?.announcements?.filter((a) => isTodayStr(a.date)).length ?? 0);
-	const examCount = isSharedProfile ? 0 : (umsData?.seatingPlan?.length ?? 0);
 	const hasTimetableData = !isSharedProfile && (umsData?.timetable?.length ?? 0) > 0;
 
 	const [drawerOpen, setDrawerOpen] = useState(false);
@@ -179,19 +181,19 @@ function HomeTabContent() {
 			},
 			{
 				title: "Seating Plan",
-				subtitle: "Exam room & seat details",
+				subtitle: "Coming soon",
 				icon: <ClipboardList size={22} color={Colors.success} />,
-				route: "/seating-plan",
 				color: Colors.success,
-				badge: examCount,
+				disabled: true,
 			},
 		];
 		const UMS_ACTIONS = ["Timetable", "Announcements", "Seating Plan"];
 		return isSharedProfile ? all.filter((a) => !UMS_ACTIONS.includes(a.title)) : all;
-	}, [isSharedProfile, todayClassCount, announcementCount, examCount]);
+	}, [isSharedProfile, todayClassCount, announcementCount]);
 
 	const handlePress = useCallback(
 		(action: QuickAction) => {
+			if (action.disabled) return;
 			if (action.tab) router.push(action.tab as never);
 			else if (action.route) router.push(action.route as never);
 		},
@@ -412,6 +414,9 @@ const local = StyleSheet.create({
 		borderColor: Colors.border,
 		padding: Spacing.lg,
 		gap: Spacing.sm,
+	},
+	actionCardDisabled: {
+		opacity: 0.55,
 	},
 	actionIconWrap: { position: "relative", alignSelf: "flex-start" },
 	actionIcon: {

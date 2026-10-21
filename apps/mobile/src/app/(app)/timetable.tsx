@@ -41,9 +41,10 @@ export default function TimetableScreen() {
 	}, [data?.timetable]);
 
 	const [selectedDay, setSelectedDay] = useState<string | null>(null);
-	const activeDay = selectedDay && grouped.some((g) => g.day === selectedDay)
-		? selectedDay
-		: grouped.find((g) => g.day === todayName)?.day ?? grouped[0]?.day ?? "";
+	const activeDay =
+		selectedDay && grouped.some((g) => g.day === selectedDay)
+			? selectedDay
+			: (grouped.find((g) => g.day === todayName)?.day ?? grouped[0]?.day ?? "");
 	const selectedEntries = grouped.find((g) => g.day === activeDay)?.entries ?? [];
 
 	// Auto-scroll tab strip so today's (or active) chip is visible
@@ -138,7 +139,8 @@ const local = StyleSheet.create({
 	tabStripOuter: { flexGrow: 0 },
 	tabStrip: {
 		paddingHorizontal: Spacing.lg,
-		paddingBottom: Spacing.md,
+		paddingTop: 2,
+		paddingBottom: Spacing.sm,
 		gap: Spacing.sm,
 		flexDirection: "row",
 		alignItems: "center",
@@ -147,7 +149,8 @@ const local = StyleSheet.create({
 		flexDirection: "row",
 		alignItems: "center",
 		paddingHorizontal: Spacing.md,
-		paddingVertical: Spacing.xs + 2,
+		paddingVertical: Spacing.xs,
+		minHeight: 30,
 		borderRadius: Radius.full,
 		borderWidth: 1,
 		gap: Spacing.xs,
@@ -162,7 +165,9 @@ const local = StyleSheet.create({
 	},
 	tabLabel: {
 		fontSize: FontSize.sm,
+		lineHeight: 18,
 		fontWeight: FontWeight.semibold,
+		includeFontPadding: true,
 	},
 	tabLabelActive: { color: Colors.secondary },
 	tabLabelInactive: { color: Colors.textMuted },

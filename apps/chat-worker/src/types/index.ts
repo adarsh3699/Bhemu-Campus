@@ -29,4 +29,6 @@ export interface Env {
 	CHAT_ROOM: DurableObjectNamespace;
 	/** Cloudflare R2 bucket for media (optional until R2 binding is added). */
 	MEDIA_BUCKET?: R2Bucket;
+	/** Public web chat URL used by browser notification deep links. */
+	WEB_APP_URL?: string;
 }

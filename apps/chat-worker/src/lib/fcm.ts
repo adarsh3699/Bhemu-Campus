@@ -11,6 +11,11 @@ export interface FcmMessage {
 	title: string;
 	body: string;
 	data?: Record<string, string>;
+	/** Android notification group and iOS thread identifier. */
+	groupId?: string;
+	/** Optional APNs subtitle and browser notification click destination. */
+	subtitle?: string;
+	webLink?: string;
 }
 
 // Memory cache for the OAuth2 access token to avoid re-signing on every push
@@ -132,8 +137,15 @@ async function sendToSingleToken(token: string, message: FcmMessage, env: Env, a
 					priority: "HIGH",
 					notification: {
 						channel_id: "chat-messages",
+						...(message.groupId ? { group: message.groupId } : {}),
 					},
 				},
+				...(message.groupId ? {
+					apns: {
+						payload: { aps: { "thread-id": message.groupId, ...(message.subtitle ? { alert: { subtitle: message.subtitle } } : {}) } },
+					},
+				} : {}),
+				...(message.webLink ? { webpush: { fcm_options: { link: message.webLink } } } : {}),
 			},
 		}),
 	});
@@ -155,7 +167,8 @@ export async function sendFcmToTokens(
 	message: FcmMessage,
 	env: Env
 ): Promise<void> {
-	if (tokens.length === 0) return;
+	const uniqueTokens = [...new Set(tokens.filter((token) => token.trim().length > 0))];
+	if (uniqueTokens.length === 0) return;
 
 	try {
 		const accessToken = await getAccessToken(env, ["https://www.googleapis.com/auth/firebase.messaging"]);
@@ -164,15 +177,15 @@ export async function sendFcmToTokens(
 		// For massive scale, this would be chunked.
 		const chunked = [];
 		const chunkSize = 40;
-		for (let i = 0; i < tokens.length; i += chunkSize) {
-			chunked.push(tokens.slice(i, i + chunkSize));
+		for (let i = 0; i < uniqueTokens.length; i += chunkSize) {
+			chunked.push(uniqueTokens.slice(i, i + chunkSize));
 		}
 
 		for (const chunk of chunked) {
 			await Promise.all(chunk.map((t) => sendToSingleToken(t, message, env, accessToken).catch(() => false)));
 		}
 		
-		logger.info("fcm.dispatched", { count: tokens.length, title: message.title });
+		logger.info("fcm.dispatched", { count: uniqueTokens.length, title: message.title });
 	} catch (error) {
 		logger.error("fcm.dispatch_error", { error: String(error) });
 	}

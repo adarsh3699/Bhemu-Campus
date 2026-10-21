@@ -1,6 +1,6 @@
 "use client";
 
-import React, { memo, useCallback, useEffect, useRef } from "react";
+import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { isDeletedChatAnnouncement, shouldShowChatDateSeparator, startsChatAuthorGroup, type ChatDisplayMessage, type ChatMessage, type PinDuration } from "@bhemu/shared";
 import MessageBubble, { DateSeparator } from "./MessageBubble";
@@ -28,20 +28,27 @@ interface MessageListProps {
 	onVotePoll: (pollId: string, optionIds: string[]) => Promise<void>;
 	onClosePoll: (pollId: string) => Promise<void>;
 	highlightedMessageId?: string | null;
+	searchFocusMessageId?: string | null;
+	searchQuery?: string;
+	notificationMessageId?: string | null;
 	replyToId?: string | null;
+	onJumpToMessage?: (messageId: string) => void;
 }
 
 const MessageList = memo(function MessageList({
 	messages, currentUserId, hasMore, loadingMessages,
 	onLoadOlder, onReply, onEdit, onDelete, onRetry, onReact, onUnreact, onReport,
 	pinnedMessageIds, canPin, canModerate, canClosePoll, onTogglePin, onModerationDelete, onModerate, onVotePoll, onClosePoll,
-	highlightedMessageId, replyToId,
+	highlightedMessageId, searchFocusMessageId, searchQuery, notificationMessageId, replyToId, onJumpToMessage,
 }: MessageListProps) {
 	const bottomRef = useRef<HTMLDivElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const isAtBottomRef = useRef(true);
 	const prevLenRef = useRef(0);
 	const scrollRafRef = useRef<number | null>(null);
+	const [unreadCount, setUnreadCount] = useState(0);
+	const pendingJumpMessageIdRef = useRef<string | null>(null);
+	const notificationHandledRef = useRef<string | null>(null);
 
 	// Announcements follow the chat's soft-delete/audit policy, but a deleted
 	// announcement must not leave an empty announcement card in the timeline.
@@ -59,9 +66,12 @@ const MessageList = memo(function MessageList({
 		const prevCount = prevLenRef.current;
 		const lastMsg = visibleMessages[newCount - 1];
 
-		if (newCount > prevCount && isAtBottomRef.current) {
+		const latestChanged = lastMsg?.id !== lastMsgIdRef.current;
+		if (newCount > prevCount && latestChanged && isAtBottomRef.current) {
 			const isOptimistic = lastMsg?.id.startsWith("optimistic_") ?? false;
 			bottomRef.current?.scrollIntoView({ behavior: isOptimistic ? "instant" : "smooth" });
+		} else if (newCount > prevCount && latestChanged && prevCount > 0) {
+			setUnreadCount((current) => Math.min(99, current + newCount - prevCount));
 		}
 
 		// Initial load — always jump instantly
@@ -74,6 +84,11 @@ const MessageList = memo(function MessageList({
 	// visibleMessages.length is the only stable dep we need here — avoids re-running on edits/deletes
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [visibleMessages.length]);
+
+	useEffect(() => {
+		if (!searchFocusMessageId) return;
+		document.getElementById(`msg-${searchFocusMessageId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+	}, [searchFocusMessageId, visibleMessages.length]);
 
 	useEffect(() => {
 		return () => {
@@ -107,6 +122,40 @@ const MessageList = memo(function MessageList({
 		onLoadOlder();
 	}, [loadingMessages, hasMore, visibleMessages, onLoadOlder]);
 
+	useEffect(() => {
+		if (!notificationMessageId || notificationHandledRef.current === notificationMessageId) return;
+		if (document.getElementById(`msg-${notificationMessageId}`)) {
+			notificationHandledRef.current = notificationMessageId;
+			onJumpToMessage?.(notificationMessageId);
+			return;
+		}
+		if (!loadingMessages && hasMore) handleLoadOlder();
+	}, [handleLoadOlder, hasMore, loadingMessages, notificationMessageId, onJumpToMessage, visibleMessages.length]);
+
+	const jumpToMessage = useCallback((messageId: string) => {
+		if (document.getElementById(`msg-${messageId}`)) {
+			pendingJumpMessageIdRef.current = null;
+			onJumpToMessage?.(messageId);
+			return;
+		}
+		if (hasMore) {
+			pendingJumpMessageIdRef.current = messageId;
+			if (!loadingMessages) handleLoadOlder();
+		}
+	}, [handleLoadOlder, hasMore, loadingMessages, onJumpToMessage]);
+
+	useEffect(() => {
+		const messageId = pendingJumpMessageIdRef.current;
+		if (!messageId || loadingMessages) return;
+		if (document.getElementById(`msg-${messageId}`)) {
+			pendingJumpMessageIdRef.current = null;
+			onJumpToMessage?.(messageId);
+			return;
+		}
+		if (hasMore) handleLoadOlder();
+		else pendingJumpMessageIdRef.current = null;
+	}, [handleLoadOlder, hasMore, loadingMessages, onJumpToMessage, visibleMessages.length]);
+
 	const handleScroll = useCallback(() => {
 		if (scrollRafRef.current) return;
 		scrollRafRef.current = requestAnimationFrame(() => {
@@ -115,12 +164,18 @@ const MessageList = memo(function MessageList({
 			if (!el) return;
 			
 			isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+			if (isAtBottomRef.current) setUnreadCount(0);
 			// Trigger load-older when near the top
 			if (el.scrollTop < 80 && hasMore && !loadingMessages) {
 				handleLoadOlder();
 			}
 		});
 	}, [hasMore, loadingMessages, handleLoadOlder]);
+
+	const jumpToLatest = useCallback(() => {
+		setUnreadCount(0);
+		bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+	}, []);
 
 	// Auto-trigger load if user is stuck at the top after a background sync finishes
 	useEffect(() => {
@@ -194,11 +249,11 @@ const MessageList = memo(function MessageList({
 				{visibleMessages.map((msg, i) => {
 					const msgId = msg.idempotencyKey || msg.id;
 					return (
-						<div key={msgId} id={`msg-${msg.id}`}>
+						<div key={msgId} id={`msg-${msg.id}`} className="chat-message-row">
 							{shouldShowChatDateSeparator(msg, visibleMessages[i - 1]) && <DateSeparator iso={msg.createdAt} />}
 							<MessageBubble
 								message={msg}
-								isHighlighted={highlightedMessageId === msg.id}
+								isHighlighted={highlightedMessageId === msg.id || searchFocusMessageId === msg.id || notificationMessageId === msg.id}
 								repliedMessage={msg.replyToMessageId ? messageMap.get(msg.replyToMessageId) : undefined}
 								currentUserId={currentUserId}
 								showIdentity={startsChatAuthorGroup(msg, visibleMessages[i - 1])}
@@ -218,12 +273,25 @@ const MessageList = memo(function MessageList({
 								onModerate={onModerate}
 								onVotePoll={onVotePoll}
 								onClosePoll={onClosePoll}
+								onJumpToMessage={jumpToMessage}
+									searchQuery={searchFocusMessageId === msg.id ? searchQuery : undefined}
 							/>
 						</div>
 					);
 				})}
 				<div ref={bottomRef} />
 			</div>
+			{unreadCount > 0 ? (
+				<button
+					type="button"
+					onClick={jumpToLatest}
+					aria-label={`Jump to ${unreadCount} new message${unreadCount === 1 ? "" : "s"}`}
+					className="absolute bottom-4 left-1/2 flex min-h-11 -translate-x-1/2 items-center gap-2 rounded-full border border-primary/60 bg-[#11191b]/95 px-4 text-xs font-semibold text-primary shadow-lg shadow-black/30 transition-colors hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+				>
+					<span className="size-1.5 rounded-full bg-primary" aria-hidden="true" />
+					{unreadCount} new {unreadCount === 1 ? "message" : "messages"} · Jump to latest
+				</button>
+			) : null}
 		</div>
 	);
 });

@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useCallback, useState, useEffect, useRef } from "react";
-import { AlertCircle, X } from "lucide-react";
+import React, { startTransition, useCallback, useMemo, useState, useEffect, useRef } from "react";
+import { AlertCircle, Search, X } from "lucide-react";
 import { type ActiveRoom, useChat } from "@/contexts/ChatContext";
 import MessageList from "./MessageList";
 import MessageInput from "./MessageInput";
@@ -12,6 +12,8 @@ import PinnedMessagesBar from "./PinnedMessagesBar";
 import PollComposer from "./PollComposer";
 import AnnouncementComposer from "./AnnouncementComposer";
 import ModerationModal, { type ModerationAction } from "./ModerationModal";
+import TypingIndicator from "./TypingIndicator";
+import MessageSearchBar from "./MessageSearchBar";
 
 export default function ChatView() {
 	const {
@@ -43,6 +45,8 @@ export default function ChatView() {
 		suspendUser,
 		banUser,
 		onlineUsers,
+		typingUsers,
+		setTyping,
 		error,
 		dismissError,
 	} = useChat();
@@ -53,8 +57,28 @@ export default function ChatView() {
 	const [pollComposerOpen, setPollComposerOpen] = useState(false);
 	const [announcementComposerOpen, setAnnouncementComposerOpen] = useState(false);
 	const [moderationMessage, setModerationMessage] = useState<ChatMessage | null>(null);
+	const [searchOpen, setSearchOpen] = useState(false);
+	const [searchQuery, setSearchQuery] = useState("");
+	const [searchTerm, setSearchTerm] = useState("");
+	const [searchIndex, setSearchIndex] = useState(0);
 	const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
 	const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const searchPageRequestKeyRef = useRef("");
+	const deepLinkHandledRef = useRef(false);
+	const [notificationTarget, setNotificationTarget] = useState<{ roomType: "university" | "batchmate"; messageId: string } | null>(null);
+
+	useEffect(() => {
+		if (deepLinkHandledRef.current || typeof window === "undefined") return;
+		const params = new URLSearchParams(window.location.search);
+		const messageId = params.get("messageId");
+		const roomId = params.get("roomId");
+		const roomType = params.get("roomType");
+		if (!messageId || !roomId) return;
+		const targetRoom = roomType === "BATCHMATE" ? "batchmate" : "university";
+		deepLinkHandledRef.current = true;
+		startTransition(() => setNotificationTarget({ roomType: targetRoom, messageId }));
+		setActiveRoom(targetRoom);
+	}, [setActiveRoom]);
 
 	// Cache online counts to prevent UI flashing when switching tabs
 	const [lastKnownCounts, setLastKnownCounts] = useState<Record<string, number>>({});
@@ -84,6 +108,47 @@ export default function ChatView() {
 	const canPin = canPerformChatAction(chatRole, currentRoom?.policy.pinMessageRole);
 	const canModerate = chatRole === "MODERATOR" || chatRole === "ADMIN";
 	const canClosePoll = canCreatePoll;
+	const normalizedSearchQuery = searchQuery.trim().toLocaleLowerCase();
+	const searchableMessages = useMemo(
+		() => messages.map((message) => ({ id: message.id, text: `${message.authorName} ${message.content}`.toLocaleLowerCase() })),
+		[messages],
+	);
+	const searchMatches = useMemo(
+		() => searchTerm ? searchableMessages.filter((message) => message.text.includes(searchTerm)).map((message) => message.id) : [],
+		[searchTerm, searchableMessages],
+	);
+	const searchFocusMessageId = searchMatches[searchIndex] ?? null;
+
+	useEffect(() => {
+		const timer = setTimeout(() => setSearchTerm(normalizedSearchQuery), 150);
+		return () => clearTimeout(timer);
+	}, [normalizedSearchQuery]);
+
+	useEffect(() => {
+		if (!searchTerm) {
+			searchPageRequestKeyRef.current = "";
+			return;
+		}
+		if (!hasMore || loadingMessages || error) return;
+		const requestKey = `${searchTerm}:${messages.length}`;
+		if (searchPageRequestKeyRef.current === requestKey) return;
+		searchPageRequestKeyRef.current = requestKey;
+		const timer = setTimeout(() => void loadOlderMessages(), 250);
+		return () => clearTimeout(timer);
+	}, [error, hasMore, loadOlderMessages, loadingMessages, messages.length, searchTerm]);
+
+	const handleSearchPrevious = useCallback(() => {
+		if (searchMatches.length < 2) return;
+		setSearchIndex((current) => (current - 1 + searchMatches.length) % searchMatches.length);
+	}, [searchMatches.length]);
+	const handleSearchChange = useCallback((query: string) => {
+		setSearchQuery(query);
+		setSearchIndex(0);
+	}, []);
+	const handleSearchNext = useCallback(() => {
+		if (searchMatches.length < 2) return;
+		setSearchIndex((current) => (current + 1) % searchMatches.length);
+	}, [searchMatches.length]);
 
 	const handleReport = useCallback(
 		async (reason: ReportReason, description?: string) => {
@@ -107,6 +172,10 @@ export default function ChatView() {
 	const handleCancelReply = useCallback(() => setReplyTo(null), []);
 	const handleSelectRoom = useCallback((room: ActiveRoom) => {
 		setReplyTo(null);
+		setSearchOpen(false);
+		setSearchQuery("");
+		setSearchTerm("");
+		setSearchIndex(0);
 		setActiveRoom(room);
 	}, [setActiveRoom]);
 	const handleModeration = useCallback(async (action: ModerationAction, reason: string, expiresAt?: string) => {
@@ -201,7 +270,35 @@ export default function ChatView() {
 								</span>
 							</div>
 						)}
+						<div className="ml-auto flex items-center gap-1">
+							<button
+								type="button"
+								onClick={() => setSearchOpen(true)}
+								aria-label="Search messages"
+								className="flex size-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+							>
+								<Search className="size-4" />
+							</button>
+						</div>
 					</div>
+
+					{searchOpen ? (
+						<MessageSearchBar
+							query={searchQuery}
+							resultCount={searchMatches.length}
+							activeIndex={searchIndex}
+							loading={Boolean(normalizedSearchQuery && (loadingMessages || hasMore))}
+							onChange={handleSearchChange}
+							onClose={() => {
+								setSearchOpen(false);
+								setSearchQuery("");
+								setSearchTerm("");
+								setSearchIndex(0);
+							}}
+							onPrevious={handleSearchPrevious}
+							onNext={handleSearchNext}
+						/>
+					) : null}
 
 					{/* Error banner */}
 					{error && (
@@ -250,8 +347,13 @@ export default function ChatView() {
 						onVotePoll={votePoll}
 						onClosePoll={closePoll}
 						highlightedMessageId={highlightedMessageId}
+						searchFocusMessageId={searchFocusMessageId}
+						searchQuery={searchTerm}
+						notificationMessageId={notificationTarget?.roomType === activeRoom ? notificationTarget.messageId : null}
 						replyToId={replyTo?.id}
+						onJumpToMessage={handleJumpToMessage}
 					/>
+					<TypingIndicator users={typingUsers} />
 
 					{/* Input — allow typing while connecting; disable only if no room */}
 					<MessageInput
@@ -263,6 +365,7 @@ export default function ChatView() {
 						canAnnounce={canAnnounce}
 						onCreatePoll={() => setPollComposerOpen(true)}
 						onCreateAnnouncement={() => setAnnouncementComposerOpen(true)}
+						onTyping={setTyping}
 					/>
 				</div>
 			</div>

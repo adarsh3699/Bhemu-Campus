@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseWhatsAppText, whatsappNotificationPreview, whatsappTextToPlainText } from "../src";
+import { extractWhatsAppLinks, parseWhatsAppText, whatsappNotificationPreview, whatsappTextToPlainText } from "../src";
 
 describe("WhatsApp text formatting", () => {
 	it("parses inline styles and links without changing the source text", () => {
@@ -55,6 +55,11 @@ describe("WhatsApp text formatting", () => {
 				],
 			},
 		]);
+	});
+
+	it("extracts unique links without treating code blocks as previews", () => {
+		expect(extractWhatsAppLinks("https://example.com and https://example.com/a\n```\nhttps://ignored.example\n```"))
+			.toEqual(["https://example.com", "https://example.com/a"]);
 	});
 
 	it("creates clean notification text and truncates long previews", () => {

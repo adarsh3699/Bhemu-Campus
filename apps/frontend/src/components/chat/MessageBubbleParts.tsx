@@ -1,12 +1,13 @@
 "use client";
 
-import { memo, type MouseEventHandler, type ReactNode, type RefObject } from "react";
+import { memo, useMemo, type MouseEventHandler, type ReactNode, type RefObject } from "react";
 import { AlertCircle, Check, Clock, SmilePlus, Trash2 } from "lucide-react";
 import {
 	formatChatTime,
 	getChatAuthorInitials,
 	getChatAvatarIndex,
 	messageTimestamp,
+	extractWhatsAppLinks,
 	parseWhatsAppText,
 	QUICK_CHAT_REACTIONS,
 	type ChatDisplayMessage,
@@ -149,20 +150,49 @@ interface MessageTextProps {
 	content: string;
 	isPoll: boolean;
 	isOwn: boolean;
+	searchQuery?: string;
 }
 
-function renderWhatsAppInline(parts: WhatsAppInlinePart[], isOwn: boolean, keyPrefix: string): ReactNode[] {
+function renderHighlightedText(value: string, searchQuery: string | undefined, keyPrefix: string): ReactNode[] | string {
+	const query = searchQuery?.trim();
+	if (!query) return value;
+
+	const normalizedValue = value.toLocaleLowerCase();
+	const normalizedQuery = query.toLocaleLowerCase();
+	const result: ReactNode[] = [];
+	let cursor = 0;
+	let matchIndex = normalizedValue.indexOf(normalizedQuery, cursor);
+	let matchNumber = 0;
+
+	while (matchIndex >= 0) {
+		if (matchIndex > cursor) result.push(value.slice(cursor, matchIndex));
+		result.push(
+			<mark key={`${keyPrefix}-match-${matchNumber}`} className="rounded bg-amber-300 px-0.5 text-black">
+				{value.slice(matchIndex, matchIndex + query.length)}
+			</mark>,
+		);
+		cursor = matchIndex + query.length;
+		matchNumber += 1;
+		matchIndex = normalizedValue.indexOf(normalizedQuery, cursor);
+	}
+
+	if (cursor === 0) return value;
+	if (cursor < value.length) result.push(value.slice(cursor));
+	return result;
+}
+
+function renderWhatsAppInline(parts: WhatsAppInlinePart[], isOwn: boolean, keyPrefix: string, searchQuery?: string): ReactNode[] {
 	return parts.map((part, index) => {
 		const key = `${keyPrefix}-${index}`;
 		switch (part.type) {
 			case "bold":
-				return <strong key={key}>{renderWhatsAppInline(part.children, isOwn, key)}</strong>;
+				return <strong key={key}>{renderWhatsAppInline(part.children, isOwn, key, searchQuery)}</strong>;
 			case "italic":
-				return <em key={key}>{renderWhatsAppInline(part.children, isOwn, key)}</em>;
+				return <em key={key}>{renderWhatsAppInline(part.children, isOwn, key, searchQuery)}</em>;
 			case "strikethrough":
-				return <del key={key}>{renderWhatsAppInline(part.children, isOwn, key)}</del>;
+				return <del key={key}>{renderWhatsAppInline(part.children, isOwn, key, searchQuery)}</del>;
 			case "monospace":
-				return <code key={key} className="rounded bg-black/15 px-1 font-mono text-[0.92em]">{renderWhatsAppInline(part.children, isOwn, key)}</code>;
+				return <code key={key} className="rounded bg-black/15 px-1 font-mono text-[0.92em]">{renderWhatsAppInline(part.children, isOwn, key, searchQuery)}</code>;
 			case "link":
 				return (
 					<a
@@ -172,22 +202,22 @@ function renderWhatsAppInline(parts: WhatsAppInlinePart[], isOwn: boolean, keyPr
 						rel="noreferrer"
 						className={`underline transition-colors ${isOwn ? "text-white" : "text-sky-400 hover:text-sky-300"}`}
 					>
-						{part.url}
+						{renderHighlightedText(part.url, searchQuery, key)}
 					</a>
 				);
 			default:
-				return part.text;
+				return renderHighlightedText(part.text, searchQuery, key);
 		}
 	});
 }
 
-function renderWhatsAppBlock(block: WhatsAppTextBlock, isOwn: boolean, index: number): ReactNode {
+function renderWhatsAppBlock(block: WhatsAppTextBlock, isOwn: boolean, index: number, searchQuery?: string): ReactNode {
 	const key = `whatsapp-block-${index}`;
 	if (block.type === "code") {
 		return <span key={key} className="block font-mono text-[0.92em] leading-5">{block.text || "\u00a0"}</span>;
 	}
 
-	const children = renderWhatsAppInline(block.children, isOwn, key);
+	const children = renderWhatsAppInline(block.children, isOwn, key, searchQuery);
 	if (block.type === "bullet") {
 		return (
 			<span key={key} className="flex w-full gap-2">
@@ -210,14 +240,44 @@ function renderWhatsAppBlock(block: WhatsAppTextBlock, isOwn: boolean, index: nu
 	return <span key={key} className="block min-h-[1.25em]">{children.length > 0 ? children : "\u00a0"}</span>;
 }
 
-export const MessageText = memo(function MessageText({ content, isPoll, isOwn }: MessageTextProps) {
+export const MessageText = memo(function MessageText({ content, isPoll, isOwn, searchQuery }: MessageTextProps) {
 	const blocks = parseWhatsAppText(content);
+	const previewLink = extractWhatsAppLinks(content)[0] ?? null;
 	return (
 		<span className={isPoll ? "mb-1 block whitespace-pre-wrap text-[15px] font-semibold leading-5 tracking-[-0.01em]" : "whitespace-pre-wrap"}>
-			{blocks.map((block, index) => renderWhatsAppBlock(block, isOwn, index))}
+			{blocks.map((block, index) => renderWhatsAppBlock(block, isOwn, index, searchQuery))}
+			{previewLink ? <LinkPreviewCard url={previewLink} isOwn={isOwn} /> : null}
 		</span>
 	);
 });
+
+function LinkPreviewCard({ url, isOwn }: { url: string; isOwn: boolean }) {
+		const hostname = useMemo(() => {
+			try {
+				return new URL(url).hostname.replace(/^www\./, "");
+			} catch {
+				return url;
+			}
+		}, [url]);
+
+		return (
+			<a
+				href={url}
+				target="_blank"
+				rel="noreferrer"
+				aria-label={`Open link preview for ${hostname}`}
+				className={`mt-2 block rounded-lg border px-3 py-2 no-underline transition-colors ${
+					isOwn
+						? "border-white/25 bg-black/15 hover:bg-black/25"
+						: "border-white/10 bg-black/15 hover:border-primary/50 hover:bg-white/5"
+				}`}
+			>
+				<span className="block text-[9px] font-bold uppercase tracking-[0.16em] text-primary">Link preview</span>
+				<span className="mt-0.5 block truncate text-xs font-semibold text-white/90">{hostname}</span>
+				<span className="mt-0.5 block truncate text-[11px] text-white/55">{url}</span>
+			</a>
+		);
+	}
 
 type ReactionCounts = Array<[string, ChatReactionSummary]>;
 

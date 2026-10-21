@@ -58,6 +58,10 @@ import { CHAT_OPTIMISTIC_PREFIX, createChatClientMessageId, getChatPinExpiry, MA
 import type { GPAProfile } from "@bhemu/shared";
 
 export type ActiveRoom = "university" | "batchmate";
+export interface ChatTypingUser {
+	uid: string;
+	displayName: string;
+}
 interface ChatContextValue {
 	universityRoom: ChatRoom | null;
 	batchmateRoom: ChatRoom | null;
@@ -88,6 +92,8 @@ interface ChatContextValue {
 	suspendUser: (userUid: string, expiresAt: string, reason?: string) => Promise<void>;
 	banUser: (userUid: string, reason?: string) => Promise<void>;
 	onlineUsers: PresenceUser[];
+	typingUsers: ChatTypingUser[];
+	setTyping: (isTyping: boolean) => void;
 	connected: boolean;
 	error: string | null;
 	dismissError: () => void;
@@ -106,6 +112,7 @@ export function useChat(): ChatContextValue {
 interface MsgDeletedPayload { messageId: string }
 interface PresenceJoinedPayload { uid: string; role: string; connectedAt?: number }
 interface PresenceLeftPayload { uid: string }
+interface TypingPayload { uid: string; roomId: string; displayName?: string }
 interface RoomSyncedPayload {
 	roomId: string;
 	onlineUsers: PresenceUser[];
@@ -218,6 +225,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 	const [loadingMessages, setLoadingMessages] = useState(false);
 	const [connected, setConnected] = useState(false);
 	const [onlineUsers, setOnlineUsers] = useState<PresenceUser[]>([]);
+	const [typingUsers, setTypingUsers] = useState<ChatTypingUser[]>([]);
 	const [error, setError] = useState<string | null>(null);
 
 	const cursorRef = useRef<string | null>(null);
@@ -247,11 +255,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 	// Guards against concurrent loadOlderMessages calls
 	const loadingOlderRef = useRef(false);
 	const syncLatestMessagesRef = useRef<((roomId: string) => Promise<void>) | null>(null);
+	const typingActiveRef = useRef(false);
+	const typingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	// Keep latest setters in a ref so WS callbacks always use the current version
-	const stateRef = useRef({ setMessages, setOnlineUsers, setConnected, setError });
+	const stateRef = useRef({ setMessages, setOnlineUsers, setTypingUsers, setConnected, setError });
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	useEffect(() => { stateRef.current = { setMessages, setOnlineUsers, setConnected, setError }; });
+	useEffect(() => { stateRef.current = { setMessages, setOnlineUsers, setTypingUsers, setConnected, setError }; });
 	useEffect(() => { messagesRef.current = messages; }, [messages]);
 
 	const dismissError = useCallback(() => setError(null), []);
@@ -624,6 +634,20 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 				setPresence(prev => prev.filter(u => u.uid !== uid));
 				break;
 			}
+			case WS_EVENTS.TYPING_START:
+			case WS_EVENTS.TYPING_STOP: {
+				const payload = envelope.payload as TypingPayload;
+				if (!payload.uid || payload.roomId !== currentRoomIdRef.current) break;
+				if (envelope.type === WS_EVENTS.TYPING_STOP) {
+					stateRef.current.setTypingUsers(prev => prev.filter(user => user.uid !== payload.uid));
+					break;
+				}
+				stateRef.current.setTypingUsers(prev => [
+					...prev.filter(user => user.uid !== payload.uid),
+					{ uid: payload.uid, displayName: payload.displayName || "Someone" },
+				]);
+				break;
+			}
 		}
 	}, [getRoomSequence, setRoomSequence, upsertMessage]);
 
@@ -648,6 +672,39 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 		}
 		setConnected(false);
 	}, []);
+
+	const sendTypingSignal = useCallback((isTyping: boolean) => {
+		const socket = wsRef.current;
+		if (!socket || socket.readyState !== WebSocket.OPEN) return;
+		try {
+			socket.send(JSON.stringify({ type: isTyping ? "typing.start" : "typing.stop" }));
+		} catch {
+			// Typing presence is best-effort and must never interrupt message sending.
+		}
+	}, []);
+
+	const setTyping = useCallback((isTyping: boolean) => {
+		if (typingStopTimerRef.current) clearTimeout(typingStopTimerRef.current);
+		if (!isTyping) {
+			if (typingActiveRef.current) sendTypingSignal(false);
+			typingActiveRef.current = false;
+			typingStopTimerRef.current = null;
+			return;
+		}
+		if (!typingActiveRef.current) {
+			typingActiveRef.current = true;
+			sendTypingSignal(true);
+		}
+		typingStopTimerRef.current = setTimeout(() => {
+			typingActiveRef.current = false;
+			typingStopTimerRef.current = null;
+			sendTypingSignal(false);
+		}, 2_000);
+	}, [sendTypingSignal]);
+	const resetTyping = useCallback(() => {
+		setTypingUsers([]);
+		setTyping(false);
+	}, [setTyping]);
 
 	const sendMessageOverSocket = useCallback(
 		(roomId: string, content: string, replyToId: string | undefined, idempotencyKey: string, type: "TEXT" | "ANNOUNCEMENT" = "TEXT") =>
@@ -973,6 +1030,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 	useEffect(() => {
 		if (!currentRoomId) {
 			currentRoomIdRef.current = null;
+			queueMicrotask(resetTyping);
 			// This effect synchronizes the external WebSocket lifecycle.
 			// eslint-disable-next-line react-hooks/set-state-in-effect
 			disconnectWs();
@@ -985,12 +1043,15 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 		const cachedMessages = readCachedMessages(currentRoomId);
 		setMessages(cachedMessages);
 		setPinnedMessages([]);
+		queueMicrotask(resetTyping);
 		
 		void loadMessages(currentRoomId, true);
 		void loadPins(currentRoomId);
 		void connectWs(currentRoomId);
 		return () => {
 			if (currentRoomIdRef.current === currentRoomId) currentRoomIdRef.current = null;
+			if (typingStopTimerRef.current) clearTimeout(typingStopTimerRef.current);
+			typingActiveRef.current = false;
 			disconnectWs();
 		};
 	// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1336,14 +1397,14 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 		sendText, editMsg, deleteMsg, retryMessage, react, unreact, report,
 		createPoll, votePoll, closePoll, sendAnnouncement, togglePin,
 		moderationDelete, warnUser, suspendUser, banUser,
-		onlineUsers, connected, error, dismissError, hasBatchmateRoom,
+		onlineUsers, typingUsers, setTyping, connected, error, dismissError, hasBatchmateRoom,
 	}), [
 		universityRoom, batchmateRoom, activeRoom, currentRoom, currentUserId, chatRole,
 		messages, pinnedMessages, hasMore, loadingMessages, loadOlderMessages,
 		sendText, editMsg, deleteMsg, retryMessage, react, unreact, report,
 		createPoll, votePoll, closePoll, sendAnnouncement, togglePin,
 		moderationDelete, warnUser, suspendUser, banUser,
-		onlineUsers, connected, error, dismissError, hasBatchmateRoom,
+		onlineUsers, typingUsers, setTyping, connected, error, dismissError, hasBatchmateRoom,
 	]);
 
 	return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

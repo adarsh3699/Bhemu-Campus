@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { STORAGE_KEYS } from "@bhemu/shared";
 
 const NOTIFICATION_SETTINGS_KEY = STORAGE_KEYS.notificationSettings;
+const NOTIFICATION_SETTINGS_VERSION = 3;
 
 export const REMINDER_MINUTES = [5, 10, 15, 20, 30] as const;
 export const EXAM_DAYS_BEFORE = [1, 2, 3] as const;
@@ -22,9 +23,9 @@ export type NotificationSettings = {
 export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
 	enabled: true,
 	chatEnabled: true,
-	batchmateAllMessages: false,
+	batchmateAllMessages: true,
 	timetableEnabled: true,
-	examEnabled: true,
+	examEnabled: false,
 	firstClassMinutes: 15,
 	otherClassMinutes: 10,
 	examDaysBefore: 1,
@@ -42,17 +43,28 @@ function parseSettings(raw: string | null): NotificationSettings {
 	if (!raw) return DEFAULT_NOTIFICATION_SETTINGS;
 
 	try {
-		const parsed = JSON.parse(raw) as Partial<NotificationSettings>;
+		const parsed = JSON.parse(raw) as Partial<NotificationSettings> & { version?: number };
+		const shouldEnableLegacyBatchmateNotifications =
+			parsed.version !== NOTIFICATION_SETTINGS_VERSION && parsed.batchmateAllMessages === false;
+		const shouldDisableLegacyExamNotifications = parsed.version !== NOTIFICATION_SETTINGS_VERSION;
 		return {
 			enabled: typeof parsed.enabled === "boolean" ? parsed.enabled : DEFAULT_NOTIFICATION_SETTINGS.enabled,
 			chatEnabled: typeof parsed.chatEnabled === "boolean" ? parsed.chatEnabled : DEFAULT_NOTIFICATION_SETTINGS.chatEnabled,
-			batchmateAllMessages: typeof parsed.batchmateAllMessages === "boolean" ? parsed.batchmateAllMessages : DEFAULT_NOTIFICATION_SETTINGS.batchmateAllMessages,
+			batchmateAllMessages:
+				shouldEnableLegacyBatchmateNotifications
+					? true
+					: typeof parsed.batchmateAllMessages === "boolean"
+					? parsed.batchmateAllMessages
+					: DEFAULT_NOTIFICATION_SETTINGS.batchmateAllMessages,
 			timetableEnabled:
 				typeof parsed.timetableEnabled === "boolean"
 					? parsed.timetableEnabled
 					: DEFAULT_NOTIFICATION_SETTINGS.timetableEnabled,
-			examEnabled:
-				typeof parsed.examEnabled === "boolean" ? parsed.examEnabled : DEFAULT_NOTIFICATION_SETTINGS.examEnabled,
+			examEnabled: shouldDisableLegacyExamNotifications
+				? false
+				: typeof parsed.examEnabled === "boolean"
+					? parsed.examEnabled
+					: DEFAULT_NOTIFICATION_SETTINGS.examEnabled,
 			firstClassMinutes: isAllowedNumber(parsed.firstClassMinutes, REMINDER_MINUTES)
 				? parsed.firstClassMinutes
 				: DEFAULT_NOTIFICATION_SETTINGS.firstClassMinutes,
@@ -78,7 +90,22 @@ export function subscribeToNotificationSettings(listener: NotificationSettingsLi
 
 export async function getNotificationSettings(): Promise<NotificationSettings> {
 	try {
-		return parseSettings(await AsyncStorage.getItem(NOTIFICATION_SETTINGS_KEY));
+		const raw = await AsyncStorage.getItem(NOTIFICATION_SETTINGS_KEY);
+		const settings = parseSettings(raw);
+		if (raw) {
+			try {
+				const parsed = JSON.parse(raw) as { version?: number };
+				if (parsed.version !== NOTIFICATION_SETTINGS_VERSION) {
+					await AsyncStorage.setItem(
+						NOTIFICATION_SETTINGS_KEY,
+						JSON.stringify({ ...settings, version: NOTIFICATION_SETTINGS_VERSION }),
+					);
+				}
+			} catch {
+				// Invalid legacy storage is handled by parseSettings defaults.
+			}
+		}
+		return settings;
 	} catch {
 		return DEFAULT_NOTIFICATION_SETTINGS;
 	}
@@ -86,7 +113,10 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
 
 export async function saveNotificationSettings(settings: NotificationSettings): Promise<void> {
 	try {
-		await AsyncStorage.setItem(NOTIFICATION_SETTINGS_KEY, JSON.stringify(settings));
+		await AsyncStorage.setItem(
+			NOTIFICATION_SETTINGS_KEY,
+			JSON.stringify({ ...settings, version: NOTIFICATION_SETTINGS_VERSION }),
+		);
 		listeners.forEach((listener) => listener(settings));
 	} catch {
 		// Keep notification preferences usable even if local persistence fails.

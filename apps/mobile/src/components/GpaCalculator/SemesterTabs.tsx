@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
 import { Plus, X } from "lucide-react-native";
 import { calculateGPA } from "@bhemu/shared";
@@ -23,6 +24,23 @@ export default function SemesterTabs({
 	onDeleteSemester,
 	onAddSemester,
 }: SemesterTabsProps) {
+	const semesterScrollRef = useRef<ScrollView>(null);
+	const hasScrolledToLatestRef = useRef(false);
+
+	useEffect(() => {
+		// Re-run the initial positioning when semesters are first loaded or changed.
+		hasScrolledToLatestRef.current = semesters.length === 0;
+	}, [semesters.length]);
+
+	const handleSemesterContentSizeChange = useCallback(() => {
+		if (semesters.length === 0 || hasScrolledToLatestRef.current) return;
+
+		requestAnimationFrame(() => {
+			semesterScrollRef.current?.scrollToEnd({ animated: false });
+			hasScrolledToLatestRef.current = true;
+		});
+	}, [semesters.length]);
+
 	return (
 		<View style={local.container}>
 			<View style={local.header}>
@@ -47,12 +65,14 @@ export default function SemesterTabs({
 
 			{semesters.length > 0 && (
 				<ScrollView
+					ref={semesterScrollRef}
 					horizontal
 					showsHorizontalScrollIndicator={false}
 					bounces={false}
 					overScrollMode="never"
 					style={local.scrollView}
 					contentContainerStyle={local.scrollContent}
+					onContentSizeChange={handleSemesterContentSizeChange}
 				>
 					{semesters.map((semester) => {
 						const isActive = String(activeSemester) === String(semester.id);

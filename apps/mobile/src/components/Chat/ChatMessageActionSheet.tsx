@@ -39,7 +39,6 @@ export default function ChatMessageActionSheet({
 }: Props) {
 	const isOwn = message.authorUid === currentUserId;
 	const isFailed = Boolean(message.failed);
-	const isAnnouncement = message.type === "ANNOUNCEMENT";
 	const isEditableText = message.type === "TEXT";
 	const [showPinDurations, setShowPinDurations] = useState(false);
 
@@ -94,7 +93,7 @@ export default function ChatMessageActionSheet({
 
 					{!showPinDurations && isFailed ? (
 						<ActionRow icon={<RotateCcw size={18} color={Colors.warning} />} label="Retry sending" onPress={() => { onClose(); onRetry(message.id); }} />
-						) : !showPinDurations && !isAnnouncement ? (
+						) : !showPinDurations ? (
 							<ActionRow icon={<Reply size={18} color={Colors.textMuted} />} label="Reply" onPress={() => { onClose(); onReply(message); }} />
 						) : null}
 

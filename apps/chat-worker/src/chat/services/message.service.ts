@@ -33,6 +33,7 @@ import type { Env } from "../../types";
 import { whatsappNotificationPreview } from "@bhemu/shared";
 import { sendFcmToTokens } from "../../lib/fcm";
 import { getFcmTokensForRoom, getFcmTokensForUser } from "../../lib/firestoreTokens";
+import { buildChatWebLink } from "../../lib/chatNotification";
 
 export interface AttachmentInput {
 	type: "IMAGE" | "DOCUMENT" | "GIF";
@@ -316,7 +317,7 @@ export class MessageService {
 		if (this.env) {
 			const dispatchPush = async () => {
 				const isText = msg.type === "TEXT" || msg.type === "ANNOUNCEMENT";
-				const bodyPreview = isText ? whatsappNotificationPreview(msg.content, 240) : "Sent an attachment";
+				const bodyPreview = isText ? whatsappNotificationPreview(msg.content, 360) : "Sent an attachment";
 				
 				const room = await this.roomRepo.findById(msg.roomId);
 				const roomName = room ? room.name : "the room";
@@ -327,7 +328,11 @@ export class MessageService {
 					messageId: msg.id,
 					messageType: msg.type,
 					roomType,
+					preview: bodyPreview,
+					authorName: msg.authorName,
 				};
+				const notificationGroupId = `chat-room-${msg.roomId}`;
+				const webLink = buildChatWebLink(this.env!, msg.roomId, msg.id, roomType);
 
 				if (msg.type === "ANNOUNCEMENT") {
 					const tokens = await getFcmTokensForRoom(
@@ -339,7 +344,10 @@ export class MessageService {
 					await sendFcmToTokens(tokens, {
 						title: `📢 Announcement in ${roomName}`,
 						body: `${msg.authorName}: ${bodyPreview}`,
-						data: notificationData
+						data: notificationData,
+						groupId: notificationGroupId,
+						subtitle: roomName,
+						webLink,
 					}, this.env!);
 				} else if (parentAuthorUid && parentAuthorUid !== msg.authorUid) {
 					// It's a reply to someone else
@@ -347,7 +355,10 @@ export class MessageService {
 					await sendFcmToTokens(tokens, {
 						title: `${msg.authorName} replied to you`,
 						body: bodyPreview,
-						data: notificationData
+						data: notificationData,
+						groupId: notificationGroupId,
+						subtitle: roomName,
+						webLink,
 					}, this.env!);
 				} else if (roomType === "BATCHMATE") {
 					// Standard message in batchmate room, target users who opted in to ALL messages
@@ -355,22 +366,25 @@ export class MessageService {
 						roomType,
 						room ? room.groupKey : null,
 						this.env!,
-						true // onlyAllMessages = true
+						true, // onlyAllMessages = true
+						msg.authorUid,
 					);
-					// Filter out the sender's own tokens to avoid sending push to the person who sent the message
-					const senderTokens = await getFcmTokensForUser(msg.authorUid, this.env!);
-					const senderTokenSet = new Set(senderTokens);
-					const recipientTokens = tokens.filter(t => !senderTokenSet.has(t));
 					
-					await sendFcmToTokens(recipientTokens, {
+					await sendFcmToTokens(tokens, {
 						title: `New message in ${roomName}`,
 						body: `${msg.authorName}: ${bodyPreview}`,
-						data: notificationData
+						data: notificationData,
+						groupId: notificationGroupId,
+						subtitle: roomName,
+						webLink,
 					}, this.env!);
 				}
 			};
-			if (this.bgTask) this.bgTask(dispatchPush());
-			else void dispatchPush();
+			const pushPromise = dispatchPush().catch((error) => {
+				console.warn("Unable to dispatch chat notification", error);
+			});
+			if (this.bgTask) this.bgTask(pushPromise);
+			else void pushPromise;
 		}
 
 		return { message: msg, created: true };

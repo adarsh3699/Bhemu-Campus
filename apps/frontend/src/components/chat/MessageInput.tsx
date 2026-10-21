@@ -7,6 +7,7 @@ import type { ChatMessage } from "@bhemu/shared";
 
 interface MessageInputProps {
 	onSend: (content: string, replyToId?: string) => Promise<void>;
+	onTyping?: (isTyping: boolean) => void;
 	replyTo: ChatMessage | null;
 	onCancelReply: () => void;
 	disabled?: boolean;
@@ -18,7 +19,7 @@ interface MessageInputProps {
 }
 
 const MessageInput = memo(function MessageInput({
-	onSend, replyTo, onCancelReply, disabled = false, placeholder = "Message…", canCreatePoll = false, canAnnounce = false, onCreatePoll, onCreateAnnouncement,
+	onSend, onTyping, replyTo, onCancelReply, disabled = false, placeholder = "Message…", canCreatePoll = false, canAnnounce = false, onCreatePoll, onCreateAnnouncement,
 }: MessageInputProps) {
 	const [value, setValue] = useState("");
 	const [toolsOpen, setToolsOpen] = useState(false);
@@ -64,12 +65,19 @@ const MessageInput = memo(function MessageInput({
 
 		// Clear input immediately — don't wait for server
 		setValue("");
+		onTyping?.(false);
 		onCancelReply();
 		if (taRef.current) taRef.current.style.height = "auto";
 		// Keep the composer available while this message is being acknowledged.
 		// Each send has its own optimistic message and delivery state.
 		void onSend(trimmed, replyTo?.id).catch(() => undefined);
-	}, [value, disabled, onSend, replyTo, onCancelReply]);
+	}, [value, disabled, onSend, onTyping, replyTo, onCancelReply]);
+
+	const handleChange = useCallback((nextValue: string) => {
+		setValue(nextValue);
+		onTyping?.(nextValue.trim().length > 0);
+		autoResize();
+	}, [autoResize, onTyping]);
 
 	const onKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
 		if (e.key === "Enter" && !e.shiftKey) {
@@ -150,7 +158,7 @@ const MessageInput = memo(function MessageInput({
 						rows={1}
 						value={value}
 						maxLength={MAX_CHAT_MESSAGE_LENGTH}
-						onChange={e => { setValue(e.target.value); autoResize(); }}
+						onChange={e => handleChange(e.target.value)}
 						onKeyDown={onKeyDown}
 						placeholder={disabled ? "Connecting…" : placeholder}
 						disabled={disabled}

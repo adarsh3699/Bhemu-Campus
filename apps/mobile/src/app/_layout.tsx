@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -17,6 +17,8 @@ markStartup("native_launch");
 function RootContent() {
 	const { authLoading, currentUser, launchReady, launchUser } = useAuth();
 	const router = useRouter();
+	const lastNotificationNavigationRef = useRef<string | null>(null);
+	const notificationNavigationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const initialRouteReady = launchReady && (!authLoading || launchUser !== null);
 	const canNavigateToApp = Boolean(currentUser || launchUser);
 
@@ -51,6 +53,16 @@ function RootContent() {
 				if (!initialRouteReady || !canNavigateToApp) return;
 
 				const navigate = (destination: NotificationDestination) => {
+					const navigationKey = typeof destination === "string"
+						? destination
+						: `${destination.pathname}:${destination.params?.roomId ?? ""}:${destination.params?.messageId ?? ""}`;
+					if (lastNotificationNavigationRef.current === navigationKey) return;
+					lastNotificationNavigationRef.current = navigationKey;
+					if (notificationNavigationTimerRef.current) clearTimeout(notificationNavigationTimerRef.current);
+					notificationNavigationTimerRef.current = setTimeout(() => {
+						lastNotificationNavigationRef.current = null;
+						notificationNavigationTimerRef.current = null;
+					}, 1_500);
 					if (typeof destination === "string") {
 						router.push(destination as never);
 						return;
@@ -66,6 +78,11 @@ function RootContent() {
 			cancelled = true;
 			task.cancel();
 			unsubscribeNavigation?.();
+			if (notificationNavigationTimerRef.current) {
+				clearTimeout(notificationNavigationTimerRef.current);
+				notificationNavigationTimerRef.current = null;
+			}
+			lastNotificationNavigationRef.current = null;
 		};
 	}, [canNavigateToApp, initialRouteReady, router]);
 

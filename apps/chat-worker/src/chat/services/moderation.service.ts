@@ -17,6 +17,7 @@ import { PIN_DURATION_MS, type PinDuration, whatsappNotificationPreview } from "
 import type { Env } from "../../types";
 import { sendFcmToTokens } from "../../lib/fcm";
 import { getFcmTokensForRoom } from "../../lib/firestoreTokens";
+import { buildChatWebLink } from "../../lib/chatNotification";
 
 export interface ModerationActionInput {
 	targetUserUid: string;
@@ -166,7 +167,7 @@ export class ModerationService {
 		if (this.env && msg) {
 			const dispatchPush = async () => {
 				const isText = msg.type === "TEXT" || msg.type === "ANNOUNCEMENT";
-				const bodyPreview = isText ? whatsappNotificationPreview(msg.content, 240) : "Pinned an attachment";
+				const bodyPreview = isText ? whatsappNotificationPreview(msg.content, 360) : "Pinned an attachment";
 				const tokens = await getFcmTokensForRoom(
 					room ? room.type : "UNIVERSITY",
 					room ? room.groupKey : null,
@@ -175,17 +176,25 @@ export class ModerationService {
 				await sendFcmToTokens(tokens, {
 					title: `📌 Pinned in ${room.name}`,
 					body: bodyPreview,
+					groupId: `chat-room-${msg.roomId}`,
 					data: {
 						source: "bcampus-chat",
 						roomId: msg.roomId,
 						messageId: msg.id,
 						messageType: msg.type,
 						roomType: room.type,
-					}
+						preview: bodyPreview,
+						authorName: msg.authorName,
+					},
+					subtitle: room.name,
+					webLink: buildChatWebLink(this.env!, msg.roomId, msg.id, room.type),
 				}, this.env!);
 			};
-			if (this.bgTask) this.bgTask(dispatchPush());
-			else void dispatchPush();
+			const pushPromise = dispatchPush().catch((error) => {
+				console.warn("Unable to dispatch pin notification", error);
+			});
+			if (this.bgTask) this.bgTask(pushPromise);
+			else void pushPromise;
 		}
 	}
 

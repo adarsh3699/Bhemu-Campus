@@ -208,6 +208,11 @@
 		background-attachment: scroll;
 	}
 
+	.chat-message-row {
+		content-visibility: auto;
+		contain-intrinsic-size: 0 96px;
+	}
+
 	@media (prefers-reduced-motion: reduce) {
 		*, *::before, *::after {
 			animation-duration: 0.01ms !important;

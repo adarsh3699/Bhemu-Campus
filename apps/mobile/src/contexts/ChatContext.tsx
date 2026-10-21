@@ -44,6 +44,10 @@ import {
 import { updateFcmTokenGroupKey } from "@/features/notifications/fcmTokenService";
 
 export type ActiveRoom = "university" | "batchmate";
+export interface ChatTypingUser {
+	uid: string;
+	displayName: string;
+}
 
 interface ChatContextValue {
 	universityRoom: ChatRoom | null;
@@ -71,6 +75,8 @@ interface ChatContextValue {
 	sendAnnouncement: (content: string) => Promise<void>;
 	togglePin: (messageId: string, duration?: PinDuration) => Promise<void>;
 	onlineUsers: PresenceUser[];
+	typingUsers: ChatTypingUser[];
+	setTyping: (isTyping: boolean) => void;
 	connected: boolean;
 	error: string | null;
 	dismissError: () => void;
@@ -81,6 +87,9 @@ const ChatContext = createContext<ChatContextValue | undefined>(undefined);
 
 // Global ref exposed for the background notification handler to check if chat is currently focused.
 export const isChatOpenRef = { current: false };
+// The notification handler uses this to suppress only notifications for the
+// room currently visible on screen. Other rooms must still notify the user.
+export const activeChatRoomIdRef = { current: null as string | null };
 
 export function useChat(): ChatContextValue {
 	const context = useContext(ChatContext);
@@ -141,6 +150,7 @@ export function ChatProvider({ children, initialRoom = "university" }: { childre
 	const [loadingMessages, setLoadingMessages] = useState(false);
 	const [connected, setConnected] = useState(false);
 	const [onlineUsers, setOnlineUsers] = useState<PresenceUser[]>([]);
+	const [typingUsers, setTypingUsers] = useState<ChatTypingUser[]>([]);
 	const [error, setError] = useState<string | null>(null);
 
 	const wsRef = useRef<WebSocket | null>(null);
@@ -164,6 +174,8 @@ export function ChatProvider({ children, initialRoom = "university" }: { childre
 	const syncRoomEventsRef = useRef<((roomId: string, after?: number) => Promise<void>) | null>(null);
 	const syncLatestMessagesRef = useRef<((roomId: string) => Promise<void>) | null>(null);
 	const syncingRoomRef = useRef<string | null>(null);
+	const typingActiveRef = useRef(false);
+	const typingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	// Sync local open state to the exported global ref
 	useEffect(() => {
@@ -297,6 +309,35 @@ export function ChatProvider({ children, initialRoom = "university" }: { childre
 
 		setConnected(false);
 	}, []);
+
+	const sendTypingSignal = useCallback((isTyping: boolean) => {
+		const socket = wsRef.current;
+		if (!socket || socket.readyState !== WebSocket.OPEN) return;
+		try {
+			socket.send(JSON.stringify({ type: isTyping ? "typing.start" : "typing.stop" }));
+		} catch {
+			// Typing presence is best-effort and must never interrupt message sending.
+		}
+	}, []);
+
+	const setTyping = useCallback((isTyping: boolean) => {
+		if (typingStopTimerRef.current) clearTimeout(typingStopTimerRef.current);
+		if (!isTyping) {
+			if (typingActiveRef.current) sendTypingSignal(false);
+			typingActiveRef.current = false;
+			typingStopTimerRef.current = null;
+			return;
+		}
+		if (!typingActiveRef.current) {
+			typingActiveRef.current = true;
+			sendTypingSignal(true);
+		}
+		typingStopTimerRef.current = setTimeout(() => {
+			typingActiveRef.current = false;
+			typingStopTimerRef.current = null;
+			sendTypingSignal(false);
+		}, 2_000);
+	}, [sendTypingSignal]);
 
 	const upsertMessage = useCallback((message: ChatDisplayMessage) => {
 		setMessages((current) => upsertMessages(current, message));
@@ -578,6 +619,21 @@ export function ChatProvider({ children, initialRoom = "university" }: { childre
 			if (envelope.type === WS_EVENTS.PRESENCE_LEFT) {
 				const payload = envelope.payload as { uid?: string };
 				if (payload.uid) setOnlineUsers((current) => current.filter((user) => user.uid !== payload.uid));
+				return;
+			}
+
+			if (envelope.type === WS_EVENTS.TYPING_START || envelope.type === WS_EVENTS.TYPING_STOP) {
+				const payload = envelope.payload as { uid?: string; roomId?: string; displayName?: string };
+				if (!payload.uid || payload.roomId !== currentRoomIdRef.current) return;
+				const uid = payload.uid;
+				if (envelope.type === WS_EVENTS.TYPING_STOP) {
+					setTypingUsers((current) => current.filter((user) => user.uid !== uid));
+					return;
+				}
+				setTypingUsers((current) => [
+					...current.filter((user) => user.uid !== uid),
+					{ uid, displayName: payload.displayName || "Someone" },
+				]);
 			}
 		},
 		[getRoomSequence, setRoomSequence, upsertMessage],
@@ -721,6 +777,15 @@ export function ChatProvider({ children, initialRoom = "university" }: { childre
 	const currentRoomId = currentRoom?.id ?? null;
 
 	useEffect(() => {
+		activeChatRoomIdRef.current = isFocused ? currentRoomId : null;
+		return () => {
+			if (!isFocused || activeChatRoomIdRef.current === currentRoomId) {
+				activeChatRoomIdRef.current = null;
+			}
+		};
+	}, [currentRoomId, isFocused]);
+
+	useEffect(() => {
 		if (!isFocused || !currentRoomId) {
 			currentRoomIdRef.current = null;
 			cursorRef.current = null;
@@ -730,6 +795,8 @@ export function ChatProvider({ children, initialRoom = "university" }: { childre
 			setPinnedMessages([]);
 			setHasMore(false);
 			setOnlineUsers([]);
+			setTypingUsers([]);
+			setTyping(false);
 			setLoadingMessages(false);
 			disconnectWs();
 			return;
@@ -740,6 +807,8 @@ export function ChatProvider({ children, initialRoom = "university" }: { childre
 		setMessages([]);
 		setPinnedMessages([]);
 		setOnlineUsers([]);
+		setTypingUsers([]);
+		setTyping(false);
 		setHasMore(false);
 		setLoadingMessages(true);
 		let cancelled = false;
@@ -765,9 +834,12 @@ export function ChatProvider({ children, initialRoom = "university" }: { childre
 			if (currentRoomIdRef.current === currentRoomId) currentRoomIdRef.current = null;
 			disconnectWs();
 		};
-	}, [connectWs, currentRoomId, currentUser, disconnectWs, getRoomSequence, isFocused, loadMessages, loadPins]);
+	}, [connectWs, currentRoomId, currentUser, disconnectWs, getRoomSequence, isFocused, loadMessages, loadPins, setTyping]);
 
 	useEffect(() => () => disconnectWs(), [disconnectWs]);
+	useEffect(() => () => {
+		if (typingStopTimerRef.current) clearTimeout(typingStopTimerRef.current);
+	}, []);
 
 	useEffect(() => {
 		if (!currentUser || !currentRoomId || messages.length === 0) return;
@@ -1134,6 +1206,8 @@ export function ChatProvider({ children, initialRoom = "university" }: { childre
 		sendAnnouncement,
 		togglePin,
 		onlineUsers,
+		typingUsers,
+		setTyping,
 		connected,
 		error,
 		dismissError,
@@ -1153,6 +1227,8 @@ export function ChatProvider({ children, initialRoom = "university" }: { childre
 		messages,
 		pinnedMessages,
 		onlineUsers,
+		typingUsers,
+		setTyping,
 		sendText,
 		editMessage,
 		deleteMessage,

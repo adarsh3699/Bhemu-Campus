@@ -78,7 +78,7 @@ export async function getFcmTokensForUser(uid: string, env: Env): Promise<string
 		const data = parseFirestoreDocument(result);
 		
 		if (Array.isArray(data.fcmTokens)) {
-			return data.fcmTokens as string[];
+			return [...new Set(data.fcmTokens.filter((token): token is string => typeof token === "string" && token.length > 0))];
 		}
 		return [];
 
@@ -96,7 +96,8 @@ export async function getFcmTokensForRoom(
 	roomType: string, 
 	groupKey: string | null, 
 	env: Env,
-	onlyAllMessages: boolean = false
+	onlyAllMessages: boolean = false,
+	excludeUid?: string,
 ): Promise<string[]> {
 	const projectId = env.FIREBASE_PROJECT_ID;
 	const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:runQuery`;
@@ -144,6 +145,8 @@ export async function getFcmTokensForRoom(
 		
 		for (const d of resData) {
 			if (!d.document) continue;
+			const documentUid = d.document.name.split("/").pop();
+			if (excludeUid && documentUid === excludeUid) continue;
 			const data = parseFirestoreDocument(d.document);
 			
 			if (onlyAllMessages && data.batchmateAllMessages !== true) {

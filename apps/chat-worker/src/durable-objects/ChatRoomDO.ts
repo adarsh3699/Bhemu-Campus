@@ -258,7 +258,11 @@ export class ChatRoomDO extends DurableObject<Env> {
 						ws,
 						serializeEvent(
 							event.type === "typing.start" ? WS_EVENTS.TYPING_START : WS_EVENTS.TYPING_STOP,
-							{ uid: meta.uid, roomId: this.roomId },
+							{
+								uid: meta.uid,
+								roomId: this.roomId,
+								displayName: meta.displayName ?? "Someone",
+							},
 						),
 					);
 				}

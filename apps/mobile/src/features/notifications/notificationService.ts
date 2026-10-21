@@ -2,9 +2,10 @@ import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { type TimetableEntry, type UMSLocalData, type UMSSeatingPlan, parseTimeMinutes, formatTimeToAmPm } from "@bhemu/shared";
 import type { NotificationSettings } from "./notificationSettings";
-import { isChatOpenRef } from "@/contexts/ChatContext";
+import { activeChatRoomIdRef, isChatOpenRef } from "@/contexts/ChatContext";
 
 const CHANNEL_ID = "academic-reminders";
+const CHAT_CHANNEL_ID = "chat-messages";
 const MANAGED_SOURCE = "bcampus-academic-reminder";
 
 export type NotificationProfileData = {
@@ -21,6 +22,26 @@ const DAY_TO_WEEKDAY: Record<string, number> = {
 	Thursday: 5,
 	Friday: 6,
 	Saturday: 7,
+};
+
+const DAY_ALIASES: Record<string, string> = {
+	sun: "Sunday",
+	sunday: "Sunday",
+	mon: "Monday",
+	monday: "Monday",
+	tue: "Tuesday",
+	tues: "Tuesday",
+	tuesday: "Tuesday",
+	wed: "Wednesday",
+	wednesday: "Wednesday",
+	thu: "Thursday",
+	thur: "Thursday",
+	thurs: "Thursday",
+	thursday: "Thursday",
+	fri: "Friday",
+	friday: "Friday",
+	sat: "Saturday",
+	saturday: "Saturday",
 };
 
 const MONTHS: Record<string, number> = {
@@ -40,25 +61,52 @@ const MONTHS: Record<string, number> = {
 
 let configured = false;
 let scheduleQueue = Promise.resolve();
+let scheduleGeneration = 0;
 
 export function configureNotifications(): void {
 	if (configured) return;
 	configured = true;
+	void ensureNotificationChannels();
 
 	Notifications.setNotificationHandler({
 		handleNotification: async (notification) => {
-			const isChatPush = notification.request.content.data?.source === "bcampus-chat";
+			const data = notification.request.content.data ?? {};
+			const isChatPush = data.source === "bcampus-chat";
 			const chatIsOpen = isChatOpenRef.current;
-			const shouldSuppress = isChatPush && chatIsOpen;
+			const chatRoomId = getDataString(data, "roomId");
+			const shouldSuppress = isChatPush
+				&& chatIsOpen
+				&& chatRoomId !== null
+				&& activeChatRoomIdRef.current === chatRoomId;
 
 			return {
 				shouldShowBanner: !shouldSuppress,
-				shouldShowList: true,
+				shouldShowList: !shouldSuppress,
 				shouldPlaySound: !shouldSuppress,
 				shouldSetBadge: false,
 			};
 		},
 	});
+}
+
+async function ensureNotificationChannels(): Promise<void> {
+	if (Platform.OS !== "android") return;
+
+	const results = await Promise.allSettled([
+		Notifications.setNotificationChannelAsync(CHANNEL_ID, {
+			name: "Academic reminders",
+			importance: Notifications.AndroidImportance.HIGH,
+			vibrationPattern: [0, 250, 250, 250],
+		}),
+		Notifications.setNotificationChannelAsync(CHAT_CHANNEL_ID, {
+			name: "Chat Notifications",
+			importance: Notifications.AndroidImportance.HIGH,
+			vibrationPattern: [0, 250, 250, 250],
+		}),
+	]);
+	if (results.some((result) => result.status === "rejected")) {
+		console.warn("Unable to configure one or more notification channels");
+	}
 }
 
 export type NotificationChatTarget = {
@@ -78,6 +126,16 @@ export type NotificationDestination =
 function getDataString(data: Record<string, unknown>, key: string): string | null {
 	const value = data[key];
 	return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function normalizeDay(value: string): string | null {
+	const normalized = value.trim().toLowerCase().replace(/\.$/, "");
+	return DAY_ALIASES[normalized] ?? null;
+}
+
+function getWeekday(value: string): number | null {
+	const day = normalizeDay(value);
+	return day ? DAY_TO_WEEKDAY[day] ?? null : null;
 }
 
 function getNotificationDestination(response: Notifications.NotificationResponse): NotificationDestination | null {
@@ -148,7 +206,7 @@ type ReminderTime = { weekday: number; hour: number; minute: number };
 
 export function getReminderTime(entry: TimetableEntry, minutesBefore: number): ReminderTime | null {
 	if (!entry.dayOfWeek || !entry.startTime) return null;
-	const weekday = DAY_TO_WEEKDAY[entry.dayOfWeek.trim()];
+	const weekday = getWeekday(entry.dayOfWeek);
 	if (!weekday) return null;
 
 	const entryMinutes = parseTimeMinutes(entry.startTime);
@@ -208,14 +266,28 @@ function parseMonth(value: string): number {
 	return MONTHS[value.slice(0, 3).toLowerCase()] ?? 0;
 }
 
-
-
 function buildTimetableEntries(timetable: TimetableEntry[]): Array<{ entry: TimetableEntry; reminderIndex: number }> {
 	const byDay = new Map<string, TimetableEntry[]>();
+	const seen = new Set<string>();
 	for (const entry of timetable) {
-		const entries = byDay.get(entry.dayOfWeek) ?? [];
+		const weekday = getWeekday(entry.dayOfWeek);
+		const startMinutes = parseTimeMinutes(entry.startTime);
+		if (weekday === null || startMinutes === null) continue;
+
+		// UMS can return duplicate rows for the same timetable slot. One course
+		// at the same day/start time must produce only one reminder.
+		const entryKey = [
+			weekday,
+			startMinutes,
+			entry.courseCode,
+		].map((value) => String(value ?? "").trim().toLowerCase()).join("|");
+		if (seen.has(entryKey)) continue;
+		seen.add(entryKey);
+
+		const dayKey = normalizeDay(entry.dayOfWeek) ?? entry.dayOfWeek.trim();
+		const entries = byDay.get(dayKey) ?? [];
 		entries.push(entry);
-		byDay.set(entry.dayOfWeek, entries);
+		byDay.set(dayKey, entries);
 	}
 
 	return [...byDay.values()].flatMap((entries) => {
@@ -244,16 +316,7 @@ async function ensureNotificationPermission(allowPrompt = true): Promise<boolean
 	if (Platform.OS === "web") return false;
 
 	if (Platform.OS === "android") {
-		await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
-			name: "Academic reminders",
-			importance: Notifications.AndroidImportance.HIGH,
-			vibrationPattern: [0, 250, 250, 250],
-		});
-		await Notifications.setNotificationChannelAsync("chat-messages", {
-			name: "Chat Notifications",
-			importance: Notifications.AndroidImportance.HIGH,
-			vibrationPattern: [0, 250, 250, 250],
-		});
+		await ensureNotificationChannels();
 	}
 
 	const current = await Notifications.getPermissionsAsync();
@@ -295,15 +358,34 @@ export async function sendTestNotification(profileName = "Current profile"): Pro
 
 async function cancelManagedNotifications(): Promise<void> {
 	const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-	const cancellations = await Promise.allSettled(
-		scheduled.filter(isManagedRequest).map((request) => Notifications.cancelScheduledNotificationAsync(request.identifier))
-	);
-	if (cancellations.some((result) => result.status === "rejected")) {
+	let failed = 0;
+	const cancellations = scheduled.filter(isManagedRequest).map((request) => async () => {
+		try {
+			await Notifications.cancelScheduledNotificationAsync(request.identifier);
+		} catch {
+			failed += 1;
+		}
+	});
+	await runWithConcurrency(cancellations);
+	if (failed > 0) {
 		console.warn("Some old academic notifications could not be cancelled");
 	}
 }
 
 const IOS_PENDING_NOTIFICATION_LIMIT = 64;
+const NATIVE_NOTIFICATION_CONCURRENCY = 4;
+
+async function runWithConcurrency(tasks: Array<() => Promise<void>>, concurrency = NATIVE_NOTIFICATION_CONCURRENCY): Promise<void> {
+	if (tasks.length === 0) return;
+	let nextTask = 0;
+	const worker = async () => {
+		while (nextTask < tasks.length) {
+			const task = tasks[nextTask++];
+			await task();
+		}
+	};
+	await Promise.all(Array.from({ length: Math.min(concurrency, tasks.length) }, () => worker()));
+}
 
 type ScheduleBudget = {
 	remaining: number;
@@ -335,6 +417,7 @@ function reserveScheduleSlot(budget: ScheduleBudget): boolean {
 
 /** Cancel reminders that belong to this app when the local session ends. */
 export function clearManagedNotifications(): Promise<void> {
+	scheduleGeneration += 1;
 	scheduleQueue = scheduleQueue
 		.then(() => cancelManagedNotifications())
 		.catch((error) => {
@@ -348,9 +431,11 @@ async function scheduleTimetableNotifications(
 	settings: NotificationSettings,
 	profileName: string,
 	profileId: string | number,
-	budget: ScheduleBudget
+	budget: ScheduleBudget,
+	isCurrentRequest: () => boolean,
 ): Promise<void> {
-	const schedules = buildTimetableEntries(timetable).map(async ({ entry, reminderIndex }) => {
+	const schedules = buildTimetableEntries(timetable).map(({ entry, reminderIndex }) => async () => {
+		if (!isCurrentRequest()) return;
 		const minutesBefore = reminderIndex === 0 ? settings.firstClassMinutes : settings.otherClassMinutes;
 		const reminderTime = getReminderTime(entry, minutesBefore);
 		if (!reminderTime) return;
@@ -393,7 +478,7 @@ async function scheduleTimetableNotifications(
 			console.warn(`Unable to schedule reminder for ${entry.courseCode}`, error);
 		}
 	});
-	await Promise.all(schedules);
+	await runWithConcurrency(schedules);
 }
 
 async function scheduleExamNotifications(
@@ -401,14 +486,16 @@ async function scheduleExamNotifications(
 	settings: NotificationSettings,
 	profileName: string,
 	profileId: string | number,
-	budget: ScheduleBudget
+	budget: ScheduleBudget,
+	isCurrentRequest: () => boolean,
 ): Promise<void> {
 	const scheduledExams = new Set<string>();
 	const schedules = seatingPlan
 		.map((exam) => ({ exam, reminderDate: getExamReminderDate(exam.ExamDate, settings.examDaysBefore, settings.examReminderHour) }))
 		.filter((item): item is { exam: UMSSeatingPlan; reminderDate: Date } => item.reminderDate !== null)
 		.sort((a, b) => a.reminderDate.getTime() - b.reminderDate.getTime())
-		.map(async ({ exam, reminderDate }) => {
+		.map(({ exam, reminderDate }) => async () => {
+			if (!isCurrentRequest()) return;
 			const examKey = `${exam.CourseCode}-${exam.ExamDate}-${exam.ExamType}`;
 			if (scheduledExams.has(examKey)) return;
 			scheduledExams.add(examKey);
@@ -436,20 +523,25 @@ async function scheduleExamNotifications(
 				console.warn(`Unable to schedule exam reminder for ${exam.CourseCode}`, error);
 			}
 		});
-	await Promise.all(schedules);
+	await runWithConcurrency(schedules);
 }
 
 async function scheduleLatestNotifications(
 	activeProfile: NotificationProfileData | null,
 	allProfiles: NotificationProfileData[],
 	settings: NotificationSettings,
-	allowPermissionPrompt: boolean
+	allowPermissionPrompt: boolean,
+	requestGeneration: number,
 ): Promise<void> {
+	const isCurrentRequest = () => requestGeneration === scheduleGeneration;
+	if (!isCurrentRequest()) return;
 	configureNotifications();
 	await cancelManagedNotifications();
+	if (!isCurrentRequest()) return;
 	if (!settings.enabled) return;
 	if (!settings.timetableEnabled && !settings.examEnabled) return;
 	if (!(await ensureNotificationPermission(allowPermissionPrompt))) return;
+	if (!isCurrentRequest()) return;
 	const budget = await getScheduleBudget();
 
 	// Timetable reminders intentionally follow only the currently selected
@@ -460,18 +552,24 @@ async function scheduleLatestNotifications(
 			settings,
 			activeProfile.profileName,
 			activeProfile.profileId,
-			budget
+			budget,
+			isCurrentRequest,
 		);
 	}
 
 	if (settings.examEnabled) {
-		await Promise.all(
-			allProfiles
-				.filter((profile): profile is NotificationProfileData & { data: UMSLocalData } => profile.data !== null)
-				.map((profile) =>
-					scheduleExamNotifications(profile.data.seatingPlan, settings, profile.profileName, profile.profileId, budget)
-				)
-		);
+		for (const profile of allProfiles) {
+			if (!isCurrentRequest()) break;
+			if (!profile.data) continue;
+			await scheduleExamNotifications(
+				profile.data.seatingPlan,
+				settings,
+				profile.profileName,
+				profile.profileId,
+				budget,
+				isCurrentRequest,
+			);
+		}
 	}
 
 	if (budget.failed > 0 || budget.skipped > 0) {
@@ -487,8 +585,9 @@ export function rescheduleUmsNotifications(
 	settings: NotificationSettings,
 	allowPermissionPrompt = true
 ): Promise<void> {
+	const requestGeneration = ++scheduleGeneration;
 	scheduleQueue = scheduleQueue
-		.then(() => scheduleLatestNotifications(activeProfile, allProfiles, settings, allowPermissionPrompt))
+		.then(() => scheduleLatestNotifications(activeProfile, allProfiles, settings, allowPermissionPrompt, requestGeneration))
 		.catch((error) => {
 			console.warn("Unable to schedule academic notifications", error);
 		});

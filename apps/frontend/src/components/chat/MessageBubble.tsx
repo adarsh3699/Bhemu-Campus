@@ -46,6 +46,8 @@ interface MessageBubbleProps {
 	onModerate: (message: ChatMessage) => void;
 	onVotePoll: (pollId: string, optionIds: string[]) => Promise<void>;
 	onClosePoll: (pollId: string) => Promise<void>;
+	onJumpToMessage?: (messageId: string) => void;
+	searchQuery?: string;
 }
 
 export function DateSeparator({ iso }: { iso: string }) {
@@ -80,6 +82,8 @@ const MessageBubble = memo(function MessageBubble({
 	onModerate,
 	onVotePoll,
 	onClosePoll,
+	onJumpToMessage,
+	searchQuery,
 }: MessageBubbleProps) {
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [reactionTrayOpen, setReactionTrayOpen] = useState(false);
@@ -229,7 +233,7 @@ const MessageBubble = memo(function MessageBubble({
 								</time>
 							</div>
 							<div className="mt-1.5 text-[13px] leading-5 text-white/95">
-								<MessageText content={message.content} isPoll={false} isOwn={isOwn} />
+								<MessageText content={message.content} isPoll={false} isOwn={isOwn} searchQuery={searchQuery} />
 							</div>
 						</div>
 					</div>
@@ -268,6 +272,10 @@ const MessageBubble = memo(function MessageBubble({
 						className={`relative mb-1.5 mt-0.5 flex cursor-pointer flex-col overflow-hidden rounded-[4px] border-l-[3px] py-0.5 pl-2 pr-2 text-[13px] leading-tight ${
 							isOwn ? "border-l-white/40 bg-black/10" : "border-l-sky-500 bg-white/5"
 						}`}
+						onClick={repliedMessage && onJumpToMessage ? () => onJumpToMessage(repliedMessage.id) : undefined}
+						role={repliedMessage && onJumpToMessage ? "button" : undefined}
+						tabIndex={repliedMessage && onJumpToMessage ? 0 : undefined}
+						aria-label={repliedMessage && onJumpToMessage ? "Jump to replied message" : undefined}
 					>
 						<span className={`font-semibold ${isOwn ? "text-white" : "text-sky-400"}`}>
 							{repliedMessage
@@ -282,7 +290,7 @@ const MessageBubble = memo(function MessageBubble({
 					</div>
 				)}
 
-				<MessageText content={message.content} isPoll={message.type === "POLL"} isOwn={isOwn} />
+				<MessageText content={message.content} isPoll={message.type === "POLL"} isOwn={isOwn} searchQuery={searchQuery} />
 
 				{message.type === "POLL" && message.poll && (
 					<PollCard

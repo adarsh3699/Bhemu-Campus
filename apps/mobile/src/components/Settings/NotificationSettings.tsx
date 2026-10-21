@@ -1,46 +1,24 @@
 import { useState } from "react";
 import { ActivityIndicator, Linking, Modal, Pressable, Switch, Text, View, StyleSheet } from "react-native";
-import { Bell, CalendarDays, ChevronDown, ChevronRight, ChevronUp, Clock3, Send, Settings2 } from "lucide-react-native";
+import { Bell, CalendarDays, ChevronDown, ChevronRight, ChevronUp, Send, Settings2 } from "lucide-react-native";
 import { Colors, FontSize, FontWeight, Radius, Spacing } from "@/constants/Theme";
 import { useGpaProfiles } from "@/contexts/GpaDataContext";
-import { formatMinutesToAmPm } from "@bhemu/shared";
 import { useMessage } from "@/contexts/MessageContext";
 import { useNotificationSettings } from "@/features/notifications/useNotificationSettings";
+import { openExactAlarmSettings, supportsAndroidExactAlarmSettings } from "@/features/notifications/exactAlarm";
 import { SettingsCard, SettingsDivider, SettingsHeader, SettingsRow } from "@/components/Settings/SettingsPrimitives";
 import {
-	EXAM_DAYS_BEFORE,
-	EXAM_REMINDER_HOURS,
 	REMINDER_MINUTES,
 	type NotificationSettings as NotificationSettingsValue,
 } from "@/features/notifications/notificationSettings";
 
-type PickerKey = "firstClassMinutes" | "otherClassMinutes" | "examDaysBefore" | "examReminderHour";
-
-function formatHour(hour: number): string {
-	return formatMinutesToAmPm(hour * 60);
-}
-
-function formatDays(days: number): string {
-	return `${days} day${days === 1 ? "" : "s"} before`;
-}
+type PickerKey = "firstClassMinutes" | "otherClassMinutes";
 
 function getPickerData(picker: PickerKey | null) {
 	if (picker === "firstClassMinutes" || picker === "otherClassMinutes") {
 		return {
 			title: picker === "firstClassMinutes" ? "First class reminder" : "Other class reminders",
 			options: REMINDER_MINUTES.map((value) => ({ value, label: `${value} minutes before` })),
-		};
-	}
-	if (picker === "examDaysBefore") {
-		return {
-			title: "Exam reminder timing",
-			options: EXAM_DAYS_BEFORE.map((value) => ({ value, label: formatDays(value) })),
-		};
-	}
-	if (picker === "examReminderHour") {
-		return {
-			title: "Exam reminder time",
-			options: EXAM_REMINDER_HOURS.map((value) => ({ value, label: formatHour(value) })),
 		};
 	}
 	return null;
@@ -76,7 +54,6 @@ export default function NotificationSettings() {
 	const [picker, setPicker] = useState<PickerKey | null>(null);
 	const [sendingTest, setSendingTest] = useState(false);
 	const [showTimetableOptions, setShowTimetableOptions] = useState(false);
-	const [showExamOptions, setShowExamOptions] = useState(false);
 	const notificationsBlocked = permissionStatus === "denied" || permissionStatus === "unavailable";
 	const notificationsEnabled = settings.enabled && !notificationsBlocked;
 	const currentProfileName = currentProfile?.name?.trim() || "Current profile";
@@ -110,6 +87,13 @@ export default function NotificationSettings() {
 			showMessage("Unable to send a test notification. Please try again.", "error");
 		} finally {
 			setSendingTest(false);
+		}
+	};
+
+	const handleExactAlarmSettings = async () => {
+		const opened = await openExactAlarmSettings();
+		if (!opened) {
+			showMessage("Open Android Settings > Alarms & reminders and allow bCampus for better timing.", "warning");
 		}
 	};
 
@@ -229,54 +213,14 @@ export default function NotificationSettings() {
 									value={`${settings.otherClassMinutes} min before`}
 									onPress={() => setPicker("otherClassMinutes")}
 								/>
-							</View>
-						) : null}
-					</View>
-
-					<View style={local.preferenceGroup}>
-						<Pressable
-							style={({ pressed }) => [local.sectionHeader, pressed && local.pressed]}
-							onPress={() => setShowExamOptions((visible) => !visible)}
-							accessibilityRole="button"
-							accessibilityLabel="Exam reminder settings"
-							accessibilityState={{ expanded: showExamOptions }}
-						>
-							<View style={local.rowIcon}>
-								<Clock3 size={17} color={settings.examEnabled ? Colors.warning : Colors.textSubtle} />
-							</View>
-							<View style={local.rowContent}>
-								<Text style={local.rowTitle}>Exam reminders</Text>
-								<Text style={local.rowSub}>
-									{settings.examEnabled
-										? "Get notified before exam day"
-										: "Exam reminders are paused"}
-								</Text>
-							</View>
-							<SwitchControl
-								value={settings.examEnabled}
-								onValueChange={(examEnabled) => void updateSettings({ examEnabled })}
-							/>
-							{showExamOptions ? (
-								<ChevronUp size={17} color={Colors.textSubtle} />
-							) : (
-								<ChevronDown size={17} color={Colors.textSubtle} />
-							)}
-						</Pressable>
-
-						{settings.examEnabled && showExamOptions ? (
-							<View style={local.optionsGroup}>
-								<OptionRow
-									title="Exam reminder"
-									subtitle="Choose how many days before the exam"
-									value={formatDays(settings.examDaysBefore)}
-									onPress={() => setPicker("examDaysBefore")}
-								/>
-								<OptionRow
-									title="Reminder time"
-									subtitle="Local time on the reminder day"
-									value={formatHour(settings.examReminderHour)}
-									onPress={() => setPicker("examReminderHour")}
-								/>
+								{supportsAndroidExactAlarmSettings() ? (
+									<OptionRow
+										title="Improve reminder timing"
+										subtitle="Allow Android Alarms & reminders for this app"
+										value="Open settings"
+										onPress={() => void handleExactAlarmSettings()}
+									/>
+								) : null}
 							</View>
 						) : null}
 					</View>
