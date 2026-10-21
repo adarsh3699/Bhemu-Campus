@@ -66,6 +66,8 @@ const MessageDisplay: React.FC<MessageDisplayProps> = ({ msgText, type = "info",
 			className={`fixed top-12 right-5 z-10000 transition-all duration-300 ease-in-out max-md:top-3 max-md:right-3 max-md:left-3 ${
 				isVisible ? "translate-y-0 opacity-100" : "-translate-y-4 opacity-0 pointer-events-none"
 			}`}
+			role={type === "error" ? "alert" : "status"}
+			aria-live={type === "error" ? "assertive" : "polite"}
 		>
 			<div className={getToastStyles(type)}>
 				<div className="flex items-center gap-3 flex-1">

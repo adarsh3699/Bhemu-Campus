@@ -18,6 +18,7 @@ const PAGE_LABELS: Record<string, string> = {
 	leaderboard: "Leaderboard",
 	settings: "Settings",
 	about: "About",
+	admin: "User Management",
 };
 
 interface TopBarProps {

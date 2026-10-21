@@ -45,9 +45,17 @@ export async function provisionNewUserProfile(
 		}
 
 		transaction.set(userRef, {
-			email: input.email,
+			email: input.email?.trim().toLowerCase() ?? null,
 			displayName: name,
 			photoURL: input.photoURL,
+			role: "student",
+			moderation: {
+				status: "active",
+				reason: null,
+				expiresAt: null,
+				reviewedBy: null,
+				reviewedAt: null,
+			},
 			createdAt: serverTimestamp(),
 			lastLoginAt: serverTimestamp(),
 		});

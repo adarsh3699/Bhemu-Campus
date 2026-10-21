@@ -26,9 +26,10 @@ import {
 	getDocs,
 	writeBatch,
 	updateDoc,
+	onSnapshot,
 } from "firebase/firestore";
 import { auth, googleProvider, db } from "./config";
-import type { FirebaseError, AuthContextType } from "@/types";
+import type { FirebaseError, AuthContextType, UserRole } from "@/types";
 import { STORAGE_KEYS } from "@bhemu/shared";
 import { provisionNewUserProfile } from "@bhemu/firebase";
 
@@ -48,6 +49,8 @@ export function useAuth(): AuthContextType {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
 	const [currentUser, setCurrentUser] = useState<User | null>(null);
 	const [loading, setLoading] = useState(true);
+	const [appRole, setAppRole] = useState<UserRole | null>(null);
+	const [appRoleLoading, setAppRoleLoading] = useState(true);
 
 	// New-user provisioning is the only place that may create a default profile.
 	// Normal login only updates an already-provisioned user document.
@@ -67,7 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			await updateDoc(
 				userRef,
 				{
-					email: user.email,
+					email: user.email?.trim().toLowerCase() || null,
 					displayName: user.displayName || user.email?.split("@")[0] || "User",
 					photoURL: user.photoURL || null,
 					lastLoginAt: serverTimestamp(),
@@ -468,16 +471,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	}
 
 	useEffect(() => {
-		const unsubscribe = onAuthStateChanged(auth, (user) => {
+		let unsubscribeProfile: (() => void) | null = null;
+		const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+			unsubscribeProfile?.();
+			unsubscribeProfile = null;
 			setCurrentUser(user);
 			setLoading(false);
+
+			if (!user) {
+				setAppRole(null);
+				setAppRoleLoading(false);
+				return;
+			}
+
+			setAppRoleLoading(true);
+			unsubscribeProfile = onSnapshot(
+				doc(db, "users", user.uid),
+				(snapshot) => {
+					const role = snapshot.data()?.role;
+					setAppRole(role === "admin" || role === "moderator" || role === "student" ? role : null);
+					setAppRoleLoading(false);
+				},
+				(error) => {
+					console.error("Error loading application role:", error);
+					setAppRole(null);
+					setAppRoleLoading(false);
+				},
+			);
 		});
 
-		return unsubscribe;
+		return () => {
+			unsubscribeProfile?.();
+			unsubscribeAuth();
+		};
 	}, []);
 
 	const value = {
 		currentUser,
+		appRole,
+		appRoleLoading,
 		signup,
 		login,
 		logout,

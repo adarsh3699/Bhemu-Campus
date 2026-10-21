@@ -6,7 +6,7 @@ export {
 export type { NewUserProfileInput } from "./profileProvisioning";
 export { AttendanceService, createAttendanceService } from "./attendanceService";
 export { LeaderboardService } from "./leaderboardService";
-export type { FirebaseError, AuthContextType, LaunchUser } from "./authTypes";
+export type { FirebaseError, AuthContextType, LaunchUser, UserRole } from "./authTypes";
 export { syncGradesAndMarks, syncAttendanceOnly, mapExamType } from "./umsSyncService";
 export type {
 	UMSSyncResult,

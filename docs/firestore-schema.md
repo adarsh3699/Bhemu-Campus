@@ -9,7 +9,7 @@ Last updated: 2026-07-22 (leaderboard: switched `name` to profile display name, 
 
 | Field             | Type                                  | Notes                                                                        |
 | ----------------- | ------------------------------------- | ---------------------------------------------------------------------------- |
-| email             | string                                | User email address                                                           |
+| email             | string                                | User email address, stored lowercase                                         |
 | displayName       | string                                | User's display name used throughout the app                                  |
 | username          | string                                | Unique public username. Always lowercase. Used in chat (e.g. `@adarsh3699`). |
 | photoURL          | string \| null                        | Profile photo                                                                |
@@ -18,6 +18,8 @@ Last updated: 2026-07-22 (leaderboard: switched `name` to profile display name, 
 | createdAt         | Timestamp                             | Written once at signup — never overwritten                                   |
 | lastLoginAt       | Timestamp                             | Updated on every app open / login                                            |
 | updatedAt         | Timestamp                             | Updated whenever profile fields change                                       |
+| roleUpdatedBy     | string?                               | Firebase UID of the admin who last changed the role                          |
+| roleUpdatedAt     | Timestamp?                            | Time of the last role change                                                  |
 | hasPassword       | boolean                               | `true` if email/password is linked                                           |
 | passwordUpdatedAt | Timestamp?                            | Set when password changes                                                    |
 | currentGroupKey   | string?                               | Used by chat-worker to route batchmate pushes. Re-synced when profile changes.               |
@@ -57,6 +59,10 @@ Last updated: 2026-07-22 (leaderboard: switched `name` to profile display name, 
 | `expiresAt`  | Expiry time for temporary moderation actions. `null` for `active`, `flagged`, and permanent bans.      |
 | `reviewedBy` | Firebase UID of the moderator/admin who performed the latest moderation action. `null` until reviewed. |
 | `reviewedAt` | Timestamp of the latest moderation decision. `null` until reviewed.                                    |
+
+The admin user-management page may change only `student ↔ moderator`. The `admin`
+role is protected and cannot be assigned, demoted, or changed by that page.
+
 
 ## `users/{userId}/profiles/{profileId}`
 
@@ -238,6 +244,7 @@ match /leaderboard/{docId} {
 ## Key invariants
 
 - All timestamps must be native Firestore `Timestamp` (not Admin SDK serialized maps)
+- Admin role mutations are authenticated and authorized by Firestore Security Rules
 - `saveSemesters()` diffs subcollection — deletes removed semester docs
 - `lastOpened` is never written for shared profiles (would create ghost docs)
 - Account deletion cleans: own profiles + subcollections, outgoing + mirror incoming, incoming + mirror outgoing

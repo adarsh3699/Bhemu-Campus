@@ -13,8 +13,14 @@ export interface LaunchUser {
 	photoURL: string | null;
 }
 
+export type UserRole = "student" | "moderator" | "admin";
+
 export interface AuthContextType {
 	currentUser: User | null;
+	/** Global Firestore application role. Web uses this for navigation hints; APIs re-check it. */
+	appRole?: UserRole | null;
+	/** True while the current user's Firestore profile role is loading. */
+	appRoleLoading?: boolean;
 	/** Only provided by the mobile client which has a launch-user optimisation. */
 	authLoading?: boolean;
 	/** Only provided by the mobile client which has a launch-user optimisation. */

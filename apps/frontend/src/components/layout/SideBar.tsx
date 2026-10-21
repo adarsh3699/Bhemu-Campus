@@ -23,6 +23,7 @@ import {
 	MessageSquare,
 	Smartphone,
 	Download,
+	ShieldCheck,
 } from "lucide-react";
 import { MOBILE_RELEASE } from "@/lib/mobileRelease";
 
@@ -41,13 +42,17 @@ const SYSTEM_NAV = [
 	{ name: "About", path: "about", icon: Info },
 ];
 
+const ADMIN_NAV = [
+	{ name: "User Management", path: "admin/users", icon: ShieldCheck },
+];
+
 interface SideBarProps {
 	isOpen: boolean;
 	onClose: () => void;
 }
 
 export default function SideBar({ isOpen, onClose }: SideBarProps) {
-	const { currentUser, logout } = useAuth();
+	const { currentUser, appRole, logout } = useAuth();
 	const { showMessage } = useMessage();
 	const router = useRouter();
 	const pathname = usePathname();
@@ -193,6 +198,32 @@ export default function SideBar({ isOpen, onClose }: SideBarProps) {
 							</Link>
 						);
 					})}
+
+					{appRole === "admin" && (
+						<>
+							<span className="px-3 mt-5 mb-2 text-[10px] font-bold text-amber-300/70 uppercase tracking-widest">
+								Admin
+							</span>
+							{ADMIN_NAV.map(({ name, path, icon: Icon }) => {
+								const isActive = pathname.startsWith(`/${path}`);
+								return (
+									<Link
+										key={path}
+										href={`/${path}`}
+										onClick={handleNavClick}
+										className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group ${
+											isActive
+												? "bg-amber-400/10 text-amber-200 border-l-4 border-amber-300 rounded-l-none pl-2"
+												: "text-muted-foreground hover:text-white hover:bg-white/5 border-l-4 border-transparent rounded-l-none pl-2"
+										}`}
+									>
+										<Icon className={`w-4 h-4 shrink-0 ${isActive ? "text-amber-200" : "text-muted-foreground group-hover:text-white"}`} aria-hidden="true" />
+										{name}
+									</Link>
+								);
+							})}
+						</>
+					)}
 
 					<button
 						onClick={() => {
