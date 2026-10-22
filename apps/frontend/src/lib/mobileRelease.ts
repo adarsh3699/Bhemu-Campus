@@ -1,11 +1,11 @@
 export const MOBILE_RELEASE = {
-	version: "1.2.2",
-	apkUrl: "https://github.com/adarsh3699/Bhemu-Campus/releases/download/mobile-v1.2.2/bcampus-mobile-v1.2.2.apk",
+	version: "2.0.0",
+	apkUrl: "https://github.com/adarsh3699/Bhemu-Campus/releases/download/mobile-v2.0.0/bcampus-mobile-v2.0.0.apk",
 	websiteUrl: "https://campus.bhemu.in/",
 	releaseNotes: [
-		"Added native background downloading for app updates. You can now minimize the app while updates download!",
-		"App installer now launches automatically in the foreground when a background download completes.",
-		"Fixed unused variables and optimized memory usage in the update service.",
+		"WhatsApp-style message formatting, search, typing indicators, and link previews.",
+		"Improved notification scheduling, deep links, unread navigation, and chat focus behavior.",
+		"Updated the native Android build to Expo SDK 57 with a clean dependency audit.",
 	],
 	mandatory: false,
 } as const;
