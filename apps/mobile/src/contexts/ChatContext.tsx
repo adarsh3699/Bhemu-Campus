@@ -41,7 +41,6 @@ import {
 	writeChatRoomSequence,
 	writeChatRoomCache,
 } from "@/features/chat/cache";
-import { updateFcmTokenGroupKey } from "@/features/notifications/fcmTokenService";
 
 export type ActiveRoom = "university" | "batchmate";
 export interface ChatTypingUser {
@@ -181,11 +180,6 @@ export function ChatProvider({ children, initialRoom = "university" }: { childre
 	useEffect(() => {
 		isChatOpenRef.current = isFocused;
 	}, [isFocused]);
-
-	// Keep the FCM token's groupKey up to date with the current profile
-	useEffect(() => {
-		if (currentUser) void updateFcmTokenGroupKey(currentUser.uid, groupKey);
-	}, [currentUser, groupKey]);
 
 	const getFirebaseToken = useCallback(
 		async (forceRefresh = false): Promise<string | null> => {

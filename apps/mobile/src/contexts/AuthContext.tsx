@@ -136,7 +136,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		return createUserWithEmailAndPassword(auth, email, password).then(async (result) => {
 			if (displayName) await updateProfile(result.user, { displayName });
 			await saveUserData(result.user, true);
-			void registerFcmToken(result.user.uid);
 			return result;
 		});
 	}
@@ -144,8 +143,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	function login(email: string, password: string): Promise<UserCredential> {
 		return signInWithEmailAndPassword(auth, email, password).then(async (result) => {
 			await saveUserData(result.user);
-			// Fire-and-forget — never block login on token registration
-			void registerFcmToken(result.user.uid);
 			return result;
 		});
 	}
@@ -159,7 +156,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		const credential = GoogleAuthProvider.credential(idToken);
 		const result = await signInWithCredential(auth, credential);
 		await saveUserData(result.user, getAdditionalUserInfo(result)?.isNewUser ?? false);
-		void registerFcmToken(result.user.uid);
 		return result;
 	}
 

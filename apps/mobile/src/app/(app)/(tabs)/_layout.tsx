@@ -11,6 +11,7 @@ import { db } from "@/firebase/config";
 import { saveUmsData, getUmsData } from "@/features/ums-data/storage";
 import { useUmsData } from "@/features/ums-data/useUmsData";
 import type { NotificationProfileData } from "@/features/notifications/notificationService";
+import { updateFcmTokenGroupKey } from "@/features/notifications/fcmTokenService";
 import { STORAGE_KEYS, type UMSLocalData } from "@bhemu/shared";
 import type { UMSSyncResult } from "@bhemu/firebase";
 
@@ -117,6 +118,7 @@ function AnimatedTooltip({ message, color = Colors.primary }: { message: string;
 export default function TabsLayout() {
 	const { currentUser, authLoading } = useAuth();
 	const { activeProfile, currentProfile, allProfiles } = useGpaProfiles();
+	const currentGroupKey = (currentProfile as (typeof currentProfile & { groupKey?: string | null }) | undefined)?.groupKey ?? null;
 	const isSharedProfile = !!currentProfile?.isShared;
 	const { data: umsData, loading: umsLoading } = useUmsData();
 	const hasSynced = !!umsData?.lastSyncedAt;
@@ -147,6 +149,13 @@ export default function TabsLayout() {
 	const notificationScope = `${currentUser?.uid ?? ""}|${activeProfile == null ? "" : String(activeProfile)}|${allProfiles
 		.map((profile) => `${String(profile.id)}:${profile.name}`)
 		.join(",")}`;
+
+	// Token registration is owned by AuthContext, but group routing must be kept
+	// current even when the user never opens the Chat tab. The worker uses this
+	// field to target the correct batchmate room.
+	useEffect(() => {
+		if (currentUser) void updateFcmTokenGroupKey(currentUser.uid, currentGroupKey);
+	}, [currentUser, currentGroupKey]);
 
 	useEffect(() => {
 		let cancelled = false;

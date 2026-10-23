@@ -139,7 +139,7 @@ export class MessageService {
 		roomId: string,
 		userUid: string,
 		limitRaw: number = MESSAGE_PAGE_SIZE,
-		cursorStr?: string,
+		cursorStr?: string
 	): Promise<PaginatedResult<MessageWithRelations>> {
 		await this.roomService.requireMembership(roomId, userUid);
 		const limit = Math.min(limitRaw, 100);
@@ -154,7 +154,7 @@ export class MessageService {
 	async createMessage(
 		user: AuthUser,
 		input: CreateMessageInput,
-		broadcast: BroadcastFn,
+		broadcast: BroadcastFn
 	): Promise<CreateMessageResult> {
 		const msgType = input.type ?? "TEXT";
 		const attachments = input.attachments ?? [];
@@ -178,10 +178,10 @@ export class MessageService {
 
 		// Step 3 — duplicate admission already happened in the serialized Room
 		// DO. This service remains the final membership/policy authority.
-		const room = input.verifiedPublicRoom?.id === input.roomId
-			&& input.verifiedPublicRoom.visibility === "PUBLIC"
-			? input.verifiedPublicRoom
-			: await this.roomService.requireMembership(input.roomId, user.uid);
+		const room =
+			input.verifiedPublicRoom?.id === input.roomId && input.verifiedPublicRoom.visibility === "PUBLIC"
+				? input.verifiedPublicRoom
+				: await this.roomService.requireMembership(input.roomId, user.uid);
 
 		if (msgType === "TEXT") {
 			enforceRoomPolicy(room.policy, user.role, "send_message");
@@ -223,40 +223,39 @@ export class MessageService {
 		const eventInput: CreateRoomEventInput | undefined =
 			input.roomSeq && eventId
 				? {
-					roomId: input.roomId,
-					roomSeq: input.roomSeq,
-					eventId,
-					eventType: event,
-					aggregateId: id,
-					payload: {
-						version: 1,
-						message: {
-							id,
-							roomId: input.roomId,
-							authorUid: user.uid,
-							authorName: user.displayName,
-							idempotencyKey: input.idempotencyKey,
-							replyToMessageId: input.replyToMessageId,
-							type: msgType,
-							visibility: "VISIBLE",
-							content: input.content,
-							editedAt: null,
-							deletedAt: null,
-							createdAt,
-							updatedAt: createdAt,
-							attachments: attachmentRows,
+						roomId: input.roomId,
+						roomSeq: input.roomSeq,
+						eventId,
+						eventType: event,
+						aggregateId: id,
+						payload: {
+							version: 1,
+							message: {
+								id,
+								roomId: input.roomId,
+								authorUid: user.uid,
+								authorName: user.displayName,
+								idempotencyKey: input.idempotencyKey,
+								replyToMessageId: input.replyToMessageId,
+								type: msgType,
+								visibility: "VISIBLE",
+								content: input.content,
+								editedAt: null,
+								deletedAt: null,
+								createdAt,
+								updatedAt: createdAt,
+								attachments: attachmentRows,
+							},
 						},
-					},
-				}
+					}
 				: undefined;
-		const idempotencyInput: CreateMessageIdempotencyInput | undefined =
-			input.idempotencyKey
+		const idempotencyInput: CreateMessageIdempotencyInput | undefined = input.idempotencyKey
 			? {
-				roomId: input.roomId,
-				authorUid: user.uid,
-				key: input.idempotencyKey,
-				messageId: id,
-			}
+					roomId: input.roomId,
+					authorUid: user.uid,
+					key: input.idempotencyKey,
+					messageId: id,
+				}
 			: undefined;
 		let msg: MessageWithRelations;
 		try {
@@ -274,7 +273,7 @@ export class MessageService {
 				},
 				attachmentRows,
 				eventInput,
-				idempotencyInput,
+				idempotencyInput
 			);
 		} catch (error) {
 			// A concurrent retry can lose the unique idempotency insert after its
@@ -285,7 +284,7 @@ export class MessageService {
 					const existing = await this.msgRepo.findByIdempotencyKey(
 						input.roomId,
 						user.uid,
-						input.idempotencyKey,
+						input.idempotencyKey
 					);
 					if (existing) return { message: existing, created: false };
 				}
@@ -318,7 +317,7 @@ export class MessageService {
 			const dispatchPush = async () => {
 				const isText = msg.type === "TEXT" || msg.type === "ANNOUNCEMENT";
 				const bodyPreview = isText ? whatsappNotificationPreview(msg.content, 360) : "Sent an attachment";
-				
+
 				const room = await this.roomRepo.findById(msg.roomId);
 				const roomName = room ? room.name : "the room";
 				const roomType = room ? room.type : "UNIVERSITY";
@@ -331,7 +330,7 @@ export class MessageService {
 					preview: bodyPreview,
 					authorName: msg.authorName,
 				};
-				const notificationGroupId = `chat-room-${msg.roomId}`;
+				const notificationThreadId = `chat-room-${msg.roomId}`;
 				const webLink = buildChatWebLink(this.env!, msg.roomId, msg.id, roomType);
 
 				if (msg.type === "ANNOUNCEMENT") {
@@ -341,25 +340,33 @@ export class MessageService {
 						this.env!,
 						false // All users get announcements
 					);
-					await sendFcmToTokens(tokens, {
-						title: `📢 Announcement in ${roomName}`,
-						body: `${msg.authorName}: ${bodyPreview}`,
-						data: notificationData,
-						groupId: notificationGroupId,
-						subtitle: roomName,
-						webLink,
-					}, this.env!);
+					await sendFcmToTokens(
+						tokens,
+						{
+							title: `📢 Announcement in ${roomName}`,
+							body: `${msg.authorName}: ${bodyPreview}`,
+							data: notificationData,
+							threadId: notificationThreadId,
+							subtitle: roomName,
+							webLink,
+						},
+						this.env!
+					);
 				} else if (parentAuthorUid && parentAuthorUid !== msg.authorUid) {
 					// It's a reply to someone else
 					const tokens = await getFcmTokensForUser(parentAuthorUid, this.env!);
-					await sendFcmToTokens(tokens, {
-						title: `${msg.authorName} replied to you`,
-						body: bodyPreview,
-						data: notificationData,
-						groupId: notificationGroupId,
-						subtitle: roomName,
-						webLink,
-					}, this.env!);
+					await sendFcmToTokens(
+						tokens,
+						{
+							title: `${msg.authorName} replied to you`,
+							body: bodyPreview,
+							data: notificationData,
+							threadId: notificationThreadId,
+							subtitle: roomName,
+							webLink,
+						},
+						this.env!
+					);
 				} else if (roomType === "BATCHMATE") {
 					// Standard message in batchmate room, target users who opted in to ALL messages
 					const tokens = await getFcmTokensForRoom(
@@ -367,17 +374,21 @@ export class MessageService {
 						room ? room.groupKey : null,
 						this.env!,
 						true, // onlyAllMessages = true
-						msg.authorUid,
+						msg.authorUid
 					);
-					
-					await sendFcmToTokens(tokens, {
-						title: `New message in ${roomName}`,
-						body: `${msg.authorName}: ${bodyPreview}`,
-						data: notificationData,
-						groupId: notificationGroupId,
-						subtitle: roomName,
-						webLink,
-					}, this.env!);
+
+					await sendFcmToTokens(
+						tokens,
+						{
+							title: `New message in ${roomName}`,
+							body: `${msg.authorName}: ${bodyPreview}`,
+							data: notificationData,
+							threadId: notificationThreadId,
+							subtitle: roomName,
+							webLink,
+						},
+						this.env!
+					);
 				}
 			};
 			const pushPromise = dispatchPush().catch((error) => {
@@ -398,7 +409,7 @@ export class MessageService {
 		user: AuthUser,
 		messageId: string,
 		newContent: string,
-		broadcast: BroadcastFn,
+		broadcast: BroadcastFn
 	): Promise<MessageWithRelations> {
 		assertCanWrite(user);
 
@@ -425,11 +436,7 @@ export class MessageService {
 	// ----------------------------------------------------------------
 	// Delete — author or moderator (FRD §4.11)
 	// ----------------------------------------------------------------
-	async deleteMessage(
-		user: AuthUser,
-		messageId: string,
-		broadcast: BroadcastFn,
-	): Promise<void> {
+	async deleteMessage(user: AuthUser, messageId: string, broadcast: BroadcastFn): Promise<void> {
 		assertCanWrite(user);
 
 		const msg = await this.msgRepo.findById(messageId);
@@ -454,5 +461,4 @@ export class MessageService {
 			});
 		}
 	}
-
 }

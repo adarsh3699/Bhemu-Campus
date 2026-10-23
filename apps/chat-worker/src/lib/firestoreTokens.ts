@@ -55,6 +55,50 @@ function parseFirestoreDocument(doc: FirestoreDocument): Record<string, unknown>
 	return result;
 }
 
+function normalizeFcmTokens(value: unknown): string[] {
+	if (!Array.isArray(value)) return [];
+
+	return [
+		...new Set(
+			value
+				.filter((token): token is string => typeof token === "string")
+				.map((token) => token.trim())
+				.filter(Boolean),
+		),
+	];
+}
+
+/**
+ * Firestore REST `runQuery` returns a response stream: one JSON object per
+ * line. Some emulators/proxies return a JSON array instead, so accept both
+ * shapes without turning a valid query into an empty recipient list.
+ */
+function parseRunQueryResponses(raw: string): RunQueryResponse[] {
+	const trimmed = raw.trim();
+	if (!trimmed) return [];
+
+	try {
+		const parsed: unknown = JSON.parse(trimmed);
+		if (Array.isArray(parsed)) return parsed as RunQueryResponse[];
+		if (parsed && typeof parsed === "object") return [parsed as RunQueryResponse];
+	} catch {
+		// The production REST API uses newline-delimited JSON objects.
+	}
+
+	const responses: RunQueryResponse[] = [];
+	for (const line of trimmed.split(/\r?\n/)) {
+		const value = line.trim();
+		if (!value) continue;
+		try {
+			const parsed: unknown = JSON.parse(value);
+			if (parsed && typeof parsed === "object") responses.push(parsed as RunQueryResponse);
+		} catch (error) {
+			throw new Error(`Invalid Firestore runQuery response: ${String(error)}`);
+		}
+	}
+	return responses;
+}
+
 export async function getFcmTokensForUser(uid: string, env: Env): Promise<string[]> {
 	const projectId = env.FIREBASE_PROJECT_ID;
 	const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${uid}`;
@@ -65,7 +109,8 @@ export async function getFcmTokensForUser(uid: string, env: Env): Promise<string
 			method: "GET",
 			headers: {
 				"Authorization": `Bearer ${accessToken}`,
-			}
+			},
+			signal: AbortSignal.timeout(10_000),
 		});
 
 		if (!res.ok) {
@@ -77,10 +122,7 @@ export async function getFcmTokensForUser(uid: string, env: Env): Promise<string
 		const result = await res.json() as FirestoreDocument;
 		const data = parseFirestoreDocument(result);
 		
-		if (Array.isArray(data.fcmTokens)) {
-			return [...new Set(data.fcmTokens.filter((token): token is string => typeof token === "string" && token.length > 0))];
-		}
-		return [];
+		return normalizeFcmTokens(data.fcmTokens);
 
 	} catch (error) {
 		logger.error("firestore.user_read_failed", { uid, error: String(error) });
@@ -109,7 +151,10 @@ export async function getFcmTokensForRoom(
 		
 		// If batchmate, filter by currentGroupKey. If university, get all.
 		if (roomType === "BATCHMATE") {
-			if (!groupKey) return []; // Invalid state, abort.
+			if (!groupKey) {
+				logger.warn("firestore.batchmate_group_missing", { roomType });
+				return [];
+			}
 			whereClause = {
 				fieldFilter: {
 					field: { fieldPath: "currentGroupKey" },
@@ -126,6 +171,7 @@ export async function getFcmTokensForRoom(
 				"Authorization": `Bearer ${accessToken}`,
 				"Content-Type": "application/json",
 			},
+			signal: AbortSignal.timeout(10_000),
 			body: JSON.stringify({
 				structuredQuery: {
 					from: [{ collectionId: "users" }],
@@ -135,11 +181,17 @@ export async function getFcmTokensForRoom(
 		});
 
 		if (!res.ok) {
-			console.error(`[FCM] Datastore query failed: ${res.status}`);
+			const errorText = await res.text();
+			logger.error("firestore.room_query_failed", {
+				roomType,
+				groupKey,
+				status: res.status,
+				error: errorText.slice(0, 500),
+			});
 			return [];
 		}
 
-		const resData = await res.json() as RunQueryResponse[];
+		const resData = parseRunQueryResponses(await res.text());
 		
 		const allTokens = new Set<string>();
 		
@@ -153,13 +205,7 @@ export async function getFcmTokensForRoom(
 				continue;
 			}
 
-			if (Array.isArray(data.fcmTokens)) {
-				for (const t of data.fcmTokens) {
-					if (typeof t === "string" && t.length > 0) {
-						allTokens.add(t);
-					}
-				}
-			}
+			for (const token of normalizeFcmTokens(data.fcmTokens)) allTokens.add(token);
 		}
 		
 		const tokens = Array.from(allTokens);

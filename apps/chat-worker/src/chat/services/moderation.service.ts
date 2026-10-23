@@ -43,10 +43,7 @@ export class ModerationService {
 		this.roomService = new RoomService(db);
 	}
 
-	async warnUser(
-		moderator: AuthUser,
-		input: ModerationActionInput,
-	): Promise<ModerationAction> {
+	async warnUser(moderator: AuthUser, input: ModerationActionInput): Promise<ModerationAction> {
 		requireModerator(moderator.role);
 		return this.modRepo.create({
 			userUid: input.targetUserUid,
@@ -58,10 +55,7 @@ export class ModerationService {
 		});
 	}
 
-	async suspendUser(
-		moderator: AuthUser,
-		input: ModerationActionInput,
-	): Promise<ModerationAction> {
+	async suspendUser(moderator: AuthUser, input: ModerationActionInput): Promise<ModerationAction> {
 		requireModerator(moderator.role);
 		return this.modRepo.create({
 			userUid: input.targetUserUid,
@@ -89,7 +83,7 @@ export class ModerationService {
 		moderator: AuthUser,
 		messageId: string,
 		reason: string | null,
-		broadcast: BroadcastFn,
+		broadcast: BroadcastFn
 	): Promise<ModerationAction> {
 		requireModerator(moderator.role);
 
@@ -128,7 +122,7 @@ export class ModerationService {
 		roomId: string,
 		messageId: string,
 		broadcast: BroadcastFn,
-		duration: PinDuration = "forever",
+		duration: PinDuration = "forever"
 	): Promise<void> {
 		const room = await this.roomService.getRoom(roomId);
 		enforceRoomPolicy(room.policy, moderator.role, "pin_message");
@@ -146,9 +140,8 @@ export class ModerationService {
 			throw Errors.pinLimitReached(room.policy.pinLimit);
 		}
 
-		const expiresAt = duration === "forever"
-			? null
-			: new Date(Date.now() + PIN_DURATION_MS[duration]!).toISOString();
+		const expiresAt =
+			duration === "forever" ? null : new Date(Date.now() + PIN_DURATION_MS[duration]!).toISOString();
 		const pin = await this.pinRepo.pin(roomId, messageId, moderator.uid, expiresAt);
 
 		await broadcast(roomId, {
@@ -173,22 +166,26 @@ export class ModerationService {
 					room ? room.groupKey : null,
 					this.env!
 				);
-				await sendFcmToTokens(tokens, {
-					title: `📌 Pinned in ${room.name}`,
-					body: bodyPreview,
-					groupId: `chat-room-${msg.roomId}`,
-					data: {
-						source: "bcampus-chat",
-						roomId: msg.roomId,
-						messageId: msg.id,
-						messageType: msg.type,
-						roomType: room.type,
-						preview: bodyPreview,
-						authorName: msg.authorName,
+				await sendFcmToTokens(
+					tokens,
+					{
+						title: `📌 Pinned in ${room.name}`,
+						body: bodyPreview,
+						threadId: `chat-room-${msg.roomId}`,
+						data: {
+							source: "bcampus-chat",
+							roomId: msg.roomId,
+							messageId: msg.id,
+							messageType: msg.type,
+							roomType: room.type,
+							preview: bodyPreview,
+							authorName: msg.authorName,
+						},
+						subtitle: room.name,
+						webLink: buildChatWebLink(this.env!, msg.roomId, msg.id, room.type),
 					},
-					subtitle: room.name,
-					webLink: buildChatWebLink(this.env!, msg.roomId, msg.id, room.type),
-				}, this.env!);
+					this.env!
+				);
 			};
 			const pushPromise = dispatchPush().catch((error) => {
 				console.warn("Unable to dispatch pin notification", error);
@@ -198,12 +195,7 @@ export class ModerationService {
 		}
 	}
 
-	async unpinMessage(
-		moderator: AuthUser,
-		roomId: string,
-		messageId: string,
-		broadcast: BroadcastFn,
-	): Promise<void> {
+	async unpinMessage(moderator: AuthUser, roomId: string, messageId: string, broadcast: BroadcastFn): Promise<void> {
 		const room = await this.roomService.getRoom(roomId);
 		enforceRoomPolicy(room.policy, moderator.role, "pin_message");
 
