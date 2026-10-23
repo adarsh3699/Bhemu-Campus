@@ -162,7 +162,14 @@ export async function getFcmTokensForRoom(
 			}
 		}
 		
-		return Array.from(allTokens);
+		const tokens = Array.from(allTokens);
+		logger.info("firestore.room_tokens_loaded", {
+			roomType,
+			groupKey,
+			onlyAllMessages,
+			tokenCount: tokens.length,
+		});
+		return tokens;
 	} catch (error) {
 		logger.error("firestore.room_read_failed", { roomType, groupKey, error: String(error) });
 		return [];

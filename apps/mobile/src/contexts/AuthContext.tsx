@@ -27,7 +27,7 @@ import { clearLocalSessionData } from "@/features/session/clearLocalSessionData"
 import { enableGpaCacheWrites } from "@/features/gpa-data/cache";
 import { enableChatCacheWrites } from "@/features/chat/cache";
 import { provisionNewUserProfile } from "@bhemu/firebase";
-import { registerFcmToken, unregisterFcmToken } from "@/features/notifications/fcmTokenService";
+import { registerFcmToken, subscribeToFcmToken, unregisterFcmToken } from "@/features/notifications/fcmTokenService";
 import type { NotificationSettings } from "@/features/notifications/notificationSettings";
 
 const ACCOUNT_DELETING_KEY = STORAGE_KEYS.accountDeleting;
@@ -416,12 +416,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	useEffect(() => {
 		if (!currentUser) return;
 		let disposed = false;
+		let unsubscribeFcmToken = () => {};
 
 		const handleSettingsChange = (settings: NotificationSettings) => {
 			const userRef = doc(db, "users", currentUser.uid);
 			void updateDoc(userRef, { batchmateAllMessages: !!settings.batchmateAllMessages }).catch(() => {});
-			
+
+			unsubscribeFcmToken();
+			unsubscribeFcmToken = () => {};
 			if (settings.enabled && settings.chatEnabled) {
+				unsubscribeFcmToken = subscribeToFcmToken(currentUser.uid);
 				void registerFcmToken(currentUser.uid);
 			} else {
 				void unregisterFcmToken(currentUser.uid);
@@ -440,6 +444,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		return () => {
 			disposed = true;
 			unsubscribeSettings?.();
+		unsubscribeFcmToken();
 		};
 	}, [currentUser]);
 

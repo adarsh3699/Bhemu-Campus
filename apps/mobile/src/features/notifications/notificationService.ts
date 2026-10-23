@@ -3,9 +3,8 @@ import { Platform } from "react-native";
 import { type TimetableEntry, type UMSLocalData, type UMSSeatingPlan, parseTimeMinutes, formatTimeToAmPm } from "@bhemu/shared";
 import type { NotificationSettings } from "./notificationSettings";
 import { activeChatRoomIdRef, isChatOpenRef } from "@/contexts/ChatContext";
+import { ACADEMIC_CHANNEL_ID as CHANNEL_ID, ensureNotificationChannels } from "./notificationChannels";
 
-const CHANNEL_ID = "academic-reminders";
-const CHAT_CHANNEL_ID = "chat-messages";
 const MANAGED_SOURCE = "bcampus-academic-reminder";
 
 export type NotificationProfileData = {
@@ -87,26 +86,6 @@ export function configureNotifications(): void {
 			};
 		},
 	});
-}
-
-async function ensureNotificationChannels(): Promise<void> {
-	if (Platform.OS !== "android") return;
-
-	const results = await Promise.allSettled([
-		Notifications.setNotificationChannelAsync(CHANNEL_ID, {
-			name: "Academic reminders",
-			importance: Notifications.AndroidImportance.HIGH,
-			vibrationPattern: [0, 250, 250, 250],
-		}),
-		Notifications.setNotificationChannelAsync(CHAT_CHANNEL_ID, {
-			name: "Chat Notifications",
-			importance: Notifications.AndroidImportance.HIGH,
-			vibrationPattern: [0, 250, 250, 250],
-		}),
-	]);
-	if (results.some((result) => result.status === "rejected")) {
-		console.warn("Unable to configure one or more notification channels");
-	}
 }
 
 export type NotificationChatTarget = {

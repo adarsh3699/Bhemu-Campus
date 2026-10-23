@@ -20,12 +20,16 @@ import {
 	serverTimestamp,
 } from "firebase/firestore";
 import { db } from "@/firebase/config";
+import { ensureNotificationChannels } from "./notificationChannels";
 
 /** Gets the raw FCM device push token (Android only). */
 async function getDevicePushToken(): Promise<string | null> {
 	if (Platform.OS !== "android") return null;
 
 	try {
+		// Expo requires the Android channel to exist before requesting the native
+		// FCM token. This is especially important on a fresh install.
+		await ensureNotificationChannels();
 		const { granted } = await Notifications.getPermissionsAsync();
 		if (!granted) {
 			const { granted: newGrant } = await Notifications.requestPermissionsAsync();
@@ -33,11 +37,21 @@ async function getDevicePushToken(): Promise<string | null> {
 		}
 
 		const tokenData = await Notifications.getDevicePushTokenAsync();
-		return tokenData.data ?? null;
+		return typeof tokenData.data === "string" && tokenData.data.length > 0 ? tokenData.data : null;
 	} catch (error) {
 		console.warn("[FCM] Failed to get device push token:", error);
 		return null;
 	}
+}
+
+async function storeFcmToken(uid: string, token: string, groupKey?: string | null): Promise<void> {
+	const userRef = doc(db, "users", uid);
+	const data: Record<string, unknown> = {
+		fcmTokens: arrayUnion(token),
+		updatedAt: serverTimestamp(),
+	};
+	if (groupKey !== undefined) data.currentGroupKey = groupKey ?? null;
+	await setDoc(userRef, data, { merge: true });
 }
 
 /**
@@ -53,20 +67,28 @@ export async function registerFcmToken(uid: string, groupKey?: string | null): P
 	try {
 		const token = await getDevicePushToken();
 		if (!token) return;
-
-		const userRef = doc(db, "users", uid);
-		const data: Record<string, unknown> = {
-			fcmTokens: arrayUnion(token),
-			updatedAt: serverTimestamp(),
-		};
-		if (groupKey !== undefined) {
-			data.currentGroupKey = groupKey ?? null;
-		}
-		
-		await setDoc(userRef, data, { merge: true });
+		await storeFcmToken(uid, token, groupKey);
 	} catch (error) {
 		// Token registration is best-effort — never block login flow.
 		console.warn("[FCM] Failed to register token:", error);
+	}
+}
+
+/** Keep Firestore in sync when Android rotates the native FCM token. */
+export function subscribeToFcmToken(uid: string, groupKey?: string | null): () => void {
+	if (Platform.OS !== "android") return () => {};
+
+	try {
+		const subscription = Notifications.addPushTokenListener((token) => {
+			if (typeof token.data !== "string" || token.data.length === 0) return;
+			void storeFcmToken(uid, token.data, groupKey).catch((error) => {
+				console.warn("[FCM] Failed to persist rotated device token:", error);
+			});
+		});
+		return () => subscription.remove();
+	} catch (error) {
+		console.warn("[FCM] Failed to subscribe to device token updates:", error);
+		return () => {};
 	}
 }
 

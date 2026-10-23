@@ -18,6 +18,12 @@ export interface FcmMessage {
 	webLink?: string;
 }
 
+export interface FcmDispatchResult {
+	requested: number;
+	sent: number;
+	failed: number;
+}
+
 // Memory cache for the OAuth2 access token to avoid re-signing on every push
 let cachedAccessToken: string | null = null;
 let tokenExpiresAt = 0;
@@ -118,6 +124,9 @@ export async function getAccessToken(env: Env, scopes: string[]): Promise<string
 async function sendToSingleToken(token: string, message: FcmMessage, env: Env, accessToken: string): Promise<boolean> {
 	const projectId = env.FIREBASE_PROJECT_ID;
 	const url = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
+	const data = Object.fromEntries(
+		Object.entries(message.data ?? {}).filter(([, value]) => typeof value === "string"),
+	) as Record<string, string>;
 
 	const res = await fetch(url, {
 		method: "POST",
@@ -132,7 +141,7 @@ async function sendToSingleToken(token: string, message: FcmMessage, env: Env, a
 					title: message.title,
 					body: message.body,
 				},
-				data: message.data ?? {},
+				data,
 				android: {
 					priority: "HIGH",
 					notification: {
@@ -166,9 +175,14 @@ export async function sendFcmToTokens(
 	tokens: string[],
 	message: FcmMessage,
 	env: Env
-): Promise<void> {
+	): Promise<FcmDispatchResult> {
 	const uniqueTokens = [...new Set(tokens.filter((token) => token.trim().length > 0))];
-	if (uniqueTokens.length === 0) return;
+	if (uniqueTokens.length === 0) {
+		logger.warn("fcm.no_recipients", { title: message.title });
+		return { requested: 0, sent: 0, failed: 0 };
+	}
+	let sent = 0;
+	let failed = 0;
 
 	try {
 		const accessToken = await getAccessToken(env, ["https://www.googleapis.com/auth/firebase.messaging"]);
@@ -182,11 +196,21 @@ export async function sendFcmToTokens(
 		}
 
 		for (const chunk of chunked) {
-			await Promise.all(chunk.map((t) => sendToSingleToken(t, message, env, accessToken).catch(() => false)));
+			const results = await Promise.all(chunk.map((t) => sendToSingleToken(t, message, env, accessToken).catch((error) => {
+				logger.warn("fcm.send_exception", { token: t.slice(0, 10), error: String(error) });
+				return false;
+			})));
+			results.forEach((result) => {
+				if (result) sent += 1;
+				else failed += 1;
+			});
 		}
 		
-		logger.info("fcm.dispatched", { count: uniqueTokens.length, title: message.title });
+		logger.info("fcm.dispatched", { requested: uniqueTokens.length, sent, failed, title: message.title });
 	} catch (error) {
 		logger.error("fcm.dispatch_error", { error: String(error) });
+		failed += uniqueTokens.length - sent;
 	}
+
+	return { requested: uniqueTokens.length, sent, failed };
 }
