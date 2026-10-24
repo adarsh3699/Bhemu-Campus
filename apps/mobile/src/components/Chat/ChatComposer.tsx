@@ -159,7 +159,7 @@ export default function ChatComposer({
 						ref={inputRef}
 						value={value}
 						onChangeText={handleChangeText}
-						placeholder={disabled ? "Connecting…" : "Message…"}
+						placeholder={disabled ? "Chat unavailable" : "Message…"}
 						placeholderTextColor={Colors.textSubtle}
 						accessibilityLabel="Message"
 						multiline

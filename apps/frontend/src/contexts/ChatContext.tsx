@@ -102,6 +102,19 @@ interface ChatContextValue {
 
 const ChatContext = createContext<ChatContextValue | undefined>(undefined);
 
+interface SharedChatSession {
+	token: string;
+	expiresAt: number;
+	role: AppRole;
+}
+
+// Keep the short-lived chat session outside the provider instance. This avoids
+// another /session exchange when React remounts the provider during navigation
+// or development StrictMode. The cache is still scoped to this browser tab and
+// keyed by Firebase uid, so it is never shared across accounts.
+const sharedChatSessions = new Map<string, SharedChatSession>();
+const sharedChatSessionRequests = new Map<string, Promise<SharedChatSession | null>>();
+
 export function useChat(): ChatContextValue {
 	const ctx = useContext(ChatContext);
 	if (!ctx) throw new Error("useChat must be inside ChatProvider");
@@ -166,42 +179,76 @@ function writeRoomSequence(roomId: string, sequence: number): void {
 	}
 }
 
+const WEB_CHAT_CACHE_VERSION = 2;
+const WEB_CHAT_CACHE_TTL_MS = 24 * 60 * 60 * 1_000;
 const ROOM_CACHE_PREFIX = "bhemu:chat:room:";
 const MESSAGES_CACHE_PREFIX = "bhemu:chat:messages:";
 
-function readCachedRoom(key: string): ChatRoom | null {
-	if (typeof window === "undefined") return null;
+interface WebChatCacheEnvelope<T> {
+	version: number;
+	savedAt: number;
+	value: T;
+}
+
+function readWebChatCache<T>(key: string, fallback: T): T {
+	if (typeof window === "undefined") return fallback;
 	try {
-		const data = window.localStorage.getItem(`${ROOM_CACHE_PREFIX}${key}`);
-		return data ? JSON.parse(data) : null;
+		const raw = window.localStorage.getItem(key);
+		if (!raw) return fallback;
+		const parsed = JSON.parse(raw) as Partial<WebChatCacheEnvelope<T>>;
+		if (
+			parsed.version !== WEB_CHAT_CACHE_VERSION
+			|| typeof parsed.savedAt !== "number"
+			|| Date.now() - parsed.savedAt > WEB_CHAT_CACHE_TTL_MS
+			|| !("value" in parsed)
+		) {
+			window.localStorage.removeItem(key);
+			return fallback;
+		}
+		return parsed.value as T;
 	} catch {
-		return null;
+		return fallback;
 	}
+}
+
+function writeWebChatCache<T>(key: string, value: T): void {
+	if (typeof window === "undefined") return;
+	try {
+		const envelope: WebChatCacheEnvelope<T> = {
+			version: WEB_CHAT_CACHE_VERSION,
+			savedAt: Date.now(),
+			value,
+		};
+		window.localStorage.setItem(key, JSON.stringify(envelope));
+	} catch {
+		// Local cache is best effort and must never block chat.
+	}
+}
+
+function readCachedRoom(key: string): ChatRoom | null {
+	return readWebChatCache<ChatRoom | null>(`${ROOM_CACHE_PREFIX}${key}`, null);
 }
 
 function writeCachedRoom(key: string, room: ChatRoom): void {
-	if (typeof window === "undefined") return;
-	try {
-		window.localStorage.setItem(`${ROOM_CACHE_PREFIX}${key}`, JSON.stringify(room));
-	} catch {}
+	writeWebChatCache(`${ROOM_CACHE_PREFIX}${key}`, room);
 }
 
-function readCachedMessages(roomId: string): ChatDisplayMessage[] {
-	if (typeof window === "undefined") return [];
-	try {
-		const data = window.localStorage.getItem(`${MESSAGES_CACHE_PREFIX}${roomId}`);
-		return data ? JSON.parse(data) : [];
-	} catch {
-		return [];
+function readCachedMessages(uid: string, roomId: string): ChatDisplayMessage[] {
+	// Remove the pre-v2 unscoped entry once it is encountered. It is no longer
+	// safe to read because accounts could otherwise share a browser's cache.
+	if (typeof window !== "undefined") {
+		try {
+			window.localStorage.removeItem(`${MESSAGES_CACHE_PREFIX}${roomId}`);
+		} catch {
+			// Storage cleanup is best effort.
+		}
 	}
+	const cached = readWebChatCache<unknown>(`${MESSAGES_CACHE_PREFIX}${uid}:${roomId}`, []);
+	return Array.isArray(cached) ? cached.slice(-MAX_CHAT_CACHED_MESSAGES) as ChatDisplayMessage[] : [];
 }
 
-function writeCachedMessages(roomId: string, messages: ChatDisplayMessage[]): void {
-	if (typeof window === "undefined") return;
-	try {
-		const toCache = messages.slice(-MAX_CHAT_CACHED_MESSAGES);
-		window.localStorage.setItem(`${MESSAGES_CACHE_PREFIX}${roomId}`, JSON.stringify(toCache));
-	} catch {}
+function writeCachedMessages(uid: string, roomId: string, messages: ChatDisplayMessage[]): void {
+	writeWebChatCache(`${MESSAGES_CACHE_PREFIX}${uid}:${roomId}`, messages.slice(-MAX_CHAT_CACHED_MESSAGES));
 }
 
 interface PendingSocketSend {
@@ -249,7 +296,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 	const batchmateRoomLoadRef = useRef(new Map<string, Promise<ChatRoom | null>>());
 	const tokenCacheRef = useRef<{ token: string; expiresAt: number } | null>(null);
 	const chatSessionCacheRef = useRef<{ token: string; expiresAt: number; uid: string; role: AppRole } | null>(null);
-	const sessionBootstrapRef = useRef<Promise<string | null> | null>(null);
+	const previousSessionUidRef = useRef<string | null>(null);
 	const messagesRef = useRef<ChatDisplayMessage[]>([]);
 	const messageRequestRef = useRef(0);
 	const syncingRoomRef = useRef<string | null>(null);
@@ -316,17 +363,28 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 	// REST requests and WebSocket reconnects use the locally verifiable session.
 	const getToken = useCallback(async (forceRefresh = false): Promise<string | null> => {
 		if (!currentUser) return null;
-		const cached = chatSessionCacheRef.current;
-		if (!forceRefresh && cached && cached.uid === currentUser.uid
-			&& Date.now() + SESSION_REFRESH_SKEW_MS < cached.expiresAt) {
+		const uid = currentUser.uid;
+		const cached = sharedChatSessions.get(uid);
+		if (!forceRefresh && cached && Date.now() + SESSION_REFRESH_SKEW_MS < cached.expiresAt) {
+			chatSessionCacheRef.current = { ...cached, uid };
 			setChatRole(cached.role);
 			return cached.token;
 		}
 
-		if (sessionBootstrapRef.current) return sessionBootstrapRef.current;
-		if (forceRefresh) chatSessionCacheRef.current = null;
+		const existingRequest = sharedChatSessionRequests.get(uid);
+		if (existingRequest) {
+			const session = await existingRequest;
+			if (!session) return null;
+			chatSessionCacheRef.current = { ...session, uid };
+			setChatRole(session.role);
+			return session.token;
+		}
+		if (forceRefresh) {
+			sharedChatSessions.delete(uid);
+			chatSessionCacheRef.current = null;
+		}
 
-		const bootstrap = (async () => {
+		const bootstrap = (async (): Promise<SharedChatSession | null> => {
 			const firebaseToken = await getFirebaseToken(forceRefresh);
 			if (!firebaseToken) {
 				setError(AUTH_RECOVERY_MESSAGE);
@@ -356,10 +414,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 				if (!Number.isFinite(expiresAt)) {
 					throw new Error("Chat session response had an invalid expiry.");
 				}
-				chatSessionCacheRef.current = { token: session.token, expiresAt, uid: currentUser.uid, role: session.role };
-				setChatRole(session.role);
+				const sharedSession = { token: session.token, expiresAt, role: session.role } satisfies SharedChatSession;
+				sharedChatSessions.set(uid, sharedSession);
 				setError(null);
-				return session.token;
+				return sharedSession;
 			} catch (error) {
 				// Chat has one canonical credential. Never silently downgrade to a
 				// Firebase-token hot path; report only after recovery was exhausted.
@@ -368,11 +426,15 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 				return null;
 			}
 		})();
-		sessionBootstrapRef.current = bootstrap;
+		sharedChatSessionRequests.set(uid, bootstrap);
 		try {
-			return await bootstrap;
+			const session = await bootstrap;
+			if (!session) return null;
+			chatSessionCacheRef.current = { ...session, uid };
+			setChatRole(session.role);
+			return session.token;
 		} finally {
-			if (sessionBootstrapRef.current === bootstrap) sessionBootstrapRef.current = null;
+			if (sharedChatSessionRequests.get(uid) === bootstrap) sharedChatSessionRequests.delete(uid);
 		}
 	}, [currentUser, getFirebaseToken]);
 
@@ -406,7 +468,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 	useEffect(() => {
 		tokenCacheRef.current = null;
 		chatSessionCacheRef.current = null;
-		sessionBootstrapRef.current = null;
+		const previousUid = previousSessionUidRef.current;
+		if (previousUid && previousUid !== currentUser?.uid) {
+			sharedChatSessions.delete(previousUid);
+			sharedChatSessionRequests.delete(previousUid);
+		}
+		previousSessionUidRef.current = currentUser?.uid ?? null;
 		universityRoomLoadRef.current = null;
 		batchmateRoomLoadRef.current.clear();
 		resolvedGroupKeyRef.current = null;
@@ -851,11 +918,38 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 		};
 
 		ws.onerror = () => {
-			if (isCurrentConnection()) stateRef.current.setError("Connection error. Retrying…");
+			// `error` is normally followed by `close`; the close handler owns
+			// silent exponential backoff. Do not flash a transient banner here.
 		};
 	}, [getToken, disconnectWs, getRoomSequence, handleWsEvent]);
 
 	useEffect(() => { connectWsRef.current = connectWs; }, [connectWs]);
+
+	// A hidden browser tab can suspend timers and leave a socket stale. Recheck
+	// it when the tab is visible/online again, while keeping the retry silent.
+	useEffect(() => {
+		if (typeof window === "undefined") return;
+
+		const reconnectIfNeeded = () => {
+			const roomId = currentRoomIdRef.current;
+			const socket = wsRef.current;
+			if (!roomId || socket?.readyState === WebSocket.OPEN || socket?.readyState === WebSocket.CONNECTING) return;
+			if (reconnectTimerRef.current) window.clearTimeout(reconnectTimerRef.current);
+			reconnectTimerRef.current = null;
+			reconnectAttemptsRef.current = 0;
+			void connectWsRef.current?.(roomId);
+		};
+
+		const handleVisibilityChange = () => {
+			if (document.visibilityState === "visible") reconnectIfNeeded();
+		};
+		window.addEventListener("online", reconnectIfNeeded);
+		document.addEventListener("visibilitychange", handleVisibilityChange);
+		return () => {
+			window.removeEventListener("online", reconnectIfNeeded);
+			document.removeEventListener("visibilitychange", handleVisibilityChange);
+		};
+	}, []);
 
 	// ---- Room loading ----
 	// Room bootstrap can be triggered by both auth readiness and profile/groupKey
@@ -905,27 +999,34 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 			return promise;
 		};
 
-		try {
-			const cachedUni = readCachedRoom("university");
-			if (cachedUni && !universityRoom) setUniversityRoom(cachedUni);
-
-			const university = await loadUniversity();
-			if (university) setUniversityRoom(university);
+		const batchmateNeedsLoad = Boolean(gk && gk !== resolvedGroupKeyRef.current);
+		const cachedUni = readCachedRoom("university");
+		if (cachedUni && !universityRoom) setUniversityRoom(cachedUni);
+		if (batchmateNeedsLoad && gk) {
+			const cachedBatch = readCachedRoom(`batchmate:${gk}`);
+			if (cachedBatch && !batchmateRoom) setBatchmateRoom(cachedBatch);
 		}
-		catch (e) { if (e instanceof ChatApiError) setError(e.message); }
 
-		// Batchmate room — only fetch if groupKey changed
-		if (gk && gk !== resolvedGroupKeyRef.current) {
-			try {
-				const cachedBatch = readCachedRoom(`batchmate:${gk}`);
-				if (cachedBatch && !batchmateRoom) setBatchmateRoom(cachedBatch);
+		// These room reads are independent. Start them together to avoid making
+		// the first chat render wait for a sequential university -> batchmate chain.
+		const [universityResult, batchmateResult] = await Promise.all([
+			loadUniversity().catch((error: unknown) => ({ error })),
+			batchmateNeedsLoad && gk
+				? loadBatchmate(gk).catch((error: unknown) => ({ error }))
+				: Promise.resolve<ChatRoom | null>(null),
+		]);
 
-				const batchmate = await loadBatchmate(gk);
-				if (batchmate) {
-					setBatchmateRoom(batchmate);
-					resolvedGroupKeyRef.current = gk;
-				}
-			} catch (e) { if (e instanceof ChatApiError) setError(e.message); }
+		if (universityResult && "error" in universityResult) {
+			if (universityResult.error instanceof ChatApiError) setError(universityResult.error.message);
+		} else if (universityResult) {
+			setUniversityRoom(universityResult);
+		}
+
+		if (batchmateResult && "error" in batchmateResult) {
+			if (batchmateResult.error instanceof ChatApiError) setError(batchmateResult.error.message);
+		} else if (batchmateNeedsLoad && gk && batchmateResult) {
+			setBatchmateRoom(batchmateResult);
+			resolvedGroupKeyRef.current = gk;
 		} else if (!gk) {
 			setBatchmateRoom(null);
 			resolvedGroupKeyRef.current = null;
@@ -1054,7 +1155,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 		cursorRef.current = null;
 		loadingOlderRef.current = false;
 		
-		const cachedMessages = readCachedMessages(currentRoomId);
+		const cachedMessages = currentUser ? readCachedMessages(currentUser.uid, currentRoomId) : [];
 		setMessages(cachedMessages);
 		setPinnedMessages([]);
 		queueMicrotask(resetTyping);
@@ -1069,7 +1170,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 			disconnectWs();
 		};
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [currentRoomId]);
+	}, [currentRoomId, currentUser?.uid]);
 
 	// Fall back to university if batchmate room disappears (profile switch)
 	useEffect(() => {
@@ -1094,11 +1195,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 		if (currentRoomId && messages.length > 0) {
 			// Small debounce to avoid writing on every single optimistic key stroke
 			const timer = setTimeout(() => {
-				writeCachedMessages(currentRoomId, messages);
+				if (currentUser?.uid) writeCachedMessages(currentUser.uid, currentRoomId, messages);
 			}, 500);
 			return () => clearTimeout(timer);
 		}
-	}, [messages, currentRoomId]);
+	}, [currentUser?.uid, messages, currentRoomId]);
 
 	// ---- Public actions ----
 

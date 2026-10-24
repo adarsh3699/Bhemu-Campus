@@ -7,6 +7,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { AppState } from "react-native";
 import { useIsFocused } from "expo-router";
 import {
 	apiCreateChatSession,
@@ -107,6 +108,18 @@ interface RoomSyncedPayload {
 	onlineUsers: PresenceUser[];
 }
 
+interface SharedChatSession {
+	token: string;
+	expiresAt: number;
+	role: AppRole;
+}
+
+// Keep the short-lived chat session outside the provider instance. This
+// prevents duplicate /session exchanges when navigation or development
+// StrictMode briefly creates more than one provider instance.
+const sharedChatSessions = new Map<string, SharedChatSession>();
+const sharedChatSessionRequests = new Map<string, Promise<SharedChatSession | null>>();
+
 const HEARTBEAT_MS = 25_000;
 const HEARTBEAT_TIMEOUT_MS = 10_000;
 const MESSAGE_SOCKET_READY_TIMEOUT_MS = 5_000;
@@ -167,7 +180,6 @@ export function ChatProvider({ children, initialRoom = "university" }: { childre
 	const messageRequestRef = useRef(0);
 	const tokenCacheRef = useRef<{ token: string; expiresAt: number } | null>(null);
 	const sessionCacheRef = useRef<{ token: string; expiresAt: number; uid: string; role: AppRole } | null>(null);
-	const sessionBootstrapRef = useRef<Promise<string | null> | null>(null);
 	const roomSequencesRef = useRef(new Map<string, number>());
 	const roomEventSyncRef = useRef(new Map<string, Promise<void>>());
 	const syncRoomEventsRef = useRef<((roomId: string, after?: number) => Promise<void>) | null>(null);
@@ -203,14 +215,28 @@ export function ChatProvider({ children, initialRoom = "university" }: { childre
 	const getChatToken = useCallback(
 		async (forceRefresh = false): Promise<string | null> => {
 			if (!currentUser) return null;
-			const cached = sessionCacheRef.current;
-			if (!forceRefresh && cached && cached.uid === currentUser.uid && Date.now() + SESSION_REFRESH_SKEW_MS < cached.expiresAt) {
+			const uid = currentUser.uid;
+			const cached = sharedChatSessions.get(uid);
+			if (!forceRefresh && cached && Date.now() + SESSION_REFRESH_SKEW_MS < cached.expiresAt) {
+				sessionCacheRef.current = { ...cached, uid };
+				setChatRole(cached.role);
 				return cached.token;
 			}
-			if (sessionBootstrapRef.current) return sessionBootstrapRef.current;
-			if (forceRefresh) sessionCacheRef.current = null;
 
-			const bootstrap = (async () => {
+			const existingRequest = sharedChatSessionRequests.get(uid);
+			if (existingRequest) {
+				const session = await existingRequest;
+				if (!session) return null;
+				sessionCacheRef.current = { ...session, uid };
+				setChatRole(session.role);
+				return session.token;
+			}
+			if (forceRefresh) {
+				sharedChatSessions.delete(uid);
+				sessionCacheRef.current = null;
+			}
+
+			const bootstrap = (async (): Promise<SharedChatSession | null> => {
 				const firebaseToken = await getFirebaseToken(forceRefresh);
 				if (!firebaseToken) return null;
 
@@ -228,21 +254,25 @@ export function ChatProvider({ children, initialRoom = "university" }: { childre
 
 					const expiresAt = Date.parse(session.expiresAt);
 					if (!Number.isFinite(expiresAt)) throw new Error("Chat session response had an invalid expiry.");
-					sessionCacheRef.current = { token: session.token, expiresAt, uid: currentUser.uid, role: session.role };
-					setChatRole(session.role);
-					return session.token;
+					const sharedSession = { token: session.token, expiresAt, role: session.role } satisfies SharedChatSession;
+					sharedChatSessions.set(uid, sharedSession);
+					return sharedSession;
 				} catch (authenticationError) {
 					setError(chatErrorMessage(authenticationError, "Chat authentication is temporarily unavailable."));
 					return null;
 				}
 			})();
 
-			sessionBootstrapRef.current = bootstrap;
-		try {
-			return await bootstrap;
-		} finally {
-			if (sessionBootstrapRef.current === bootstrap) sessionBootstrapRef.current = null;
-		}
+			sharedChatSessionRequests.set(uid, bootstrap);
+			try {
+				const session = await bootstrap;
+				if (!session) return null;
+				sessionCacheRef.current = { ...session, uid };
+				setChatRole(session.role);
+				return session.token;
+			} finally {
+				if (sharedChatSessionRequests.get(uid) === bootstrap) sharedChatSessionRequests.delete(uid);
+			}
 		},
 		[currentUser, getFirebaseToken],
 	);
@@ -267,7 +297,6 @@ export function ChatProvider({ children, initialRoom = "university" }: { childre
 	useEffect(() => {
 		tokenCacheRef.current = null;
 		sessionCacheRef.current = null;
-		sessionBootstrapRef.current = null;
 		// The session role belongs to the authenticated user and must be cleared on account changes.
 		// eslint-disable-next-line react-hooks/set-state-in-effect
 		setChatRole(null);
@@ -699,7 +728,9 @@ export function ChatProvider({ children, initialRoom = "university" }: { childre
 			};
 
 			socket.onerror = () => {
-				if (isCurrentSocket()) setError("Live connection interrupted. Reconnecting…");
+				// WebSocket emits `error` immediately before `close` on many
+				// platforms. Keep reconnects silent so a transient network
+				// transition does not flash an alarming banner over the chat.
 			};
 
 			socket.onclose = (event) => {
@@ -713,7 +744,7 @@ export function ChatProvider({ children, initialRoom = "university" }: { childre
 				}
 				if (heartbeatRef.current) clearInterval(heartbeatRef.current);
 				if (heartbeatTimeoutRef.current) clearTimeout(heartbeatTimeoutRef.current);
-				if (event.code === 1000 || !isFocused) return;
+				if (event.code === 1000) return;
 
 				reconnectAttemptsRef.current += 1;
 				const delay = Math.min(RECONNECT_MAX_DELAY_MS, RECONNECT_BASE_DELAY_MS * 2 ** Math.min(reconnectAttemptsRef.current - 1, 5));
@@ -722,7 +753,7 @@ export function ChatProvider({ children, initialRoom = "university" }: { childre
 				}, delay);
 			};
 		},
-		[disconnectWs, getChatToken, getRoomSequence, handleWsEvent, isFocused],
+		[disconnectWs, getChatToken, getRoomSequence, handleWsEvent],
 	);
 
 	useEffect(() => {
@@ -732,8 +763,25 @@ export function ChatProvider({ children, initialRoom = "university" }: { childre
 		};
 	}, [connectWs]);
 
+	// Mobile platforms may suspend timers and sockets while the app is in the
+	// background. Revalidate the socket on resume without showing a loading UI.
 	useEffect(() => {
-		if (!isFocused || !currentUser || profilesLoading) return;
+		const subscription = AppState.addEventListener("change", (nextState) => {
+			if (nextState !== "active") return;
+			const roomId = currentRoomIdRef.current;
+			const socket = wsRef.current;
+			if (!roomId || socket?.readyState === WebSocket.OPEN || socket?.readyState === WebSocket.CONNECTING) return;
+			if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+			reconnectTimerRef.current = null;
+			reconnectAttemptsRef.current = 0;
+			void connectWsRef.current?.(roomId);
+		});
+
+		return () => subscription.remove();
+	}, []);
+
+	useEffect(() => {
+		if (!currentUser || profilesLoading) return;
 		let cancelled = false;
 
 		void (async () => {
@@ -774,7 +822,7 @@ export function ChatProvider({ children, initialRoom = "university" }: { childre
 		return () => {
 			cancelled = true;
 		};
-	}, [currentUser, groupKey, isFocused, profilesLoading, requestWithChatAuth]);
+	}, [currentUser, groupKey, profilesLoading, requestWithChatAuth]);
 
 	const currentRoom = activeRoom === "university" ? universityRoom : batchmateRoom;
 	const currentRoomId = currentRoom?.id ?? null;
@@ -789,10 +837,12 @@ export function ChatProvider({ children, initialRoom = "university" }: { childre
 	}, [currentRoomId, isFocused]);
 
 	useEffect(() => {
-		if (!isFocused || !currentRoomId) {
+		if (!currentRoomId) {
 			currentRoomIdRef.current = null;
 			cursorRef.current = null;
-			// This effect owns the external WebSocket lifecycle for the focused room.
+			// This effect owns the external WebSocket lifecycle for the mounted
+			// chat provider. Navigation focus is intentionally not part of this
+			// lifecycle: tabs/screens can change without restarting chat.
 			// eslint-disable-next-line react-hooks/set-state-in-effect
 			setMessages([]);
 			setPinnedMessages([]);
@@ -837,7 +887,7 @@ export function ChatProvider({ children, initialRoom = "university" }: { childre
 			if (currentRoomIdRef.current === currentRoomId) currentRoomIdRef.current = null;
 			disconnectWs();
 		};
-	}, [connectWs, currentRoomId, currentUser, disconnectWs, getRoomSequence, isFocused, loadMessages, loadPins, setTyping]);
+	}, [connectWs, currentRoomId, currentUser, disconnectWs, getRoomSequence, loadMessages, loadPins, setTyping]);
 
 	useEffect(() => () => disconnectWs(), [disconnectWs]);
 	useEffect(() => () => {

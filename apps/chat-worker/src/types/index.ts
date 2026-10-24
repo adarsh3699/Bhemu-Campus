@@ -27,6 +27,8 @@ export interface Env {
 	/** HMAC secret used for short-lived chat session tokens. */
 	CHAT_SESSION_SECRET: string;
 	CHAT_ROOM: DurableObjectNamespace;
+	/** Optional cross-isolate cache for low-churn metadata only. */
+	CHAT_CACHE?: KVNamespace;
 	/** Cloudflare R2 bucket for media (optional until R2 binding is added). */
 	MEDIA_BUCKET?: R2Bucket;
 	/** Public web chat URL used by browser notification deep links. */

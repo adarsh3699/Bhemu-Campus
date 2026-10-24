@@ -2,7 +2,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MAX_CHAT_CACHED_MESSAGES, sortChatMessages, STORAGE_KEYS } from "@bhemu/shared";
 import type { ChatDisplayMessage, ChatRoom } from "@bhemu/shared";
 
-const CACHE_VERSION = 1;
+const CACHE_VERSION = 2;
+const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1_000;
 const pendingWrites = new Map<string, Promise<void>>();
 let chatCacheWritesDisabled = false;
 
@@ -54,7 +55,13 @@ function parseCache<T>(raw: string | null, isValue: (value: unknown) => value is
 	if (!raw) return null;
 	try {
 		const parsed: unknown = JSON.parse(raw);
-		if (!isRecord(parsed) || parsed.version !== CACHE_VERSION || !isValue(parsed.value)) return null;
+		if (
+			!isRecord(parsed)
+			|| parsed.version !== CACHE_VERSION
+			|| typeof parsed.savedAt !== "number"
+			|| Date.now() - parsed.savedAt > CACHE_MAX_AGE_MS
+			|| !isValue(parsed.value)
+		) return null;
 		return parsed.value;
 	} catch {
 		return null;
@@ -66,7 +73,7 @@ async function writeCacheValue<T>(key: string, value: T): Promise<void> {
 	const write = previousWrite.catch(() => {}).then(async () => {
 		if (chatCacheWritesDisabled) return;
 		try {
-			await AsyncStorage.setItem(key, JSON.stringify({ version: CACHE_VERSION, value }));
+			await AsyncStorage.setItem(key, JSON.stringify({ version: CACHE_VERSION, savedAt: Date.now(), value }));
 		} catch {
 			// Cache failures must never affect the live chat flow.
 		}

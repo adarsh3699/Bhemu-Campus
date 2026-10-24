@@ -355,7 +355,7 @@ export default function ChatView() {
 					/>
 					<TypingIndicator users={typingUsers} />
 
-					{/* Input — allow typing while connecting; disable only if no room */}
+					{/* Keep the composer usable while the socket reconnects. */}
 					<MessageInput
 						onSend={sendText}
 						replyTo={replyTo}

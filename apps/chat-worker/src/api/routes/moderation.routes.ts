@@ -33,7 +33,7 @@ router.post("/warn", async (c) => {
 	try {
 		const body = validateBody(WarnUserSchema, await c.req.json());
 		const db = createDb(c.env.DATABASE_URL);
-		const service = new ModerationService(db);
+		const service = new ModerationService(db, c.env, c.executionCtx.waitUntil.bind(c.executionCtx));
 
 		const action = await service.warnUser(c.get("user"), {
 			targetUserUid: body.targetUserUid,
@@ -51,7 +51,7 @@ router.post("/suspend", async (c) => {
 	try {
 		const body = validateBody(SuspendUserSchema, await c.req.json());
 		const db = createDb(c.env.DATABASE_URL);
-		const service = new ModerationService(db);
+		const service = new ModerationService(db, c.env, c.executionCtx.waitUntil.bind(c.executionCtx));
 
 		const action = await service.suspendUser(c.get("user"), {
 			targetUserUid: body.targetUserUid,
@@ -69,7 +69,7 @@ router.post("/ban", async (c) => {
 	try {
 		const body = validateBody(BanUserSchema, await c.req.json());
 		const db = createDb(c.env.DATABASE_URL);
-		const service = new ModerationService(db);
+		const service = new ModerationService(db, c.env, c.executionCtx.waitUntil.bind(c.executionCtx));
 
 		const action = await service.banUser(c.get("user"), {
 			targetUserUid: body.targetUserUid,
@@ -86,7 +86,7 @@ router.post("/delete-message/:messageId", async (c) => {
 	try {
 		const body = validateBody(DeleteMessageModerationSchema, await c.req.json().catch(() => ({})));
 		const db = createDb(c.env.DATABASE_URL);
-		const service = new ModerationService(db);
+		const service = new ModerationService(db, c.env, c.executionCtx.waitUntil.bind(c.executionCtx));
 
 		const broadcast = (roomId: string, payload: { event: string; data: unknown }) =>
 			broadcastToRoom(c.env, roomId, payload);
@@ -130,7 +130,7 @@ router.post("/pin/:roomId/:messageId", async (c) => {
 router.delete("/pin/:roomId/:messageId", async (c) => {
 	try {
 		const db = createDb(c.env.DATABASE_URL);
-		const service = new ModerationService(db);
+		const service = new ModerationService(db, c.env, c.executionCtx.waitUntil.bind(c.executionCtx));
 
 		const broadcast = (roomId: string, payload: { event: string; data: unknown }) =>
 			broadcastToRoom(c.env, roomId, payload);

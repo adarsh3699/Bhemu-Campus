@@ -25,7 +25,10 @@ router.post("/", async (c) => {
 		const body = validateBody(CreatePollSchema, await c.req.json());
 		const user = c.get("user");
 		const db = createDb(c.env.DATABASE_URL);
-		const service = new PollService(db);
+		const service = new PollService(db, {
+			kv: c.env.CHAT_CACHE,
+			schedule: c.executionCtx.waitUntil.bind(c.executionCtx),
+		});
 
 		const broadcast = (roomId: string, payload: { event: string; data: unknown }) =>
 			broadcastToRoom(c.env, roomId, payload);
@@ -43,7 +46,10 @@ router.post("/:pollId/vote", async (c) => {
 		const body = validateBody(VotePollSchema, await c.req.json());
 		const user = c.get("user");
 		const db = createDb(c.env.DATABASE_URL);
-		const service = new PollService(db);
+		const service = new PollService(db, {
+			kv: c.env.CHAT_CACHE,
+			schedule: c.executionCtx.waitUntil.bind(c.executionCtx),
+		});
 
 		const broadcast = (roomId: string, payload: { event: string; data: unknown }) =>
 			broadcastToRoom(c.env, roomId, payload);
@@ -64,7 +70,10 @@ router.patch("/:pollId/close", async (c) => {
 	try {
 		const user = c.get("user");
 		const db = createDb(c.env.DATABASE_URL);
-		const service = new PollService(db);
+		const service = new PollService(db, {
+			kv: c.env.CHAT_CACHE,
+			schedule: c.executionCtx.waitUntil.bind(c.executionCtx),
+		});
 
 		const broadcast = (roomId: string, payload: { event: string; data: unknown }) =>
 			broadcastToRoom(c.env, roomId, payload);

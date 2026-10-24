@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Alert, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import type { ReactNode } from "react";
-import { ChevronLeft, Flag, Pencil, Pin, PinOff, Reply, RotateCcw, Trash2 } from "lucide-react-native";
+import { ChevronLeft, Copy, Flag, Pencil, Pin, PinOff, Reply, RotateCcw, Trash2 } from "lucide-react-native";
+import * as Clipboard from "expo-clipboard";
 import { PIN_DURATION_OPTIONS, QUICK_CHAT_REACTIONS, type ChatDisplayMessage, type PinDuration } from "@bhemu/shared";
 import { Colors, FontSize, FontWeight, Radius, Spacing } from "@/constants/Theme";
 
@@ -56,6 +57,11 @@ export default function ChatMessageActionSheet({
 		]);
 	};
 
+	const copyMessage = () => {
+		onClose();
+		void Clipboard.setStringAsync(message.content).catch(() => {});
+	};
+
 	return (
 		<Modal transparent visible animationType="slide" onRequestClose={onClose}>
 			<View style={local.overlay}>
@@ -94,7 +100,12 @@ export default function ChatMessageActionSheet({
 					{!showPinDurations && isFailed ? (
 						<ActionRow icon={<RotateCcw size={18} color={Colors.warning} />} label="Retry sending" onPress={() => { onClose(); onRetry(message.id); }} />
 						) : !showPinDurations ? (
-							<ActionRow icon={<Reply size={18} color={Colors.textMuted} />} label="Reply" onPress={() => { onClose(); onReply(message); }} />
+							<>
+								{message.visibility !== "DELETED" && message.content.trim() ? (
+									<ActionRow icon={<Copy size={18} color={Colors.textMuted} />} label="Copy" onPress={copyMessage} />
+								) : null}
+								<ActionRow icon={<Reply size={18} color={Colors.textMuted} />} label="Reply" onPress={() => { onClose(); onReply(message); }} />
+							</>
 						) : null}
 
 					{!showPinDurations && isOwn && !isFailed ? (

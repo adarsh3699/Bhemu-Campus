@@ -129,7 +129,10 @@ export class MessageService {
 		this.msgRepo = new MessageRepository(db);
 		this.roomRepo = new RoomRepository(db);
 		this.pinRepo = new PinRepository(db);
-		this.roomService = new RoomService(db);
+		this.roomService = new RoomService(db, {
+			kv: env?.CHAT_CACHE,
+			schedule: bgTask,
+		});
 	}
 
 	// ----------------------------------------------------------------

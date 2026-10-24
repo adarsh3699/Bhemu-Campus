@@ -28,7 +28,10 @@ router.get("/:roomId/events", async (c) => {
 		const query = validateQuery(ListRoomEventsSchema, c.req.query());
 		const user = c.get("user");
 		const db = createDb(c.env.DATABASE_URL);
-		await new RoomService(db).requireMembership(roomId, user.uid);
+		await new RoomService(db, {
+			kv: c.env.CHAT_CACHE,
+			schedule: c.executionCtx.waitUntil.bind(c.executionCtx),
+		}).requireMembership(roomId, user.uid);
 		const result = await new RoomEventRepository(db).listAfter(
 			roomId,
 			query.after,
@@ -41,6 +44,7 @@ router.get("/:roomId/events", async (c) => {
 			highWater: result.highWater,
 			durationMs: Date.now() - startedAt,
 		});
+		c.header("Cache-Control", "no-store");
 		return ok(c, result);
 	} catch (err) {
 		metric("chat.room.event_replay_failed", {

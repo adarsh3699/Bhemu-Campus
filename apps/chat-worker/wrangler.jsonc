@@ -29,6 +29,15 @@
     ]
   },
 
+  // Cross-isolate metadata cache. Live messages/events/pins remain database +
+  // Durable Object backed and are never stored in KV.
+  "kv_namespaces": [
+    {
+      "binding": "CHAT_CACHE",
+      "id": "ead87ba7a5514a00bf8ca877d2470396"
+    }
+  ],
+
   "migrations": [
     {
       "tag": "v1",

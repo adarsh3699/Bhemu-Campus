@@ -24,7 +24,11 @@ router.use("*", authMiddleware);
 router.get("/", async (c) => {
 	try {
 		const db = createDb(c.env.DATABASE_URL);
-		const rooms = await new RoomService(db).listRooms();
+		const rooms = await new RoomService(db, {
+			kv: c.env.CHAT_CACHE,
+			schedule: c.executionCtx.waitUntil.bind(c.executionCtx),
+		}).listRooms();
+		c.header("Cache-Control", "private, max-age=30, stale-while-revalidate=120");
 		return ok(c, { rooms });
 	} catch (err) {
 		return errorResponse(c, err);
@@ -39,7 +43,11 @@ router.get("/", async (c) => {
 router.get("/university", async (c) => {
 	try {
 		const db = createDb(c.env.DATABASE_URL);
-		const room = await new RoomService(db).getUniversityRoom();
+		const room = await new RoomService(db, {
+			kv: c.env.CHAT_CACHE,
+			schedule: c.executionCtx.waitUntil.bind(c.executionCtx),
+		}).getUniversityRoom();
+		c.header("Cache-Control", "private, max-age=30, stale-while-revalidate=120");
 		return ok(c, { room });
 	} catch (err) {
 		return errorResponse(c, err);
@@ -59,7 +67,11 @@ router.get("/me", async (c) => {
 			return errorResponse(c, Errors.validationError("groupKey query param is required"));
 		}
 		const db = createDb(c.env.DATABASE_URL);
-		const room = await new RoomService(db).getBatchmateRoom(groupKey);
+		const room = await new RoomService(db, {
+			kv: c.env.CHAT_CACHE,
+			schedule: c.executionCtx.waitUntil.bind(c.executionCtx),
+		}).getBatchmateRoom(groupKey);
+		c.header("Cache-Control", "private, max-age=30, stale-while-revalidate=120");
 		return ok(c, { room });
 	} catch (err) {
 		return errorResponse(c, err);
@@ -70,7 +82,14 @@ router.get("/me", async (c) => {
 router.get("/:roomId", async (c) => {
 	try {
 		const db = createDb(c.env.DATABASE_URL);
-		const room = await new RoomService(db).getRoom(c.req.param("roomId"));
+		const user = c.get("user");
+		const room = await new RoomService(db, {
+			kv: c.env.CHAT_CACHE,
+			schedule: c.executionCtx.waitUntil.bind(c.executionCtx),
+		}).requireMembership(c.req.param("roomId"), user.uid);
+		// Authorization is evaluated against fresh room data. Do not let a
+		// browser or intermediary reuse metadata after a room visibility change.
+		c.header("Cache-Control", "no-store");
 		return ok(c, { room });
 	} catch (err) {
 		return errorResponse(c, err);
@@ -81,7 +100,12 @@ router.get("/:roomId", async (c) => {
 router.get("/:roomId/pins", async (c) => {
 	try {
 		const db = createDb(c.env.DATABASE_URL);
-		const pins = await new ModerationService(db).getPins(c.req.param("roomId"));
+		const pins = await new ModerationService(
+			db,
+			c.env,
+			c.executionCtx.waitUntil.bind(c.executionCtx),
+		).getPins(c.req.param("roomId"));
+		c.header("Cache-Control", "no-store");
 		return ok(c, { pins });
 	} catch (err) {
 		return errorResponse(c, err);

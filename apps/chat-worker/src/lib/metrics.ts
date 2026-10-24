@@ -21,7 +21,8 @@ export type ChatMetricName =
 	| "chat.message.failed"
 	| "chat.room.sequence_repaired"
 	| "chat.room.events_replayed"
-	| "chat.room.event_replay_failed";
+	| "chat.room.event_replay_failed"
+	| "chat.cache.event";
 
 export function metric(name: ChatMetricName, context: LogContext = {}): void {
 	logger.info(`metric.${name}`, {

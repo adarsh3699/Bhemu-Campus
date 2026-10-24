@@ -160,7 +160,7 @@ const MessageInput = memo(function MessageInput({
 						maxLength={MAX_CHAT_MESSAGE_LENGTH}
 						onChange={e => handleChange(e.target.value)}
 						onKeyDown={onKeyDown}
-						placeholder={disabled ? "Connecting…" : placeholder}
+						placeholder={disabled ? "Chat unavailable" : placeholder}
 						disabled={disabled}
 						className="min-h-10 max-h-[120px] w-full resize-none bg-transparent px-3 py-2 text-[14px] leading-5 text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-50"
 					/>

@@ -20,24 +20,38 @@ interface KeyCache {
 
 // Module-level cache — lives for the lifetime of the Worker isolate.
 let keyCache: KeyCache | null = null;
+let publicKeysRequest: Promise<GooglePublicKeys> | null = null;
+const importedKeyCache = new Map<string, CryptoKey>();
 
 async function fetchPublicKeys(): Promise<GooglePublicKeys> {
 	if (keyCache && Date.now() < keyCache.expiresAt) {
 		return keyCache.keys;
 	}
+	if (publicKeysRequest) return publicKeysRequest;
 
-	const res = await fetch(FIREBASE_JWKS_URL);
-	if (!res.ok) {
-		throw Errors.internal("Failed to fetch Firebase public keys.");
+	const request = (async () => {
+		const res = await fetch(FIREBASE_JWKS_URL);
+		if (!res.ok) {
+			throw Errors.internal("Failed to fetch Firebase public keys.");
+		}
+
+		const cacheControl = res.headers.get("cache-control") ?? "";
+		const match = cacheControl.match(/max-age=(\d+)/);
+		const maxAge = match ? parseInt(match[1] ?? "3600", 10) : 3600;
+
+		const keys = (await res.json()) as GooglePublicKeys;
+		keyCache = { keys, expiresAt: Date.now() + maxAge * 1_000 };
+		// Imported CryptoKeys belong to the previous JWKS snapshot. Rebuild them
+		// once if Google rotates certificates instead of importing on every login.
+		importedKeyCache.clear();
+		return keys;
+	})();
+	publicKeysRequest = request;
+	try {
+		return await request;
+	} finally {
+		if (publicKeysRequest === request) publicKeysRequest = null;
 	}
-
-	const cacheControl = res.headers.get("cache-control") ?? "";
-	const match = cacheControl.match(/max-age=(\d+)/);
-	const maxAge = match ? parseInt(match[1] ?? "3600", 10) : 3600;
-
-	const keys = (await res.json()) as GooglePublicKeys;
-	keyCache = { keys, expiresAt: Date.now() + maxAge * 1_000 };
-	return keys;
 }
 
 export interface FirebaseTokenPayload {
@@ -69,7 +83,11 @@ export async function verifyFirebaseToken(
 	if (!certPem) throw Errors.invalidToken();
 
 	try {
-		const publicKey = await importX509(certPem, "RS256");
+		let publicKey = importedKeyCache.get(kid);
+		if (!publicKey) {
+			publicKey = await importX509(certPem, "RS256");
+			importedKeyCache.set(kid, publicKey);
+		}
 		const { payload } = await jwtVerify(token, publicKey, {
 			issuer: `https://securetoken.google.com/${projectId}`,
 			audience: projectId,

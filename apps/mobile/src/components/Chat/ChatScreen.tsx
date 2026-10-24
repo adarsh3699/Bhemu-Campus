@@ -215,7 +215,10 @@ function ChatScreenContent({ notificationTarget }: { notificationTarget?: ChatNo
 		return () => clearTimeout(timer);
 	}, [notificationNotice]);
 
-	const statusLabel = connected ? `${onlineUsers.length} online` : currentRoom ? "Connecting…" : "Unavailable";
+	// A room can remain usable from its local cache while the socket silently
+	// reconnects. Avoid showing a noisy loading state during normal navigation
+	// and short network transitions.
+	const statusLabel = connected ? `${onlineUsers.length} online` : currentRoom && messages.length > 0 ? "Offline" : "";
 	const visibleError = error ?? notificationNotice;
 
 	return (
@@ -240,14 +243,16 @@ function ChatScreenContent({ notificationTarget }: { notificationTarget?: ChatNo
 						>
 							<Search size={18} color={Colors.textBody} />
 						</Pressable>
-						<View style={local.status} accessibilityLabel={`Chat status: ${statusLabel}`}>
-							{connected ? (
-								<CheckCircle2 size={15} color={Colors.success} />
-							) : (
-								<View style={[local.statusDot, !currentRoom && local.statusDotMuted]} />
-							)}
-							<Text style={[local.statusText, connected && local.connectedText]}>{statusLabel}</Text>
-						</View>
+						{statusLabel ? (
+							<View style={local.status} accessibilityLabel={`Chat status: ${statusLabel}`}>
+								{connected ? (
+									<CheckCircle2 size={15} color={Colors.success} />
+								) : (
+									<View style={[local.statusDot, !currentRoom && local.statusDotMuted]} />
+								)}
+								<Text style={[local.statusText, connected && local.connectedText]}>{statusLabel}</Text>
+							</View>
+						) : null}
 					</View>
 
 					<ChatRoomTabs

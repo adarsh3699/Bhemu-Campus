@@ -41,7 +41,10 @@ router.get("/:roomId", async (c) => {
 	// Validate room membership before opening socket
 	try {
 		const db = createDb(c.env.DATABASE_URL);
-		const roomService = new RoomService(db);
+		const roomService = new RoomService(db, {
+			kv: c.env.CHAT_CACHE,
+			schedule: c.executionCtx.waitUntil.bind(c.executionCtx),
+		});
 		room = await roomService.requireMembership(roomId, user.uid);
 	} catch (err) {
 		return errorResponse(c, err);

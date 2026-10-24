@@ -11,6 +11,7 @@ import type { Database } from "../../db/drizzle";
 import { enforceRoomPolicy } from "../policies/room.policy";
 import { Errors } from "../../lib/errors";
 import type { AuthUser } from "../../types";
+import type { TtlCacheOptions } from "../../lib/ttlCache";
 import { MAX_POLL_OPTIONS, MIN_POLL_OPTIONS } from "../../constants";
 
 export interface CreatePollInput {
@@ -39,11 +40,11 @@ export class PollService {
 	private readonly roomRepo: RoomRepository;
 	private readonly roomService: RoomService;
 
-	constructor(db: Database) {
+	constructor(db: Database, cacheOptions: TtlCacheOptions = {}) {
 		this.pollRepo = new PollRepository(db);
 		this.msgRepo = new MessageRepository(db);
 		this.roomRepo = new RoomRepository(db);
-		this.roomService = new RoomService(db);
+		this.roomService = new RoomService(db, cacheOptions);
 	}
 
 	async createPoll(

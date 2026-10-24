@@ -2,7 +2,7 @@
 
 import { createPortal } from "react-dom";
 import { useState, type RefObject } from "react";
-import { ChevronLeft, Flag, Pencil, Pin, PinOff, ShieldAlert, Trash2, Reply, type LucideIcon } from "lucide-react";
+import { ChevronLeft, Copy, Flag, Pencil, Pin, PinOff, ShieldAlert, Trash2, Reply, type LucideIcon } from "lucide-react";
 import { PIN_DURATION_OPTIONS, type ChatDisplayMessage, type PinDuration, QUICK_CHAT_REACTIONS } from "@bhemu/shared";
 
 export interface MenuPosition {
@@ -66,6 +66,26 @@ function MenuItem({ icon: Icon, label, tone = "default", onSelect }: MenuItemPro
 	);
 }
 
+async function copyToClipboard(text: string): Promise<void> {
+	if (navigator.clipboard?.writeText) {
+		await navigator.clipboard.writeText(text);
+		return;
+	}
+
+	const textarea = document.createElement("textarea");
+	textarea.value = text;
+	textarea.setAttribute("readonly", "true");
+	textarea.style.position = "fixed";
+	textarea.style.opacity = "0";
+	document.body.appendChild(textarea);
+	textarea.select();
+	try {
+		if (!document.execCommand("copy")) throw new Error("Clipboard copy failed");
+	} finally {
+		textarea.remove();
+	}
+}
+
 export default function MessageContextMenu({
 	message,
 	menuPanelRef,
@@ -100,6 +120,16 @@ export default function MessageContextMenu({
 	};
 
 	const items: MenuItemProps[] = [];
+
+	if (message.visibility !== "DELETED" && message.content.trim()) {
+		items.push({
+			icon: Copy,
+			label: "Copy",
+			onSelect: () => {
+				void copyToClipboard(message.content).finally(onClose);
+			},
+		});
+	}
 	
 	items.push({ icon: Reply, label: "Reply", onSelect: () => { onClose(); onReply(); } });
 

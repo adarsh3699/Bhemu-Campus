@@ -40,7 +40,10 @@ export class ModerationService {
 		this.modRepo = new ModerationRepository(db);
 		this.msgRepo = new MessageRepository(db);
 		this.pinRepo = new PinRepository(db);
-		this.roomService = new RoomService(db);
+		this.roomService = new RoomService(db, {
+			kv: env?.CHAT_CACHE,
+			schedule: bgTask,
+		});
 	}
 
 	async warnUser(moderator: AuthUser, input: ModerationActionInput): Promise<ModerationAction> {

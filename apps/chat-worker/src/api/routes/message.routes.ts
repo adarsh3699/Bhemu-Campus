@@ -27,12 +27,17 @@ router.get("/", async (c) => {
 		const query = validateQuery(ListMessagesSchema, c.req.query());
 		const user = c.get("user");
 		const db = createDb(c.env.DATABASE_URL);
-		const result = await new MessageService(db).listMessages(
+		const result = await new MessageService(
+			db,
+			c.env,
+			c.executionCtx.waitUntil.bind(c.executionCtx),
+		).listMessages(
 			query.roomId,
 			user.uid,
 			query.limit,
 			query.cursor,
 		);
+		c.header("Cache-Control", "no-store");
 		return ok(c, result);
 	} catch (err) {
 		return errorResponse(c, err);
@@ -45,9 +50,14 @@ router.patch("/:messageId", async (c) => {
 		const body = validateBody(EditMessageSchema, await c.req.json());
 		const user = c.get("user");
 		const db = createDb(c.env.DATABASE_URL);
+		const service = new MessageService(
+			db,
+			c.env,
+			c.executionCtx.waitUntil.bind(c.executionCtx),
+		);
 		const broadcast = (roomId: string, payload: { event: string; data: unknown }) =>
 			broadcastToRoom(c.env, roomId, payload);
-		const message = await new MessageService(db).editMessage(
+		const message = await service.editMessage(
 			user,
 			c.req.param("messageId"),
 			body.content,
@@ -64,9 +74,14 @@ router.delete("/:messageId", async (c) => {
 	try {
 		const user = c.get("user");
 		const db = createDb(c.env.DATABASE_URL);
+		const service = new MessageService(
+			db,
+			c.env,
+			c.executionCtx.waitUntil.bind(c.executionCtx),
+		);
 		const broadcast = (roomId: string, payload: { event: string; data: unknown }) =>
 			broadcastToRoom(c.env, roomId, payload);
-		await new MessageService(db).deleteMessage(user, c.req.param("messageId"), broadcast);
+		await service.deleteMessage(user, c.req.param("messageId"), broadcast);
 		return noContent(c);
 	} catch (err) {
 		return errorResponse(c, err);
