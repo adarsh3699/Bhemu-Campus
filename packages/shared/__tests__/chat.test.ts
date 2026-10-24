@@ -5,10 +5,30 @@ import {
 	getChatPollOptionPercentage,
 	getChatPollTotalVotes,
 	isDeletedChatAnnouncement,
+	mergeChatMessages,
 	removeChatPinForMessage,
 	toggleChatPollOption,
 	validateChatPollDraft,
 } from "../src";
+
+function message(overrides: Partial<import("../src").ChatDisplayMessage> = {}): import("../src").ChatDisplayMessage {
+	return {
+		id: "message-1",
+		roomId: "room-1",
+		authorUid: "user-1",
+		authorName: "Student",
+		replyToMessageId: null,
+		type: "TEXT",
+		visibility: "VISIBLE",
+		content: "hello",
+		editedAt: null,
+		deletedAt: null,
+		attachments: [],
+		createdAt: "2026-10-24T10:00:00.000Z",
+		updatedAt: "2026-10-24T10:00:00.000Z",
+		...overrides,
+	};
+}
 
 describe("chat shared rules", () => {
 	it("normalizes and validates poll drafts consistently", () => {
@@ -52,5 +72,50 @@ describe("chat shared rules", () => {
 		];
 
 		expect(removeChatPinForMessage(pins, "deleted")).toEqual([pins[1]]);
+	});
+
+	it("does not resurrect a newer deleted message from an older replay snapshot", () => {
+		const deleted = message({
+			visibility: "DELETED",
+			content: "",
+			deletedAt: "2026-10-24T10:02:00.000Z",
+			updatedAt: "2026-10-24T10:02:00.000Z",
+		});
+		const replayedCreation = message({ updatedAt: "2026-10-24T10:00:00.000Z" });
+
+		expect(mergeChatMessages([deleted], [replayedCreation])[0]).toMatchObject({
+			visibility: "DELETED",
+			content: "",
+		});
+	});
+
+	it("applies a newer deletion over a visible cached message", () => {
+		const visible = message();
+		const deleted = message({
+			visibility: "DELETED",
+			content: "",
+			deletedAt: "2026-10-24T10:02:00.000Z",
+			updatedAt: "2026-10-24T10:02:00.000Z",
+		});
+
+		expect(mergeChatMessages([visible], [deleted])[0]).toMatchObject({
+			visibility: "DELETED",
+			content: "",
+		});
+	});
+
+	it("ignores an older deletion snapshot when a newer visible state is present", () => {
+		const visible = message({ updatedAt: "2026-10-24T10:03:00.000Z" });
+		const staleDeleted = message({
+			visibility: "DELETED",
+			content: "",
+			deletedAt: "2026-10-24T10:02:00.000Z",
+			updatedAt: "2026-10-24T10:02:00.000Z",
+		});
+
+		expect(mergeChatMessages([visible], [staleDeleted])[0]).toMatchObject({
+			visibility: "VISIBLE",
+			content: "hello",
+		});
 	});
 });

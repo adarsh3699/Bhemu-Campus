@@ -91,7 +91,7 @@ export class ModerationService {
 		if (!msg) throw Errors.messageNotFound();
 		if (msg.visibility === "DELETED") throw Errors.messageDeleted();
 
-		await this.msgRepo.softDelete(messageId);
+		const deletedMessage = await this.msgRepo.softDelete(messageId);
 		const wasPinned = await this.pinRepo.unpin(msg.roomId, messageId);
 
 		const action = await this.modRepo.create({
@@ -105,7 +105,13 @@ export class ModerationService {
 
 		await broadcast(msg.roomId, {
 			event: "message.deleted",
-			data: { messageId, roomId: msg.roomId, byModerator: true },
+			data: {
+				messageId,
+				roomId: msg.roomId,
+				byModerator: true,
+				deletedAt: deletedMessage?.deletedAt ?? new Date().toISOString(),
+				updatedAt: deletedMessage?.updatedAt ?? new Date().toISOString(),
+			},
 		});
 		if (wasPinned) {
 			await broadcast(msg.roomId, {

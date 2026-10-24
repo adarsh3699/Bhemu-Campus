@@ -53,7 +53,7 @@ export default function AppUpdateDialog({
 								<ActivityIndicator size="small" color={Colors.secondary} />
 							</View>
 							{manifest.mandatory ? (
-								<Text style={local.helper}>You can minimize the app or turn off your screen. Tap the notification when it completes to install.</Text>
+								<Text style={local.helper}>The installer will open automatically when the download finishes. You will only need to confirm the installation.</Text>
 							) : null}
 						</View>
 					) : null}

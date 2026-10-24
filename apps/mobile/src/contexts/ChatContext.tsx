@@ -437,8 +437,7 @@ export function ChatProvider({ children, initialRoom = "university" }: { childre
 				if (!result || requestId !== messageRequestRef.current || currentRoomIdRef.current !== roomId) return;
 
 				const ordered = [...result.items].reverse();
-				setMessages(reset ? ordered : (current) => mergeChatMessages(current, ordered));
-				if (reset && currentUser) void writeChatMessagesCache(currentUser.uid, roomId, ordered);
+				setMessages((current) => mergeChatMessages(current, ordered));
 				setHasMore(result.hasMore);
 				cursorRef.current = result.nextCursor;
 			} catch (loadError) {
@@ -447,7 +446,7 @@ export function ChatProvider({ children, initialRoom = "university" }: { childre
 				if (requestId === messageRequestRef.current) setLoadingMessages(false);
 			}
 		},
-		[currentUser, requestWithChatAuth],
+		[requestWithChatAuth],
 	);
 
 	const loadPins = useCallback(async (roomId: string) => {
@@ -543,11 +542,21 @@ export function ChatProvider({ children, initialRoom = "university" }: { childre
 			}
 
 			if (envelope.type === WS_EVENTS.MESSAGE_DELETED) {
-				const payload = envelope.payload as { messageId?: string };
+				const payload = envelope.payload as { messageId?: string; roomId?: string; deletedAt?: string; updatedAt?: string };
 				const messageId = payload.messageId;
-				if (!messageId) return;
+				if (!messageId || (payload.roomId && payload.roomId !== currentRoomIdRef.current)) return;
 				setPinnedMessages((current) => removeChatPinForMessage(current, messageId));
-				setMessages((current) => current.map((message) => message.id === messageId ? { ...message, visibility: "DELETED", content: "" } : message));
+				setMessages((current) => {
+					const existing = current.find((message) => message.id === messageId);
+					if (!existing) return current;
+					return mergeChatMessages(current, [{
+						...existing,
+						visibility: "DELETED",
+						content: "",
+						deletedAt: payload.deletedAt ?? envelope.timestamp,
+						updatedAt: payload.updatedAt ?? payload.deletedAt ?? envelope.timestamp,
+					}]);
+				});
 				return;
 			}
 
@@ -1006,16 +1015,27 @@ export function ChatProvider({ children, initialRoom = "university" }: { childre
 	}, [requestWithChatAuth]);
 
 	const deleteMessage = useCallback(async (messageId: string) => {
+		const previousMessage = messagesRef.current.find((message) => message.id === messageId);
+		const deletedAt = new Date().toISOString();
+		const roomId = currentRoomIdRef.current;
 		setPinnedMessages((current) => removeChatPinForMessage(current, messageId));
 		setMessages((current) => current.map((message) => message.id === messageId
-			? { ...message, visibility: "DELETED", content: "", deletedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+			? { ...message, visibility: "DELETED", content: "", deletedAt, updatedAt: deletedAt }
 			: message));
 		try {
 			await requestWithChatAuth((token) => apiDeleteMessage(token, messageId));
 		} catch (deleteError) {
+			if (previousMessage) {
+				setMessages((current) => current.map((message) =>
+					message.id === messageId && message.visibility === "DELETED" && message.deletedAt === deletedAt
+						? previousMessage
+						: message,
+				));
+			}
+			if (roomId) void loadPins(roomId);
 			setError(chatErrorMessage(deleteError, "Message could not be deleted."));
 		}
-	}, [requestWithChatAuth]);
+	}, [loadPins, requestWithChatAuth]);
 
 	const react = useCallback(async (messageId: string, emoji: string) => {
 		const uid = currentUser?.uid;

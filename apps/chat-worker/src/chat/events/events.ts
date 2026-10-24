@@ -80,6 +80,9 @@ export interface MessageDeletedPayload {
 	messageId: string;
 	roomId: string;
 	byModerator?: boolean;
+	/** Server timestamps make deletion events safe to merge with cached snapshots. */
+	deletedAt?: string;
+	updatedAt?: string;
 }
 
 export interface ReactionUpdatedPayload {

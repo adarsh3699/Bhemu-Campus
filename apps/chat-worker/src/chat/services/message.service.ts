@@ -446,13 +446,18 @@ export class MessageService {
 		// Authors can self-delete; moderators delete via moderation endpoint
 		requireAuthor(user.uid, msg.authorUid);
 
-		await this.msgRepo.softDelete(messageId);
+		const deletedMessage = await this.msgRepo.softDelete(messageId);
 		await this.roomRepo.decrementMessageCount(msg.roomId);
 		const wasPinned = await this.pinRepo.unpin(msg.roomId, messageId);
 
 		await broadcast(msg.roomId, {
 			event: "message.deleted",
-			data: { messageId, roomId: msg.roomId },
+			data: {
+				messageId,
+				roomId: msg.roomId,
+				deletedAt: deletedMessage?.deletedAt ?? new Date().toISOString(),
+				updatedAt: deletedMessage?.updatedAt ?? new Date().toISOString(),
+			},
 		});
 		if (wasPinned) {
 			await broadcast(msg.roomId, {

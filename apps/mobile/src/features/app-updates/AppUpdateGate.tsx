@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { InteractionManager, Platform } from "react-native";
+import { AppState, InteractionManager, Platform } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import AppUpdateDialog from "./AppUpdateDialog";
-import { checkForAppUpdate, deferAppUpdate, downloadAndLaunchApk, openInstallPermissionSettings, openUpdateWebsite } from "./service";
+import { checkForAppUpdate, deferAppUpdate, downloadAndLaunchApk, openInstallPermissionSettings, openUpdateWebsite, resumePendingApkInstall } from "./service";
 import type { AvailableAppUpdate } from "./types";
 
 type UpdateStatus = "available" | "downloading" | "error";
@@ -38,6 +38,22 @@ export default function AppUpdateGate() {
 		});
 		return () => task.cancel();
 	}, [authLoading, check, launchReady, launchUser]);
+
+	useEffect(() => {
+		if (__DEV__ || Platform.OS !== "android" || !launchReady || (authLoading && !launchUser)) return;
+
+		const resumeInstall = () => {
+			void resumePendingApkInstall().catch((error) => {
+				console.warn("Pending app update could not be resumed:", error);
+			});
+		};
+
+		resumeInstall();
+		const subscription = AppState.addEventListener("change", (nextState) => {
+			if (nextState === "active") resumeInstall();
+		});
+		return () => subscription.remove();
+	}, [authLoading, launchReady, launchUser]);
 
 	const handleUpdate = useCallback(async () => {
 		if (!availableUpdate) return;

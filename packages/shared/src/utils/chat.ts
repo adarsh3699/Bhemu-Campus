@@ -198,6 +198,36 @@ export function sortChatMessages<T extends ChatDisplayMessage>(messages: T[]): T
 	});
 }
 
+function messageStateTimestamp(message: Pick<ChatMessage, "createdAt" | "updatedAt" | "deletedAt">): number {
+	return Math.max(
+		parseChatTimestamp(message.createdAt)?.getTime() ?? 0,
+		parseChatTimestamp(message.updatedAt)?.getTime() ?? 0,
+		parseChatTimestamp(message.deletedAt)?.getTime() ?? 0,
+	);
+}
+
+/**
+ * Reconciles two copies of the same server message without allowing an older
+ * room-event snapshot to roll a newer edit/delete back. Message deletion is
+ * terminal, so a later visible creation snapshot can never resurrect it.
+ */
+function mergeChatMessageState<T extends ChatDisplayMessage>(current: T, incoming: T): T {
+	const currentTimestamp = messageStateTimestamp(current);
+	const incomingTimestamp = messageStateTimestamp(incoming);
+	const incomingIsNewer = incomingTimestamp >= currentTimestamp;
+
+	// A server deletion is terminal. This also protects against replaying the
+	// immutable creation event after the message has already been deleted.
+	if (current.visibility === "DELETED" && incoming.visibility !== "DELETED") {
+		return { ...incoming, ...current };
+	}
+	if (incoming.visibility === "DELETED" && current.visibility !== "DELETED" && !incomingIsNewer) {
+		return { ...incoming, ...current };
+	}
+
+	return incomingIsNewer ? { ...current, ...incoming } : { ...incoming, ...current };
+}
+
 /** Merges a server snapshot without dropping optimistic or live messages. */
 export function mergeChatMessages<T extends ChatDisplayMessage>(current: T[], incoming: T[]): T[] {
 	const remaining = new Map(incoming.map((message) => [message.id, message]));
@@ -211,13 +241,15 @@ export function mergeChatMessages<T extends ChatDisplayMessage>(current: T[], in
 	for (const existing of current) {
 		const sameMessage = remaining.get(existing.id);
 		if (sameMessage) {
-			merged.push({ ...existing, ...sameMessage });
+			merged.push(mergeChatMessageState(existing, sameMessage));
 			remaining.delete(sameMessage.id);
 			continue;
 		}
 
 		const confirmedOptimistic = byOptimisticId.get(existing.id);
 		if (confirmedOptimistic) {
+			// The idempotency match is an explicit server confirmation. Do not use
+			// wall-clock ordering here because device/server clocks may differ.
 			merged.push({ ...existing, ...confirmedOptimistic, idempotencyKey: existing.id });
 			remaining.delete(confirmedOptimistic.id);
 			continue;

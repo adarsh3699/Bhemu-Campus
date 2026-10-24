@@ -4,3 +4,4 @@ export const APP_UPDATE_MANIFEST_URL =
 export const APP_UPDATE_DEFER_MS = 24 * 60 * 60 * 1000;
 export const APP_UPDATE_REQUEST_TIMEOUT_MS = 60_000;
 export const APP_UPDATE_DEFERRED_KEY = "@bcampus/app-update-deferred";
+export const APP_UPDATE_PENDING_DOWNLOAD_KEY = "@bcampus/app-update-pending-download";

@@ -109,7 +109,12 @@ export function useChat(): ChatContextValue {
 }
 
 // ---- WS payload shapes ----
-interface MsgDeletedPayload { messageId: string }
+interface MsgDeletedPayload {
+	messageId: string;
+	roomId?: string;
+	deletedAt?: string;
+	updatedAt?: string;
+}
 interface PresenceJoinedPayload { uid: string; role: string; connectedAt?: number }
 interface PresenceLeftPayload { uid: string }
 interface TypingPayload { uid: string; roomId: string; displayName?: string }
@@ -568,11 +573,21 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 				break;
 			}
 			case WS_EVENTS.MESSAGE_DELETED: {
-				const { messageId } = envelope.payload as MsgDeletedPayload;
+				const payload = envelope.payload as MsgDeletedPayload;
+				const { messageId } = payload;
+				if (!messageId || (payload.roomId && payload.roomId !== currentRoomIdRef.current)) break;
 				setPinnedMessages(prev => removeChatPinForMessage(prev, messageId));
-				setMsgs(prev => prev.map(m =>
-					m.id === messageId ? { ...m, visibility: "DELETED" as const, content: "" } : m,
-				));
+				setMsgs(prev => {
+					const current = prev.find(message => message.id === messageId);
+					if (!current) return prev;
+					return mergeChatMessages(prev, [{
+						...current,
+						visibility: "DELETED",
+						content: "",
+						deletedAt: payload.deletedAt ?? envelope.timestamp,
+						updatedAt: payload.updatedAt ?? payload.deletedAt ?? envelope.timestamp,
+					}]);
+				});
 				break;
 			}
 			case WS_EVENTS.REACTION_UPDATED: {
@@ -931,8 +946,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 			if (!result) return;
 			if (currentRoomIdRef.current !== roomId || requestId !== messageRequestRef.current) return;
 			const ordered = [...result.items].reverse();
-			setMessages(reset ? ordered : prev => mergeChatMessages(prev, ordered));
-			if (reset) writeCachedMessages(roomId, ordered);
+			setMessages(prev => mergeChatMessages(prev, ordered));
 			setHasMore(result.hasMore);
 			cursorRef.current = result.nextCursor;
 		} catch (e) {
@@ -1238,13 +1252,31 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 	}, [requestWithChatAuth]);
 
 	const deleteMsg = useCallback(async (messageId: string) => {
+		const previousMessage = messagesRef.current.find(message => message.id === messageId);
+		const deletedAt = new Date().toISOString();
+		const roomId = currentRoomIdRef.current;
 		setPinnedMessages(prev => removeChatPinForMessage(prev, messageId));
 		setMessages(prev => prev.map(m =>
-			m.id === messageId ? { ...m, visibility: "DELETED" as const, content: "" } : m,
+			m.id === messageId
+				? { ...m, visibility: "DELETED" as const, content: "", deletedAt, updatedAt: deletedAt }
+				: m,
 		));
 		try { await requestWithChatAuth(token => apiDeleteMessage(token, messageId)); }
-		catch (e) { if (e instanceof ChatApiError) setError(e.message); }
-	}, [requestWithChatAuth]);
+		catch (e) {
+			// This is an optimistic state only. Restore the exact previous message
+			// when the server rejects the delete; server-confirmed deletes use a
+			// different timestamp and remain terminal in mergeChatMessages.
+			if (previousMessage) {
+				setMessages(prev => prev.map(message =>
+					message.id === messageId && message.visibility === "DELETED" && message.deletedAt === deletedAt
+						? previousMessage
+						: message,
+				));
+			}
+			if (roomId) void loadPins(roomId);
+			if (e instanceof ChatApiError) setError(e.message);
+		}
+	}, [loadPins, requestWithChatAuth]);
 
 	const react = useCallback(async (messageId: string, emoji: string) => {
 		await requestWithChatAuth(token => apiSetReaction(token, messageId, emoji));
@@ -1366,17 +1398,29 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 	}, [currentUserId, loadPins, pinnedMessages, requestWithChatAuth]);
 
 	const moderationDelete = useCallback(async (messageId: string, reason?: string) => {
+		const previousMessage = messagesRef.current.find(message => message.id === messageId);
+		const deletedAt = new Date().toISOString();
+		const roomId = currentRoomIdRef.current;
 		setPinnedMessages(prev => removeChatPinForMessage(prev, messageId));
 		setMessages(prev => prev.map(message =>
-			message.id === messageId ? { ...message, visibility: "DELETED" as const, content: "" } : message,
+			message.id === messageId
+				? { ...message, visibility: "DELETED" as const, content: "", deletedAt, updatedAt: deletedAt }
+				: message,
 		));
 		try {
 			await requestWithChatAuth(token => apiModerationDeleteMessage(token, messageId, reason));
 		} catch (error) {
-			void syncLatestMessages(currentRoomIdRef.current ?? "");
+			if (previousMessage) {
+				setMessages(prev => prev.map(message =>
+					message.id === messageId && message.visibility === "DELETED" && message.deletedAt === deletedAt
+						? previousMessage
+						: message,
+				));
+			}
+			if (roomId) void loadPins(roomId);
 			if (error instanceof ChatApiError) setError(error.message);
 		}
-	}, [requestWithChatAuth, syncLatestMessages]);
+	}, [loadPins, requestWithChatAuth]);
 
 	const warnUser = useCallback(async (userUid: string, reason?: string, messageId?: string) => {
 		await requestWithChatAuth(token => apiWarnUser(token, userUid, reason, messageId));
